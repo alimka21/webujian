@@ -1,138 +1,168 @@
-import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { GraduationCap, LayoutDashboard, Users, BookOpen, Clock, FileText, LogOut } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
-import { cn } from "../../lib/utils";
+import React, { useState } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { 
+  LogOut, Menu, X, LayoutDashboard, Users, FileText, 
+  GraduationCap, ClipboardList, PenTool, BarChart3, Newspaper, CalendarCheck
+} from 'lucide-react';
+import { useAuthStore, Role } from '../../store/authStore';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+}
+
+const navConfig: Record<Role, NavItem[]> = {
+  SUPER_ADMIN: [
+    { label: 'Dashboard', href: '/dashboard/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { label: 'Pengguna', href: '/dashboard/admin/users', icon: <Users className="w-5 h-5" /> },
+    { label: 'Alumni', href: '/dashboard/admin/alumni', icon: <GraduationCap className="w-5 h-5" /> },
+    { label: 'Berita / CMS', href: '/dashboard/admin/cms', icon: <Newspaper className="w-5 h-5" /> },
+    { label: 'Statistik', href: '/dashboard/admin/stats', icon: <BarChart3 className="w-5 h-5" /> },
+  ],
+  GURU: [
+    { label: 'Dashboard', href: '/dashboard/guru', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { label: 'Ujian Saya', href: '/dashboard/guru/ujian', icon: <FileText className="w-5 h-5" /> }, // Kita anggap riwayat ujian ada di sini
+    { label: 'Buat Ujian', href: '/dashboard/guru/ujian/baru', icon: <PenTool className="w-5 h-5" /> },
+    { label: 'Siswa & Kelas', href: '/dashboard/guru/siswa', icon: <Users className="w-5 h-5" /> },
+    { label: 'Presensi', href: '/dashboard/guru/presensi', icon: <CalendarCheck className="w-5 h-5" /> },
+    { label: 'Rekap Nilai', href: '/dashboard/guru/rekap', icon: <ClipboardList className="w-5 h-5" /> },
+  ],
+  SISWA: [
+    { label: 'Dashboard', href: '/dashboard/siswa', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { label: 'Ujian Aktif', href: '/dashboard/siswa/ujian', icon: <FileText className="w-5 h-5" /> },
+    { label: 'Riwayat Nilai', href: '/dashboard/siswa/riwayat', icon: <ClipboardList className="w-5 h-5" /> },
+  ],
+};
 
 export default function DashboardLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
-  const menuItems = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "TEACHER", "STUDENT"] },
-    { name: "Ujian Online", href: "/dashboard/exams", icon: FileText, roles: ["SUPER_ADMIN", "TEACHER", "STUDENT"] },
-    { name: "Presensi", href: "/dashboard/attendance", icon: Clock, roles: ["SUPER_ADMIN", "TEACHER"] },
-    { name: "Tracer Alumni", href: "/dashboard/alumni", icon: BookOpen, roles: ["SUPER_ADMIN"] },
-  ];
-
-  const managementItems = [
-    { name: "CMS Berita", href: "/dashboard/cms", icon: FileText, roles: ["SUPER_ADMIN"] },
-    { name: "Data Siswa & Kelas", href: "/dashboard/students", icon: Users, roles: ["SUPER_ADMIN", "TEACHER"] },
-  ];
-
-  const allowedMenus = menuItems.filter(m => user && m.roles.includes(user.role));
-  const allowedManagement = managementItems.filter(m => user && m.roles.includes(user.role));
+  const navItems = user ? navConfig[user.role] : [];
+  
+  // Jika path default cuma /dashboard/admin, NavLink '/dashboard/admin' akan selalu aktif untuk semua subpath kalau end=true nya tidak dipassing dengan benar
+  // Kita custom fungsi active
+  const isActiveRoute = (path: string) => {
+    if (path.split('/').length > 3) {
+      return location.pathname.startsWith(path);
+    }
+    return location.pathname === path;
+  };
 
   return (
-    <div className="flex min-h-screen w-full overflow-hidden bg-slate-50 font-sans">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col hidden md:flex">
-        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
-            <GraduationCap className="h-5 w-5 text-white" />
+      <aside 
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 flex flex-col",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between h-16 px-6 bg-slate-950/50">
+          <div className="flex items-center gap-2 text-white font-bold text-lg">
+            <GraduationCap className="w-6 h-6 text-blue-500" />
+            <span>EduGenZ</span>
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">EduPortal<span className="text-blue-400">Pro</span></span>
+          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+            <X className="w-5 h-5 text-slate-400 hover:text-white" />
+          </button>
         </div>
-        
-        <nav className="flex-1 py-6 flex flex-col overflow-y-auto">
-          <div className="px-6 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Main Menu</div>
-          {allowedMenus.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
+
+        <div className="p-4 mb-4 mt-2">
+          <div className="p-4 rounded-xl border border-slate-700/50 bg-slate-800/50 shadow-inner">
+            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Masuk Sebagai</p>
+            <p className="font-semibold text-white truncate" title={user?.profile?.nama || user?.email}>
+              {user?.profile?.nama || user?.email}
+            </p>
+            <Badge variant="secondary" className="mt-2 bg-blue-500/20 text-blue-300 border-blue-500/30">
+              {user?.role}
+            </Badge>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const active = isActiveRoute(item.href);
             return (
-              <Link
-                key={item.name}
+              <NavLink
+                key={item.href}
                 to={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-6 py-3 transition-colors",
-                  isActive 
-                    ? "bg-slate-800 text-white border-r-4 border-blue-500" 
-                    : "hover:bg-slate-800 hover:text-white"
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  active 
+                    ? "bg-blue-600/10 text-blue-400" 
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                 )}
               >
-                <Icon className={cn("h-5 w-5", isActive ? "opacity-100" : "opacity-80")} />
-                {item.name}
-              </Link>
+                {item.icon}
+                {item.label}
+              </NavLink>
             )
           })}
-
-          {allowedManagement.length > 0 && (
-            <>
-              <div className="px-6 mt-6 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Management</div>
-              {allowedManagement.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-6 py-3 transition-colors",
-                      isActive 
-                        ? "bg-slate-800 text-white border-r-4 border-blue-500" 
-                        : "hover:bg-slate-800 hover:text-white"
-                    )}
-                  >
-                    <Icon className={cn("h-5 w-5", isActive ? "opacity-100" : "opacity-80")} />
-                    {item.name}
-                  </Link>
-                )
-              })}
-            </>
-          )}
         </nav>
 
-        <div className="p-4 bg-slate-800/50 border-t border-slate-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-600 border border-slate-500 flex items-center justify-center font-bold text-white">
-                {user?.name.charAt(0)}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">{user?.name}</p>
-                <p className="text-xs text-slate-400">{user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-400 transition-colors rounded-md"
-              title="Logout"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
+        <div className="p-4 border-t border-slate-800">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Keluar
+          </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <h1 className="text-lg font-semibold text-slate-800">Dashboard Area</h1>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-sm text-slate-500 italic">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span> Sistem Online: SMA Bintang Pelajar
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Topbar */}
+        <header className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 shadow-sm z-10">
+          <button 
+            className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          <div className="flex-1 flex justify-end">
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-slate-700">{user?.profile?.nama || user?.email}</p>
+                <p className="text-xs text-slate-500">{user?.role}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
+                {(user?.profile?.nama?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+              </div>
             </div>
           </div>
         </header>
 
-        <div className="p-8 flex-1 overflow-auto flex flex-col gap-8">
-          <Outlet />
-        </div>
-        
-        {/* Footer Status */}
-        <footer className="h-10 bg-slate-100 border-t border-slate-200 flex items-center px-8 text-[11px] text-slate-500 justify-between shrink-0">
-          <div className="flex gap-4">
-            <span>DB Status: <span className="text-green-600 font-bold">Connected</span></span>
-            <span>Version: v2.4.0-pro</span>
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
+          <div className="mx-auto max-w-7xl">
+            <Outlet />
           </div>
-          <div>© 2024 Senior Architect Design System • SMA Bintang Pelajar</div>
-        </footer>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

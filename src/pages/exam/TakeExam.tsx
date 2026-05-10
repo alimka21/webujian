@@ -1,253 +1,513 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/authStore";
-import { Button } from "../../components/ui/button";
-import { Check, Clock, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from 'sonner';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { AlertCircle, Clock, ChevronLeft, ChevronRight, Flag, X, CheckSquare, Maximize } from 'lucide-react';
+import api from '../../lib/api';
+import { useAntiCheat } from '../../hooks/useAntiCheat';
+import { useExamTimer } from '../../hooks/useExamTimer';
+
+// Utility for debouncing
+function useDebounce<T extends (...args: any[]) => void>(func: T, wait: number) {
+  const timeout = React.useRef<NodeJS.Timeout>();
+  return React.useCallback(
+    (...args: Parameters<T>) => {
+      if (timeout.current) clearTimeout(timeout.current);
+      timeout.current = setTimeout(() => func(...args), wait);
+    },
+    [func, wait]
+  );
+}
 
 export default function TakeExam() {
-  const { id } = useParams();
+  const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { token } = useAuthStore();
   
-  const [exam, setExam] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [soalList, setSoalList] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [warnings, setWarnings] = useState(0);
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
-  // Fetch Exam Data
+  // Fetch session data
   useEffect(() => {
-    fetch(`/api/exams/${id}`, {
-      headers: { "Authorization": `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setExam(data);
-        setQuestions(data.questions);
-        setTimeLeft(data.duration * 60); // mins to seconds
-      });
-  }, [id, token]);
-
-  // Timer
-  useEffect(() => {
-    if (!exam) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit();
-          return 0;
+    const fetchSession = async () => {
+      try {
+        const res = await api.get(`/api/siswa/sesi/${sessionId}`);
+        if (res.status === 'SELESAI') {
+          navigate(`/dashboard/siswa/hasil/${sessionId}`, { replace: true });
+          return;
         }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [exam]);
+        
+        setSessionData(res);
+        setSoalList(res.ujian.soal || []);
+        
+        // Restore answers and flags from localStorage if exist, otherwise from server response (if any)
+        const storedAns = localStorage.getItem(`exam_ans_${sessionId}`);
+        if (storedAns) {
+          setAnswers(JSON.parse(storedAns));
+        } else {
+          // If server provides previous answers, we can load them here
+          // For now, start empty
+          setAnswers({});
+        }
 
-  // Anti-Cheat: Visibility & Fullscreen
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setWarnings(w => w + 1);
-        alert("PERINGATAN: Anda mendeteksi berpindah tab! Ini akan dicatat dalam log ujian.");
+        const storedFlags = localStorage.getItem(`exam_flags_${sessionId}`);
+        if (storedFlags) {
+          setFlagged(JSON.parse(storedFlags));
+        }
+
+      } catch (err: any) {
+        toast.error(err.message || 'Gagal memuat sesi ujian');
+        navigate('/dashboard/siswa');
+      } finally {
+        setIsLoading(false);
       }
     };
+    if (sessionId) fetchSession();
+  }, [sessionId, navigate]);
 
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      if (!document.fullscreenElement && exam) {
-        setWarnings(w => w + 1);
-      }
-    };
+  // Anti-Cheat Hook
+  const {
+    violationCount,
+    isFullscreen,
+    isWarningVisible,
+    latestViolation,
+    requestFullscreen,
+    dismissWarning,
+    maxViolations
+  } = useAntiCheat({
+    sessionId: sessionId || '',
+    maxViolations: 3,
+    onAutoSubmit: () => submitExam('auto_cheat')
+  });
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+  // Exam Timer Hook
+  const {
+    formattedTime,
+    isWarning,
+    isCritical,
+    isExpired
+  } = useExamTimer({
+    durationSeconds: sessionData ? sessionData.ujian.durasi * 60 : 3600, // Handle edge case while loading
+    examSessionId: sessionId || '',
+    onExpire: () => {
+      if (!isSubmitting) submitExam('timeout');
+    }
+  });
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, [exam]);
-
-  const requestFullscreen = () => {
-    document.documentElement.requestFullscreen().catch(console.error);
-  };
-
-  const handleAnswer = (questionId: string, option: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: [option] // Assuming Single Answer for now
-    }));
-  };
-
-  const handleSubmit = async () => {
+  // Save answer to server (debounced)
+  const saveAnswerToServer = useDebounce(async (soalId: string, opsiIds: string[]) => {
+    if (!sessionId) return;
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      }
-      
-      const res = await fetch(`/api/exams/${id}/submit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ answers, warnings })
+      await api.post(`/api/siswa/sesi/${sessionId}/jawab`, {
+        soalId,
+        opsiIds
       });
+    } catch (err) {
+      console.error('Failed to save answer', err);
+    }
+  }, 500);
+
+  const handleAnswerSelect = (opsiId: string) => {
+    const currentSoal = soalList[currentIndex];
+    if (!currentSoal) return;
+    
+    setAnswers(prev => {
+      const isMulti = currentSoal.tipe === 'PG_KOMPLEKS';
+      const currentAns = prev[currentSoal.id] || [];
       
-      if (res.ok) {
-        navigate("/dashboard/exams");
+      let newAns: string[];
+      if (isMulti) {
+        if (currentAns.includes(opsiId)) {
+          newAns = currentAns.filter(id => id !== opsiId);
+        } else {
+          newAns = [...currentAns, opsiId];
+        }
+      } else {
+        newAns = [opsiId];
       }
-    } catch (e) {
-      console.error(e);
+      
+      const nextAnswers = { ...prev, [currentSoal.id]: newAns };
+      localStorage.setItem(`exam_ans_${sessionId}`, JSON.stringify(nextAnswers));
+      saveAnswerToServer(currentSoal.id, newAns);
+      return nextAnswers;
+    });
+  };
+
+  const toggleFlag = () => {
+    const currentSoal = soalList[currentIndex];
+    if (!currentSoal) return;
+
+    setFlagged(prev => {
+      const nextFlags = { ...prev, [currentSoal.id]: !prev[currentSoal.id] };
+      localStorage.setItem(`exam_flags_${sessionId}`, JSON.stringify(nextFlags));
+      return nextFlags;
+    });
+  };
+
+  const submitExam = async (reason: string = 'manual') => {
+    if (!sessionId || isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      await api.post(`/api/siswa/sesi/${sessionId}/submit?reason=${reason}`);
+      
+      // Cleanup
+      localStorage.removeItem(`exam_timer_${sessionId}`);
+      localStorage.removeItem(`exam_ans_${sessionId}`);
+      localStorage.removeItem(`exam_flags_${sessionId}`);
+
+      // Exit fullscreen if active
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch(console.error);
+      }
+
+      navigate('/dashboard/siswa'); // Redirect to dashboard or results
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal mengumpulkan ujian. Silakan coba lagi.');
+      setIsSubmitting(false);
     }
   };
 
-  if (!exam) return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  // Prevent drag and drop, copy paste, except in inputs
+  useEffect(() => {
+    const blockAction = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener('copy', blockAction);
+    document.addEventListener('paste', blockAction);
+    document.addEventListener('cut', blockAction);
+    document.addEventListener('dragstart', blockAction);
+    document.addEventListener('drop', blockAction);
+    
+    return () => {
+      document.removeEventListener('copy', blockAction);
+      document.removeEventListener('paste', blockAction);
+      document.removeEventListener('cut', blockAction);
+      document.removeEventListener('dragstart', blockAction);
+      document.removeEventListener('drop', blockAction);
+    };
+  }, []);
 
-  if (!isFullscreen) {
+  if (isLoading) {
     return (
-      <div className="h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
-        <AlertTriangle className="h-16 w-16 text-yellow-500 mb-6" />
-        <h1 className="text-2xl font-bold mb-2">Ujian Hanya Dapat Dikerjakan Dalam Layar Penuh</h1>
-        <p className="text-gray-600 mb-8 max-w-lg">
-          Demi menjaga integritas ujian, Anda diwajibkan menggunakan mode layar penuh (fullscreen). 
-          Jika Anda keluar dari layar penuh atau berpindah tab, sistem akan mencatat aktivitas tersebut.
-        </p>
-        <Button size="lg" onClick={requestFullscreen}>
-          Masuk Mode Layar Penuh & Mulai Ujian
-        </Button>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Menyiapkan Ujian...</p>
       </div>
     );
   }
 
-  const currentQ = questions[currentIdx];
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  if (!sessionData) return null;
+
+  const currentSoal = soalList[currentIndex];
+  const answeredCount = Object.keys(answers).filter(k => answers[k] && answers[k].length > 0).length;
+  const flaggedCount = Object.values(flagged).filter(v => v).length;
+  const unansweredCount = soalList.length - answeredCount;
+  const progressPercent = soalList.length > 0 ? (answeredCount / soalList.length) * 100 : 0;
+
+  // Render Fullscreen Gate
+  if (!isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-8 text-center space-y-6">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-2">
+            <Maximize className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Masuk Mode Layar Penuh</h2>
+            <p className="text-slate-500 mt-2">
+              Ujian ini mewajibkan mode layar penuh (Fullscreen). Anda tidak diizinkan untuk berpindah tab atau mengecilkan layar selama ujian berlangsung.
+            </p>
+          </div>
+          <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-100 text-left">
+            <p className="font-semibold mb-1 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" /> Penting!
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Meninggalkan layar penuh akan dicatat sebagai <span className="font-bold">pelanggaran</span>.</li>
+              <li>Jika pelanggaran mencapai {maxViolations} kali, ujian akan <span className="font-bold">dihentikan paksa</span>.</li>
+            </ul>
+          </div>
+          <Button size="lg" className="w-full text-lg h-14" onClick={requestFullscreen}>
+            Masuk Layar Penuh & Lanjutkan Ujian
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white px-6 py-4 border-b flex justify-between items-center shrink-0">
-          <div>
-            <h1 className="font-bold text-lg">{exam.title}</h1>
-            <p className="text-sm text-gray-500">Soal ke {currentIdx + 1} dari {questions.length}</p>
-          </div>
-          <div className="flex items-center gap-6">
-            {warnings > 0 && (
-              <div className="flex items-center text-red-600 font-bold text-sm bg-red-50 px-3 py-1 rounded-full">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                Peringatan: {warnings}
-              </div>
-            )}
-            <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-mono font-bold text-lg">
-              <Clock className="h-5 w-5" />
-              {formatTime(timeLeft)}
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row select-none">
+      {/* Sidebar (Desktop) / Backdrop Slide-up (Mobile - simplified for now as sidebar) */}
+      <aside className="w-full md:w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 relative z-20">
+        <div className="p-4 border-b border-slate-100">
+          <h2 className="font-bold text-slate-900 line-clamp-1">{sessionData.ujian.mataPelajaran}</h2>
+          <p className="text-xs text-slate-500">{sessionData.ujian._count?.soal || soalList.length} Soal</p>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 scroller">
+          {/* Legend */}
+          <div className="grid grid-cols-2 gap-2 mb-6 text-xs text-slate-600 font-medium">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-600" /> Current
             </div>
-            <Button variant="destructive" onClick={handleSubmit}>Selesai Ujian</Button>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" /> Dijawab
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-amber-400" /> Ditandai
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border border-slate-300 bg-white" /> Belum
+            </div>
+          </div>
+
+          <div className="grid grid-cols-5 md:grid-cols-4 gap-2">
+            {soalList.map((soal, idx) => {
+              const isActive = idx === currentIndex;
+              const hasAnswer = answers[soal.id] && answers[soal.id].length > 0;
+              const isFlagged = flagged[soal.id];
+              
+              let btnClass = 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'; // Default
+              
+              if (isActive) btnClass = 'bg-blue-600 border-blue-600 text-white shadow-md transform scale-105';
+              else if (isFlagged) btnClass = 'bg-amber-100 border-amber-300 text-amber-800';
+              else if (hasAnswer) btnClass = 'bg-green-100 border-green-300 text-green-800';
+
+              return (
+                <button
+                  key={soal.id}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`relative aspect-square flex items-center justify-center rounded-lg border font-semibold text-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${btnClass}`}
+                >
+                  {soal.nomor || idx + 1}
+                  {isFlagged && !isActive && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-slate-200">
+          <Button 
+            variant="destructive" 
+            className="w-full font-bold shadow-sm" 
+            onClick={() => setShowSubmitConfirm(true)}
+          >
+            Selesai Ujian
+          </Button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 relative h-[100dvh]">
+        {/* Top Header */}
+        <header className="bg-white h-16 border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-10">
+          <div className="flex items-center gap-3 min-w-0 mr-4">
+            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
+               {sessionData.siswa.nama.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-slate-900 truncate text-sm sm:text-base leading-tight">
+                {sessionData.ujian.judul}
+              </h1>
+              <p className="text-xs text-slate-500 truncate">{sessionData.siswa.nama}</p>
+            </div>
+          </div>
+          
+          <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-mono text-base sm:text-lg lg:text-xl font-bold tracking-wider shrink-0 transition-colors ${
+            isCritical ? 'bg-red-100 text-red-700 animate-pulse' : 
+            isWarning ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
+          }`}>
+            <Clock className={`w-4 h-4 sm:w-5 sm:h-5 ${isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-slate-400'}`} />
+            {formattedTime}
           </div>
         </header>
 
-        {/* Question Area */}
-        <div className="flex-1 p-8 overflow-auto">
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-            <h2 className="text-xl text-gray-900 mb-8 leading-relaxed">
-              {currentQ.text}
-            </h2>
+        {/* Progress Bar */}
+        <div className="h-1 w-full bg-slate-200 shrink-0">
+          <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+        </div>
+
+        {/* Anti-Cheat Warning Dropdown */}
+        {isWarningVisible && latestViolation && (
+          <div className="bg-red-50 border-b border-red-200 p-4 shadow-sm relative z-10">
+             <div className="flex items-start gap-3 max-w-4xl mx-auto">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-red-800 font-bold mb-1">
+                    Peringatan Pelanggaran {violationCount} / {maxViolations}
+                  </h4>
+                  <p className="text-red-700 text-sm">
+                    {latestViolation.message}
+                  </p>
+                  <p className="text-xs text-red-600 mt-2 font-medium">
+                    Apabila pelanggaran mencapai {maxViolations} kali, ujian akan dihentikan paksa dan nilai Anda akan digugurkan.
+                  </p>
+                </div>
+                <button onClick={dismissWarning} className="p-1 rounded-md hover:bg-red-100 text-red-500">
+                  <X className="w-5 h-5" />
+                </button>
+             </div>
+          </div>
+        )}
+
+        {/* Soal Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:p-8 scroller relative">
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             
-            <div className="space-y-3">
-              {currentQ.options?.map((opt: string, i: number) => {
-                const isSelected = answers[currentQ.id]?.[0] === opt;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleAnswer(currentQ.id, opt)}
-                    className={`w-full flex items-center p-4 border rounded-lg text-left transition-all ${
-                      isSelected 
-                        ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' 
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 mr-4 flex items-center justify-center ${
-                      isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
-                    }`}>
-                      {isSelected && <Check className="w-4 h-4 text-white" />}
-                    </div>
-                    <span className="text-gray-700">{opt}</span>
-                  </button>
-                )
-              })}
+            {/* Soal Header */}
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-4">
+               <div className="flex items-center gap-3">
+                  <Badge variant="default" className="text-sm px-3 py-1 bg-slate-800 hover:bg-slate-800">
+                    Soal {currentSoal?.nomor || currentIndex + 1}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs text-slate-500 border-slate-300">
+                    {currentSoal?.tipe.replace('_', ' ')}
+                  </Badge>
+               </div>
+               
+               <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleFlag}
+                className={`gap-2 ${flagged[currentSoal?.id] ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100' : 'text-slate-500'}`}
+               >
+                 <Flag className={`w-4 h-4 ${flagged[currentSoal?.id] ? 'fill-current' : ''}`} />
+                 Ragu-ragu
+               </Button>
+            </div>
+
+            {/* Soal Body */}
+            <div className="p-6 sm:p-8">
+               <div className="prose prose-slate max-w-none mb-8">
+                 <p className="text-lg text-slate-900 leading-relaxed max-w-none whitespace-pre-wrap">
+                   {currentSoal?.teks}
+                 </p>
+                 {currentSoal?.imageUrl && (
+                   <img src={currentSoal.imageUrl} alt="Lampiran Soal" className="my-6 rounded-lg max-w-full max-h-[400px] border border-slate-200" />
+                 )}
+               </div>
+
+               {currentSoal?.tipe === 'PG_KOMPLEKS' && (
+                 <div className="mb-4 text-sm font-medium pr-4 flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                   <CheckSquare className="w-4 h-4" /> Pilih semua jawaban yang benar (Bisa lebih dari satu)
+                 </div>
+               )}
+
+               <div className="space-y-3 mt-8">
+                 {currentSoal?.opsi.map((opsi: any, i: number) => {
+                   const cAns = answers[currentSoal.id] || [];
+                   const isSelected = cAns.includes(opsi.id);
+                   const isMulti = currentSoal.tipe === 'PG_KOMPLEKS';
+
+                   // Gunakan huruf A, B, C, D...
+                   const letter = String.fromCharCode(65 + i);
+
+                   return (
+                     <button
+                       key={opsi.id}
+                       onClick={() => handleAnswerSelect(opsi.id)}
+                       className={`w-full flex items-start text-left p-4 rounded-xl border-2 transition-all duration-200 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                         isSelected 
+                           ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                       }`}
+                     >
+                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mr-4 font-bold border-2 transition-colors ${
+                         isSelected 
+                          ? (isMulti ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-600 border-blue-600 text-white rounded-full')
+                          : (isMulti ? 'border-slate-300 text-slate-500 bg-white' : 'border-slate-300 text-slate-500 bg-white rounded-full group-hover:border-slate-400')
+                       }`}>
+                         {isMulti ? (isSelected ? <CheckSquare className="w-5 h-5 mx-0.5" /> : letter) : letter}
+                       </div>
+                       <div className={`flex-1 pt-1 ${isSelected ? 'font-semibold text-blue-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
+                         {opsi.teks}
+                       </div>
+                     </button>
+                   );
+                 })}
+               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer Nav */}
-        <footer className="bg-white border-t p-4 flex justify-between shrink-0">
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
-            disabled={currentIdx === 0}
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Soal Sebelumnya
-          </Button>
-          <Button 
-            onClick={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}
-            disabled={currentIdx === questions.length - 1}
-          >
-            Soal Berikutnya
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </Button>
-        </footer>
-      </div>
+        {/* Bottom Navigation */}
+        <footer className="bg-white border-t border-slate-200 p-4 shrink-0 z-10">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+             <Button
+               variant="outline"
+               size="lg"
+               onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+               disabled={currentIndex === 0}
+               className="gap-2 px-4 sm:px-6 h-12"
+             >
+               <ChevronLeft className="w-5 h-5" />
+               <span className="hidden sm:inline">Soal Sebelumnya</span>
+             </Button>
 
-      {/* Right Sidebar - CAT Navigation */}
-      <div className="w-80 bg-white border-l shadow-xl flex flex-col shrink-0">
-        <div className="p-4 border-b bg-gray-50">
-          <h3 className="font-semibold text-gray-700">Navigasi Soal</h3>
-        </div>
-        <div className="p-4 grid grid-cols-5 gap-2 overflow-auto content-start">
-          {questions.map((q, i) => {
-            const isAnswered = !!answers[q.id];
-            const isCurrent = i === currentIdx;
-            return (
-              <button
-                key={q.id}
-                onClick={() => setCurrentIdx(i)}
-                className={`w-10 h-10 rounded font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1 ${
-                  isCurrent 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : isAnswered
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-200'
-                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}
-              </button>
-            )
-          })}
-        </div>
-        <div className="p-4 border-t bg-gray-50 space-y-2 mt-auto">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Terjawab:</span>
-            <span className="font-bold text-green-600">{Object.keys(answers).length}</span>
+             <div className="hidden sm:flex text-sm text-slate-500 font-medium px-4 items-center justify-center gap-1.5 flex-1 whitespace-nowrap text-center">
+               <span className="text-green-600">{answeredCount} Dijawab</span>
+               <span className="mx-1 opacity-50">•</span>
+               <span>{unansweredCount} Belum</span>
+               <span className="mx-1 opacity-50">•</span>
+               <span className="text-amber-600">{flaggedCount} Ditandai</span>
+             </div>
+
+             <Button
+               variant="default"
+               size="lg"
+               onClick={() => setCurrentIndex(prev => Math.min(soalList.length - 1, prev + 1))}
+               disabled={currentIndex === soalList.length - 1}
+               className="gap-2 px-4 sm:px-6 h-12 bg-slate-900 hover:bg-slate-800"
+             >
+               <span className="hidden sm:inline">Soal Berikutnya</span>
+               <ChevronRight className="w-5 h-5" />
+             </Button>
           </div>
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Belum Terjawab:</span>
-            <span className="font-bold text-gray-900">{questions.length - Object.keys(answers).length}</span>
+        </footer>
+
+        {/* Submit Default Modal */}
+        {showSubmitConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+             <div className="bg-white max-w-md w-full rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <CheckSquare className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900">Selesai Ujian?</h3>
+                  <p className="text-slate-500">
+                    Anda yakin ingin menyelesaikan ujian sekarang?
+                    {unansweredCount > 0 && (
+                      <span className="block mt-2 font-semibold text-red-600 bg-red-50 p-2 rounded-lg">
+                        Peringatan: Masih ada {unansweredCount} soal yang belum dijawab!
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setShowSubmitConfirm(false)}>Kembali Mengerjakan</Button>
+                  <Button onClick={() => submitExam('manual')} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 gap-2">
+                    {isSubmitting ? (
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : 'Selesai & Kumpulkan'}
+                  </Button>
+                </div>
+             </div>
           </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }

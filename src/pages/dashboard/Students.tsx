@@ -1,167 +1,301 @@
-import { useState } from "react";
-import { useAuthStore } from "../../store/authStore";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Plus, Search, User, UserCheck } from "lucide-react";
+import { toast } from 'sonner';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input, Label } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Plus, Users, Pencil, Trash2, KeyRound } from 'lucide-react';
+import api from '../../lib/api';
 
 export default function Students() {
-  const { user } = useAuthStore();
-  const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", kelas: "10A", status: "Aktif" });
+  const [kelasList, setKelasList] = useState<any[]>([]);
+  const [selectedKelas, setSelectedKelas] = useState<string>('ALL');
+  const [siswaList, setSiswaList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [students, setStudents] = useState([
-    { id: '1', name: 'Siti Siswa', kelas: '10A', status: 'Aktif' },
-    { id: '2', name: 'Budi Santoso', kelas: '10A', status: 'Aktif' },
-    { id: '3', name: 'Alif Pratama', kelas: '11B', status: 'Aktif' },
-  ]);
+  // Modal Siswa
+  const [showSiswaModal, setShowSiswaModal] = useState(false);
+  const [editingSiswa, setEditingSiswa] = useState<any | null>(null);
+  const [siswaForm, setSiswaForm] = useState({ nis: '', nama: '', kelasId: '' });
+  const [isSubmittingSiswa, setIsSubmittingSiswa] = useState(false);
 
-  const filtered = students.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) || 
-    s.kelas.toLowerCase().includes(search.toLowerCase())
-  );
+  // Modal Kelas
+  const [showKelasModal, setShowKelasModal] = useState(false);
+  const [kelasForm, setKelasForm] = useState({ nama: '', tingkat: 'X', tahunAjaran: '' });
+  const [isSubmittingKelas, setIsSubmittingKelas] = useState(false);
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const fetchKelas = async () => {
+    try {
+      const res = await api.get('/api/guru/kelas');
+      setKelasList(res);
+      if (res.length > 0 && selectedKelas === 'ALL') {
+        setSelectedKelas(res[0].id);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchSiswa = async () => {
+    if (!selectedKelas || selectedKelas === 'ALL') return;
+    try {
+      setIsLoading(true);
+      const res = await api.get(`/api/guru/kelas/${selectedKelas}`);
+      setSiswaList(res.siswa || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKelas();
+  }, []);
+
+  useEffect(() => {
+    if (kelasList.length > 0) {
+      fetchSiswa();
+    } else {
+      setIsLoading(false);
+    }
+  }, [selectedKelas, kelasList]);
+
+  const handleOpenSiswaModal = (siswa?: any) => {
+    if (siswa) {
+      setEditingSiswa(siswa);
+      setSiswaForm({ nis: siswa.nis, nama: siswa.nama, kelasId: selectedKelas });
+    } else {
+      setEditingSiswa(null);
+      setSiswaForm({ nis: '', nama: '', kelasId: selectedKelas });
+    }
+    setShowSiswaModal(true);
+  };
+
+  const handleSaveSiswa = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStudents([{ id: Date.now().toString(), ...formData }, ...students]);
-    setIsModalOpen(false);
-    setFormData({ name: "", kelas: "10A", status: "Aktif" });
+    if (!siswaForm.nis || !siswaForm.nama || !siswaForm.kelasId) {
+      toast.error("Semua field wajib diisi");
+      return;
+    }
+    
+    try {
+      setIsSubmittingSiswa(true);
+      if (editingSiswa) {
+        await api.patch(`/api/guru/siswa/${editingSiswa.id}`, { nama: siswaForm.nama, nis: siswaForm.nis });
+      } else {
+        await api.post('/api/guru/siswa', siswaForm);
+      }
+      setShowSiswaModal(false);
+      fetchSiswa();
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal menyimpan siswa');
+    } finally {
+      setIsSubmittingSiswa(false);
+    }
+  };
+
+  const handleDeleteSiswa = async (id: string) => {
+    if (!confirm('Hapus siswa ini? Semua data terkait siswa akan dihapus.')) return;
+    try {
+      await api.delete(`/api/guru/siswa/${id}`);
+      fetchSiswa();
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal menghapus siswa');
+    }
+  };
+
+  const handleResetPassword = async (id: string, nis: string) => {
+    if (!confirm(`Reset password siswa ini kembali menjadi NIS (${nis})?`)) return;
+    try {
+      await api.post(`/api/guru/siswa/${id}/reset-password`);
+      toast.success("Password berhasil direset!");
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal mereset password');
+    }
+  };
+
+  const handleSaveKelas = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!kelasForm.nama || !kelasForm.tingkat || !kelasForm.tahunAjaran) {
+      toast.error("Semua field wajib diisi");
+      return;
+    }
+    
+    try {
+      setIsSubmittingKelas(true);
+      const res = await api.post('/api/guru/kelas', kelasForm);
+      setShowKelasModal(false);
+      setKelasForm({ nama: '', tingkat: 'X', tahunAjaran: '' });
+      await fetchKelas();
+      setSelectedKelas(res.id);
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal membuat kelas');
+    } finally {
+      setIsSubmittingKelas(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Siswa & Kelas</h1>
-          <p className="text-slate-500">Kelola data siswa dan pembagian kelas</p>
+          <p className="text-slate-500 mt-1">Kelola data kelas dan siswa yang Anda ajar.</p>
         </div>
-        {(user?.role === 'SUPER_ADMIN' || user?.role === 'TEACHER') && (
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Tambah Siswa
+        <div className="flex gap-2 w-full md:w-auto">
+          <Button variant="outline" onClick={() => setShowKelasModal(true)} className="flex-1 md:flex-none gap-2">
+            <Plus className="w-4 h-4" /> Kelas Baru
           </Button>
-        )}
+          <Button onClick={() => handleOpenSiswaModal()} disabled={kelasList.length === 0} className="flex-1 md:flex-none gap-2 px-6 bg-blue-600 hover:bg-blue-700">
+            <Users className="w-4 h-4" /> Tambah Siswa
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-slate-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Siswa Aktif</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-green-500" />
-              <div className="text-3xl font-bold text-slate-800">{students.length}</div>
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Daftar Siswa</CardTitle>
+              <CardDescription>Menampilkan {siswaList.length} siswa di kelas terpilih.</CardDescription>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">Jumlah Kelas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-800">
-              {new Set(students.map(s => s.kelas)).size}
+            <div className="w-full sm:w-64">
+              <Select value={selectedKelas} onChange={e => setSelectedKelas(e.target.value)} disabled={kelasList.length === 0}>
+                {kelasList.length === 0 && <option value="ALL">Pilih Kelas</option>}
+                {kelasList.map(k => (
+                  <option key={k.id} value={k.id}>{k.nama} (Tingkat {k.tingkat})</option>
+                ))}
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-slate-200">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle>Daftar Siswa</CardTitle>
-          <div className="relative w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-            <Input 
-              placeholder="Cari nama atau kelas..." 
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-3">Nama Siswa</th>
-                  <th className="px-6 py-3">Kelas</th>
-                  <th className="px-6 py-3">Status</th>
-                  {(user?.role === 'SUPER_ADMIN' || user?.role === 'TEACHER') && <th className="px-6 py-3 text-right">Aksi</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map(s => (
-                  <tr key={s.id} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center">
-                        <User className="h-4 w-4 text-slate-500"/>
-                      </div>
-                      {s.name}
-                    </td>
-                    <td className="px-6 py-4">{s.kelas}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                        {s.status}
-                      </span>
-                    </td>
-                    {(user?.role === 'SUPER_ADMIN' || user?.role === 'TEACHER') && (
-                      <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => alert('Mode edit akan segera hadir.')}>Edit</Button>
-                      </td>
-                    )}
+          {isLoading ? (
+            <div className="py-12 text-center text-slate-500">Memuat data siswa...</div>
+          ) : kelasList.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
+              <Users className="w-12 h-12 text-slate-300 mb-3" />
+              <p className="text-lg font-medium text-slate-700">Tidak ada kelas</p>
+              <p className="text-sm text-center max-w-sm mt-1">Anda belum memiliki kelas. Silakan buat kelas baru terlebih dahulu untuk menambahkan siswa.</p>
+            </div>
+          ) : siswaList.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
+              <p className="text-lg font-medium text-slate-700">Belum ada siswa</p>
+              <p className="text-sm">Klik "Tambah Siswa" untuk memasukkan data siswa ke kelas ini.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold rounded-tl-lg">NIS</th>
+                    <th className="px-4 py-3 font-semibold">Nama Siswa</th>
+                    <th className="px-4 py-3 font-semibold">Email Pengguna</th>
+                    <th className="px-4 py-3 font-semibold text-center rounded-tr-lg">Aksi</th>
                   </tr>
-                ))}
-                {filtered.length === 0 && (
-                   <tr>
-                     <td colSpan={4} className="px-6 py-12 text-center text-gray-500">Data siswa tidak ditemukan.</td>
-                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {siswaList.map(siswa => (
+                    <tr key={siswa.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-4 font-medium text-slate-900">{siswa.nis}</td>
+                      <td className="px-4 py-4 font-medium">{siswa.nama}</td>
+                      <td className="px-4 py-4 text-slate-500">{siswa.user?.email || '-'}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex justify-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenSiswaModal(siswa)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2" title="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleResetPassword(siswa.id, siswa.nis)} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 px-2" title="Reset Password">
+                            <KeyRound className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteSiswa(siswa.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2" title="Hapus">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Basic Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <Card className="w-full max-w-sm shadow-xl">
-            <CardHeader>
-              <CardTitle>Tambah Siswa</CardTitle>
+      {/* Modal Tambah/Edit Siswa */}
+      {showSiswaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+          <Card className="w-full max-w-md border-0 animate-in fade-in zoom-in-95 duration-200">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle>{editingSiswa ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddStudent} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Nama Lengkap</label>
-                  <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <form onSubmit={handleSaveSiswa}>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="kelasId">Kelas</Label>
+                  <Select id="kelasId" value={siswaForm.kelasId} onChange={e => setSiswaForm({ ...siswaForm, kelasId: e.target.value })} disabled={!!editingSiswa}>
+                    {kelasList.map(k => (
+                      <option key={k.id} value={k.id}>{k.nama}</option>
+                    ))}
+                  </Select>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Kelas</label>
-                  <Input required placeholder="10A" value={formData.kelas} onChange={e => setFormData({...formData, kelas: e.target.value})} />
+                <div className="space-y-2">
+                  <Label htmlFor="nis">Nomor Induk Siswa (NIS) *</Label>
+                  <Input id="nis" required value={siswaForm.nis} onChange={e => setSiswaForm({ ...siswaForm, nis: e.target.value })} placeholder="Contoh: 12345" />
+                  {!editingSiswa && <p className="text-xs text-slate-500">NIS ini akan digunakan sebagai password default saat login pertama kali.</p>}
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Status</label>
-                  <select 
-                    required 
-                    className="flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                    value={formData.status}
-                    onChange={e => setFormData({...formData, status: e.target.value})}
-                  >
-                    <option value="Aktif">Aktif</option>
-                    <option value="Non-Aktif">Non-Aktif</option>
-                    <option value="Lulus">Lulus</option>
-                  </select>
+                <div className="space-y-2">
+                  <Label htmlFor="nama">Nama Lengkap *</Label>
+                  <Input id="nama" required value={siswaForm.nama} onChange={e => setSiswaForm({ ...siswaForm, nama: e.target.value })} placeholder="Nama Lengkap Siswa" />
                 </div>
-                
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Batal</Button>
-                  <Button type="submit">Simpan</Button>
+              </CardContent>
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+                <Button type="button" variant="outline" onClick={() => setShowSiswaModal(false)}>Batal</Button>
+                <Button type="submit" disabled={isSubmittingSiswa} className="bg-blue-600 hover:bg-blue-700">
+                  {isSubmittingSiswa ? 'Menyimpan...' : 'Simpan Siswa'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal Tambah Kelas */}
+      {showKelasModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+          <Card className="w-full max-w-md border-0 animate-in fade-in zoom-in-95 duration-200">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle>Buat Kelas Baru</CardTitle>
+            </CardHeader>
+            <form onSubmit={handleSaveKelas}>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="namaKelas">Nama Kelas *</Label>
+                  <Input id="namaKelas" required value={kelasForm.nama} onChange={e => setKelasForm({ ...kelasForm, nama: e.target.value })} placeholder="Contoh: X IPA 1" />
                 </div>
-              </form>
-            </CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tingkat">Tingkat *</Label>
+                    <Select id="tingkat" value={kelasForm.tingkat} onChange={e => setKelasForm({ ...kelasForm, tingkat: e.target.value })}>
+                      <option value="X">Kelas X</option>
+                      <option value="XI">Kelas XI</option>
+                      <option value="XII">Kelas XII</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tahunAjaran">Tahun Ajaran *</Label>
+                    <Input id="tahunAjaran" required value={kelasForm.tahunAjaran} onChange={e => setKelasForm({ ...kelasForm, tahunAjaran: e.target.value })} placeholder="2023/2024" />
+                  </div>
+                </div>
+              </CardContent>
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+                <Button type="button" variant="outline" onClick={() => setShowKelasModal(false)}>Batal</Button>
+                <Button type="submit" disabled={isSubmittingKelas} className="bg-blue-600 hover:bg-blue-700">
+                  {isSubmittingKelas ? 'Menyimpan...' : 'Simpan Kelas'}
+                </Button>
+              </div>
+            </form>
           </Card>
         </div>
       )}
