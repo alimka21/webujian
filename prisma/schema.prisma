@@ -1,0 +1,90 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  class     String?  // Only for students
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exams     Exam[]   @relation("TeacherExams")
+  results   Result[]
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  duration    Int      // in minutes
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
+  teacherId   String
+  targetClass String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  teacher     User       @relation("TeacherExams", fields: [teacherId], references: [id])
+  questions   Question[]
+  results     Result[]
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  MULTIPLE_COMPLEX
+  TRUE_FALSE
+}
+
+model Question {
+  id            String       @id @default(uuid())
+  examId        String
+  type          QuestionType
+  text          String       @db.Text
+  image         String?
+  options       Json         // Array of strings
+  correctAnswers Json        // Array of correct strings
+  
+  exam          Exam         @relation(fields: [examId], references: [id])
+}
+
+model Result {
+  id          String   @id @default(uuid())
+  examId      String
+  studentId   String
+  score       Float
+  submittedAt DateTime @default(now())
+
+  exam        Exam     @relation(fields: [examId], references: [id])
+  student     User     @relation(fields: [studentId], references: [id])
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  studentId String
+  status    String   // HADIR, IZIN, SAKIT, ALPHA
+  date      DateTime @default(now())
+}
+
+model Alumni {
+  id          String   @id @default(uuid())
+  name        String
+  tahunLulus  String
+  jurusan     String
+  status      String   // Kuliah, Bekerja, Wirausaha, dll
+  instansi    String
+  kontak      String
+  createdAt   DateTime @default(now())
+}
