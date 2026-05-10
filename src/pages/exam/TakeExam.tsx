@@ -10,7 +10,7 @@ import { useExamTimer } from '../../hooks/useExamTimer';
 
 // Utility for debouncing
 function useDebounce<T extends (...args: any[]) => void>(func: T, wait: number) {
-  const timeout = React.useRef<NodeJS.Timeout>();
+  const timeout = React.useRef<NodeJS.Timeout | undefined>(undefined);
   return React.useCallback(
     (...args: Parameters<T>) => {
       if (timeout.current) clearTimeout(timeout.current);

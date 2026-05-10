@@ -226,7 +226,7 @@ export default function Attendance() {
                   <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
                     <div className="flex items-center gap-2 text-sm">
                       <CalendarIcon className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium text-slate-700">{formatDate(tanggalPilih, 'date')}</span>
+                      <span className="font-medium text-slate-700">{formatDate(tanggalPilih)}</span>
                       {hasExistingPresensi && (
                          <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">Sudah Disimpan</Badge>
                       )}

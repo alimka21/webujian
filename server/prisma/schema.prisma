@@ -1,0 +1,212 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique // Digunakan untuk login guru/admin, digabung dengan @siswa.sch.id untuk siswa
+  password  String
+  role      String   // SUPER_ADMIN, GURU, SISWA
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // UserProfile
+  admin    Admin?
+  guru     Guru?
+  siswa    Siswa?
+  
+  sessions UserSession[]
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Admin {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nama   String
+}
+
+model Guru {
+  id            String  @id @default(uuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nip           String  @unique
+  nama          String
+  mataPelajaran String
+  fotoUrl       String?
+
+  kelas Kelas[]
+  ujian Ujian[]
+}
+
+model Kelas {
+  id          String   @id @default(uuid())
+  nama        String
+  tingkat     String
+  tahunAjaran String
+  guruId      String
+  guru        Guru     @relation(fields: [guruId], references: [id])
+
+  siswa      Siswa[]
+  kelasUjian UjianKelas[]
+}
+
+model Siswa {
+  id      String @id @default(uuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nis     String @unique
+  nama    String
+  kelasId String
+  kelas   Kelas  @relation(fields: [kelasId], references: [id])
+
+  sesiUjian SesiUjian[]
+}
+
+model Ujian {
+  id             String    @id @default(uuid())
+  judul          String
+  mataPelajaran  String
+  tipeUjian      String?   @default("ULANGAN_HARIAN")
+  durasi         Int       // dalam menit
+  tanggalMulai   DateTime?
+  tanggalSelesai DateTime?
+  acak           Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  guruId String
+  guru   Guru   @relation(fields: [guruId], references: [id])
+
+  soal      Soal[]
+  kelas     UjianKelas[]
+  sesiUjian SesiUjian[]
+}
+
+model UjianKelas {
+  id      String @id @default(uuid())
+  ujianId String
+  ujian   Ujian  @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  kelasId String
+  kelas   Kelas  @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+
+  @@unique([ujianId, kelasId])
+}
+
+model Soal {
+  id       String @id @default(uuid())
+  ujianId  String
+  ujian    Ujian  @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  nomor    Int
+  teks     String 
+  imageUrl String?
+  tipe     String // PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH
+  poin     Float
+
+  opsi    Opsi[]
+  jawaban Jawaban[]
+}
+
+model Opsi {
+  id       String @id @default(uuid())
+  soalId   String
+  soal     Soal   @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  teks     String
+  imageUrl String?
+  urutan   Int
+  benar    Boolean
+
+  jawaban Jawaban[]
+}
+
+model SesiUjian {
+  id           String    @id @default(uuid())
+  ujianId      String
+  ujian        Ujian     @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  siswaId      String
+  siswa        Siswa     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  status       String    // BELUM_MULAI, SEDANG_BERLANGSUNG, SELESAI, AUTO_SUBMIT
+  mulaiAt      DateTime?
+  selesaiAt    DateTime?
+  nilaiRaw     Float?
+  nilaiAkhir   Float?
+  submitReason String?
+
+  jawaban     Jawaban[]
+  pelanggaran Pelanggaran[]
+
+  @@unique([ujianId, siswaId])
+}
+
+model Jawaban {
+  id      String    @id @default(uuid())
+  sesiId  String
+  sesi    SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
+  soalId  String
+  soal    Soal      @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  opsiId  String?
+  opsi    Opsi?     @relation(fields: [opsiId], references: [id], onDelete: Cascade)
+  isBenar Boolean   @default(false)
+
+  @@unique([sesiId, soalId])
+}
+
+model Pelanggaran {
+  id        String    @id @default(uuid())
+  sesiId    String
+  sesi      SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
+  tipe      String    // TAB_SWITCH, FULLSCREEN_EXIT, WINDOW_BLUR, DEVTOOLS
+  pesan     String    
+  timestamp DateTime  @default(now())
+}
+
+model Presensi {
+  id         String   @id @default(uuid())
+  siswaId    String
+  kelasId    String
+  guruId     String
+  tanggal    DateTime
+  status     String   // HADIR, IZIN, SAKIT, ALPHA
+  keterangan String?  
+
+  @@unique([siswaId, tanggal])
+}
+
+model Alumni {
+  id          String  @id @default(uuid())
+  nama        String
+  nis         String?
+  tahunLulus  Int
+  jurusan     String?
+  status      String  // BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI
+  instansi    String?
+  posisi      String?
+  kontak      String?
+  fotoUrl     String?
+}
+
+model Berita {
+  id          String    @id @default(uuid())
+  judul       String
+  slug        String    @unique
+  konten      String    
+  ringkasan   String?   
+  imageUrl    String?
+  status      String    // DRAFT, PUBLISHED, ARCHIVED
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

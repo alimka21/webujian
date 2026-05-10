@@ -1,58 +1,74 @@
 // src/lib/api.ts
-import { useAuthStore } from '../store/authStore';
+const API_BASE = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL as string) || ""
+  : ""; // dev: pakai vite proxy
 
-// URL dasar, jika pakai Vite proxy biasanya bisa dikosongkan. 
-// Namun untuk jaga-jaga (atau jika beda port di luar AI Studio), kita set.
-const BASE_URL = ''; 
-
-interface FetchOptions extends RequestInit {
-  headers?: Record<string, string>;
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
-export const api = async <T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
-  const token = useAuthStore.getState().token;
-  
-  const headers = {
-    'Content-Type': 'application/json',
+async function request<T = any>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  // Try state token first since authStore uses persist 'auth-storage'.
+  let token = null;
+  if (typeof window !== "undefined") {
+    token = localStorage.getItem("token");
+    if (!token) {
+      const authStorage = localStorage.getItem("auth-storage");
+      if (authStorage) {
+        try {
+          const parsed = JSON.parse(authStorage);
+          token = parsed?.state?.token;
+        } catch(e) {}
+      }
+    }
+  }
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const url = `${BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
+  const res = await fetch(`${API_BASE}${url}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
-  let data;
-  try {
-    data = await response.json();
-  } catch (error) {
-    data = null;
+  // Handle no-content responses
+  if (res.status === 204) return undefined as T;
+
+  let data: any;
+  const contentType = res.headers.get("content-type");
+  if (contentType?.includes("application/json")) {
+    data = await res.json();
+  } else {
+    data = await res.text();
   }
 
-  if (!response.ok) {
-    const message = data?.error || data?.message || 'Terjadi kesalahan pada server';
-    throw new Error(message);
+  if (!res.ok) {
+    throw new ApiError(
+      data?.error || data || `Request failed (${res.status})`,
+      res.status
+    );
   }
 
   return data;
+}
+
+export const api = {
+  get:    <T = any>(url: string) => request<T>(url, { method: "GET" }),
+  post:   <T = any>(url: string, body?: any) => request<T>(url, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  patch:  <T = any>(url: string, body?: any) => request<T>(url, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  delete: <T = any>(url: string) => request<T>(url, { method: "DELETE" }),
 };
 
-api.get = <T = any>(endpoint: string, options?: FetchOptions) => 
-  api<T>(endpoint, { ...options, method: 'GET' });
-
-api.post = <T = any>(endpoint: string, body?: any, options?: FetchOptions) => 
-  api<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) });
-
-api.patch = <T = any>(endpoint: string, body?: any, options?: FetchOptions) => 
-  api<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) });
-
-api.delete = <T = any>(endpoint: string, options?: FetchOptions) => 
-  api<T>(endpoint, { ...options, method: 'DELETE' });
-
 export default api;
+export { ApiError };

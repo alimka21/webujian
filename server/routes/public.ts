@@ -1,6 +1,6 @@
 // server/routes/public.ts
 import { Router } from 'express';
-import { prisma } from '../../src/lib/prisma';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 

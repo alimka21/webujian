@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Users, GraduationCap, FileText, Newspaper, CalendarCheck, Shield } from 'lucide-react';
 import api from '../../lib/api';
@@ -137,10 +138,19 @@ export default function AdminDashboard() {
 }
 
 function QuickLinkCard({ title, desc, href }: { title: string, desc: string, href: string }) {
+  if (href === '#') {
+    return (
+      <div className="block p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed group">
+        <h4 className="font-semibold text-slate-900 transition-colors">{title}</h4>
+        <p className="text-sm text-slate-500 mt-1">{desc} (Segera Hadir)</p>
+      </div>
+    );
+  }
+
   return (
-    <a href={href} className="block p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 transition-all bg-white group">
+    <Link to={href} className="block p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 transition-all bg-white group">
       <h4 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">{title}</h4>
       <p className="text-sm text-slate-500 mt-1">{desc}</p>
-    </a>
+    </Link>
   )
 }

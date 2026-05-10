@@ -159,7 +159,7 @@ export default function ExamList() {
                     {riwayat.map(sesi => (
                       <tr key={sesi.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
-                          {formatDate(sesi.waktuSelesai || sesi.waktuMulai, 'date')}
+                          {formatDate(sesi.waktuSelesai || sesi.waktuMulai)}
                         </td>
                         <td className="px-6 py-4 font-medium text-slate-900">
                           {sesi.ujian.judul}

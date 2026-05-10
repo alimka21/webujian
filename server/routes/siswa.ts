@@ -1,6 +1,6 @@
 // server/routes/siswa.ts
 import { Router } from 'express';
-import { prisma } from '../../src/lib/prisma';
+import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 
 const router = Router();

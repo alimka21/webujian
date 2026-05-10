@@ -15,6 +15,8 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import AlumniTracer from './pages/dashboard/AlumniTracer';
 import CmsManage from './pages/dashboard/CmsManage';
+import ManageUsers from './pages/dashboard/ManageUsers';
+import StatsAdmin from './pages/dashboard/StatsAdmin';
 
 // Guru
 import GuruDashboard from './pages/dashboard/guru/GuruDashboard';
@@ -26,7 +28,9 @@ import Attendance from './pages/dashboard/Attendance';
 import RekapNilai from './pages/dashboard/guru/RekapNilai';
 
 // Siswa
+import SiswaDashboard from './pages/dashboard/SiswaDashboard';
 import ExamList from './pages/dashboard/ExamList';
+import RiwayatNilaiSiswa from './pages/dashboard/RiwayatNilaiSiswa';
 import TakeExam from './pages/exam/TakeExam';
 
 export default function App() {
@@ -68,6 +72,11 @@ export default function App() {
                 <AdminDashboard />
               </ProtectedRoute>
             } />
+            <Route path="users" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <ManageUsers />
+              </ProtectedRoute>
+            } />
             <Route path="alumni" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                 <AlumniTracer />
@@ -76,6 +85,11 @@ export default function App() {
             <Route path="cms" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                 <CmsManage />
+              </ProtectedRoute>
+            } />
+            <Route path="stats" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <StatsAdmin />
               </ProtectedRoute>
             } />
           </Route>
@@ -120,11 +134,23 @@ export default function App() {
           </Route>
 
           {/* SISWA ROUTES */}
-          <Route path="siswa" element={
-            <ProtectedRoute allowedRoles={['SISWA']}>
-              <ExamList />
-            </ProtectedRoute>
-          } />
+          <Route path="siswa">
+            <Route index element={
+              <ProtectedRoute allowedRoles={['SISWA']}>
+                <SiswaDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="ujian" element={
+              <ProtectedRoute allowedRoles={['SISWA']}>
+                <ExamList />
+              </ProtectedRoute>
+            } />
+            <Route path="riwayat" element={
+              <ProtectedRoute allowedRoles={['SISWA']}>
+                <RiwayatNilaiSiswa />
+              </ProtectedRoute>
+            } />
+          </Route>
 
         </Route>
 

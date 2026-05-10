@@ -16,7 +16,8 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      port: 5173,
+      port: 3000,
+      host: '0.0.0.0',
       proxy: {
         '/api': {
           target: 'http://localhost:3001',
@@ -25,6 +26,11 @@ export default defineConfig(({mode}) => {
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
+    },
+    build: {
+      outDir: "dist",
+      sourcemap: false,
+      chunkSizeWarningLimit: 1000,
     },
   };
 });
