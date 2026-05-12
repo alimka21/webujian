@@ -3,10 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { AlertCircle, Clock, ChevronLeft, ChevronRight, Flag, X, CheckSquare, Maximize } from 'lucide-react';
+import { AlertCircle, Clock, ChevronLeft, ChevronRight, Flag, X, CheckSquare, Maximize, List } from 'lucide-react';
 import api from '../../lib/api';
 import { useAntiCheat } from '../../hooks/useAntiCheat';
 import { useExamTimer } from '../../hooks/useExamTimer';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 // Utility for debouncing
 function useDebounce<T extends (...args: any[]) => void>(func: T, wait: number) {
@@ -32,17 +33,22 @@ export default function TakeExam() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+
+  // Modal a11y refs
+  const submitModalRef = useModalA11y<HTMLDivElement>(showSubmitConfirm, () => setShowSubmitConfirm(false));
+  const mobileNavRef = useModalA11y<HTMLDivElement>(showMobileNav, () => setShowMobileNav(false));
 
   // Fetch session data
   useEffect(() => {
     const fetchSession = async () => {
       try {
         const res = await api.get(`/api/siswa/sesi/${sessionId}`);
-        if (res.status === 'SELESAI') {
+        if (res.sesi?.status === 'SELESAI' || res.sesi?.status === 'AUTO_SUBMIT') {
           navigate(`/dashboard/siswa/hasil/${sessionId}`, { replace: true });
           return;
         }
-        
+
         setSessionData(res);
         setSoalList(res.ujian.soal || []);
         
@@ -166,7 +172,7 @@ export default function TakeExam() {
         await document.exitFullscreen().catch(console.error);
       }
 
-      navigate('/dashboard/siswa'); // Redirect to dashboard or results
+      navigate(`/dashboard/siswa/hasil/${sessionId}`, { replace: true });
     } catch (err: any) {
       toast.error(err.message || 'Gagal mengumpulkan ujian. Silakan coba lagi.');
       setIsSubmitting(false);
@@ -218,12 +224,17 @@ export default function TakeExam() {
   if (!isFullscreen) {
     return (
       <div className="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-8 text-center space-y-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="fullscreen-gate-title"
+          className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-8 text-center space-y-6"
+        >
           <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-2">
             <Maximize className="w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Masuk Mode Layar Penuh</h2>
+            <h2 id="fullscreen-gate-title" className="text-2xl font-bold text-slate-900">Masuk Mode Layar Penuh</h2>
             <p className="text-slate-500 mt-2">
               Ujian ini mewajibkan mode layar penuh (Fullscreen). Anda tidak diizinkan untuk berpindah tab atau mengecilkan layar selama ujian berlangsung.
             </p>
@@ -247,8 +258,8 @@ export default function TakeExam() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row select-none">
-      {/* Sidebar (Desktop) / Backdrop Slide-up (Mobile - simplified for now as sidebar) */}
-      <aside className="w-full md:w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 relative z-20">
+      {/* Sidebar — Desktop only */}
+      <aside className="hidden md:flex md:flex-col md:w-72 bg-white border-r border-slate-200 shrink-0 relative z-20">
         <div className="p-4 border-b border-slate-100">
           <h2 className="font-bold text-slate-900 line-clamp-1">{sessionData.ujian.mataPelajaran}</h2>
           <p className="text-xs text-slate-500">{sessionData.ujian._count?.soal || soalList.length} Soal</p>
@@ -451,6 +462,7 @@ export default function TakeExam() {
                size="lg"
                onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                disabled={currentIndex === 0}
+               aria-label="Soal Sebelumnya"
                className="gap-2 px-4 sm:px-6 h-12"
              >
                <ChevronLeft className="w-5 h-5" />
@@ -470,6 +482,7 @@ export default function TakeExam() {
                size="lg"
                onClick={() => setCurrentIndex(prev => Math.min(soalList.length - 1, prev + 1))}
                disabled={currentIndex === soalList.length - 1}
+               aria-label="Soal Berikutnya"
                className="gap-2 px-4 sm:px-6 h-12 bg-slate-900 hover:bg-slate-800"
              >
                <span className="hidden sm:inline">Soal Berikutnya</span>
@@ -478,15 +491,33 @@ export default function TakeExam() {
           </div>
         </footer>
 
+        {/* FAB Mobile — Navigasi Soal */}
+        <button
+          className="fixed bottom-20 right-4 z-30 md:hidden w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl flex flex-col items-center justify-center gap-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          onClick={() => setShowMobileNav(true)}
+          aria-label="Navigasi soal"
+        >
+          <List className="w-5 h-5" />
+          {unansweredCount > 0 && (
+            <span className="text-[10px] font-bold leading-none">{unansweredCount}</span>
+          )}
+        </button>
+
         {/* Submit Default Modal */}
         {showSubmitConfirm && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
-             <div className="bg-white max-w-md w-full rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+             <div
+               ref={submitModalRef}
+               role="dialog"
+               aria-modal="true"
+               aria-labelledby="submit-confirm-title"
+               className="bg-white max-w-md w-full rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+             >
                 <div className="p-6 text-center space-y-4">
                   <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
                     <CheckSquare className="w-8 h-8" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-900">Selesai Ujian?</h3>
+                  <h3 id="submit-confirm-title" className="text-2xl font-bold text-slate-900">Selesai Ujian?</h3>
                   <p className="text-slate-500">
                     Anda yakin ingin menyelesaikan ujian sekarang?
                     {unansweredCount > 0 && (
@@ -508,6 +539,95 @@ export default function TakeExam() {
           </div>
         )}
       </main>
+
+      {/* Mobile Bottom Drawer — Navigasi Soal */}
+      {showMobileNav && (
+        <div className="fixed inset-0 z-[150] md:hidden" onClick={() => setShowMobileNav(false)}>
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+          <div
+            ref={mobileNavRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-nav-title"
+            className="absolute inset-x-0 bottom-0 h-2/3 bg-white rounded-t-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header drawer */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+              <div>
+                <h3 id="mobile-nav-title" className="font-bold text-slate-900">Navigasi Soal</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {answeredCount} dijawab · {unansweredCount} belum · {flaggedCount} ditandai
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMobileNav(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+                aria-label="Tutup navigasi"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Konten drawer */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Legend */}
+              <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-slate-600 font-medium">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-600" /> Saat ini
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" /> Dijawab
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-400" /> Ditandai
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border border-slate-300 bg-white" /> Belum
+                </div>
+              </div>
+
+              {/* Grid nomor soal */}
+              <div className="grid grid-cols-6 gap-2">
+                {soalList.map((soal, idx) => {
+                  const isActive = idx === currentIndex;
+                  const hasAnswer = answers[soal.id] && answers[soal.id].length > 0;
+                  const isFlagged = flagged[soal.id];
+
+                  let btnClass = 'bg-white border-slate-200 text-slate-600';
+                  if (isActive) btnClass = 'bg-blue-600 border-blue-600 text-white shadow-md';
+                  else if (isFlagged) btnClass = 'bg-amber-100 border-amber-300 text-amber-800';
+                  else if (hasAnswer) btnClass = 'bg-green-100 border-green-300 text-green-800';
+
+                  return (
+                    <button
+                      key={soal.id}
+                      onClick={() => { setCurrentIndex(idx); setShowMobileNav(false); }}
+                      className={`relative aspect-square flex items-center justify-center rounded-lg border font-semibold text-sm transition-all focus:outline-none ${btnClass}`}
+                    >
+                      {soal.nomor || idx + 1}
+                      {isFlagged && !isActive && (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer drawer */}
+            <div className="p-4 border-t border-slate-100 shrink-0">
+              <Button
+                variant="destructive"
+                className="w-full font-bold"
+                onClick={() => { setShowMobileNav(false); setShowSubmitConfirm(true); }}
+              >
+                Selesai Ujian
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,33 +2,43 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Users, GraduationCap, FileText, Newspaper, CalendarCheck, Shield } from 'lucide-react';
+import { toast } from 'sonner';
 import api from '../../lib/api';
+import { ErrorState } from '../../components/ui/ErrorState';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/api/admin/stats');
-        setStats(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchStats();
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      const res = await api.get('/api/admin/stats');
+      setStats(res);
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal memuat statistik. Periksa koneksi Anda.';
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
       </div>
     );
   }
+
+  if (errorMsg) return <ErrorState message={errorMsg} onRetry={fetchStats} className="h-[60vh]" />;
 
   return (
     <div className="space-y-6">
@@ -140,10 +150,14 @@ export default function AdminDashboard() {
 function QuickLinkCard({ title, desc, href }: { title: string, desc: string, href: string }) {
   if (href === '#') {
     return (
-      <div className="block p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed group">
+      <button
+        type="button"
+        onClick={() => toast.info(`Fitur ${title} segera hadir`)}
+        className="text-left block p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-70 hover:opacity-100 hover:bg-white transition-all group w-full"
+      >
         <h4 className="font-semibold text-slate-900 transition-colors">{title}</h4>
         <p className="text-sm text-slate-500 mt-1">{desc} (Segera Hadir)</p>
-      </div>
+      </button>
     );
   }
 

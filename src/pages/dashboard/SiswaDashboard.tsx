@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { FileText, ClipboardList, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import api from '../../lib/api';
+import { ErrorState } from '../../components/ui/ErrorState';
 
 export default function SiswaDashboard() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboard();
@@ -15,16 +18,26 @@ export default function SiswaDashboard() {
   const fetchDashboard = async () => {
     try {
       setIsLoading(true);
+      setErrorMsg(null);
       const res = await api.get('/api/siswa/dashboard');
       setData(res);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      const msg = error?.message || 'Gagal memuat data dashboard. Periksa koneksi Anda.';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center">Memuat dashboard...</div>;
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+      <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+      <p className="text-sm text-slate-500">Memuat dashboard...</p>
+    </div>
+  );
+
+  if (errorMsg) return <ErrorState message={errorMsg} onRetry={fetchDashboard} className="h-[60vh]" />;
 
   return (
     <div className="space-y-6">
@@ -95,9 +108,13 @@ export default function SiswaDashboard() {
           </CardHeader>
           <CardContent>
             {data?.ujianSelesai && data.ujianSelesai.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {data.ujianSelesai.slice(0, 3).map((sesi: any) => (
-                  <div key={sesi.id} className="flex justify-between p-3 border-b border-slate-100 last:border-0">
+                  <Link
+                    key={sesi.id}
+                    to={`/dashboard/siswa/hasil/${sesi.id}`}
+                    className="flex justify-between items-center p-3 -mx-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100 last:border-0"
+                  >
                     <div>
                       <p className="font-medium text-slate-800">{sesi.ujian.judul}</p>
                       <p className="text-xs text-slate-500">{new Date(sesi.selesaiAt).toLocaleDateString('id-ID')}</p>
@@ -105,11 +122,14 @@ export default function SiswaDashboard() {
                     <div className="text-right">
                       <span className="font-bold text-emerald-600 text-lg">{sesi.nilaiAkhir}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-500">Belum ada ujian yang diselesaikan.</p>
+              <div className="py-6 flex flex-col items-center justify-center text-center">
+                <ClipboardList className="w-10 h-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Belum ada ujian yang diselesaikan.</p>
+              </div>
             )}
           </CardContent>
         </Card>

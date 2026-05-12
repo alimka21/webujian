@@ -203,7 +203,7 @@ router.post('/sesi/:sessionId/jawab', async (req, res, next) => {
 
 router.post('/sesi/:sessionId/submit', async (req, res, next) => {
   try {
-    const { reason } = req.body; // 'manual', 'timeout', 'auto_cheat'
+    const reason = (req.query.reason as string) || req.body.reason || 'manual';
     const sesi = await prisma.sesiUjian.findUnique({
       where: { id: req.params.sessionId },
       include: {
@@ -266,6 +266,69 @@ router.post('/sesi/:sessionId/violation', async (req, res, next) => {
       }
     });
     res.json({ success: true });
+  } catch(error) { next(error); }
+});
+
+router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
+  try {
+    const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
+    if (!siswa) return res.status(404).json({ error: 'Tidak ditemukan' });
+
+    const sesi = await prisma.sesiUjian.findUnique({
+      where: { id: req.params.sessionId },
+      include: {
+        siswa: { select: { nama: true } },
+        ujian: { select: { judul: true, mataPelajaran: true, durasi: true } },
+        pelanggaran: { orderBy: { timestamp: 'asc' } },
+        jawaban: {
+          include: {
+            soal: { include: { opsi: { orderBy: { urutan: 'asc' } } } },
+            opsi: true
+          }
+        }
+      }
+    });
+
+    if (!sesi || sesi.siswaId !== siswa.id) {
+      return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+    }
+
+    const soalList = await prisma.soal.findMany({
+      where: { ujianId: sesi.ujianId },
+      include: { opsi: { orderBy: { urutan: 'asc' } } },
+      orderBy: { nomor: 'asc' }
+    });
+
+    const jawabanMap = new Map(sesi.jawaban.map(j => [j.soalId, j]));
+
+    const jawabanDetail = soalList.map(soal => {
+      const jwb = jawabanMap.get(soal.id);
+      const opsiBenar = soal.opsi.find(o => o.benar);
+      return {
+        nomor: soal.nomor,
+        teks: soal.teks,
+        tipe: soal.tipe,
+        opsiDipilih: jwb?.opsi ? { teks: jwb.opsi.teks } : null,
+        opsiBenar: opsiBenar ? { teks: opsiBenar.teks } : null,
+        isBenar: jwb?.isBenar ?? false,
+        tidakDijawab: !jwb
+      };
+    });
+
+    res.json({
+      id: sesi.id,
+      status: sesi.status,
+      nilaiAkhir: sesi.nilaiAkhir,
+      submitReason: sesi.submitReason,
+      mulaiAt: sesi.mulaiAt,
+      selesaiAt: sesi.selesaiAt,
+      jumlahBenar: jawabanDetail.filter(j => j.isBenar).length,
+      totalSoal: soalList.length,
+      siswa: sesi.siswa,
+      ujian: sesi.ujian,
+      pelanggaran: sesi.pelanggaran,
+      jawaban: jawabanDetail
+    });
   } catch(error) { next(error); }
 });
 

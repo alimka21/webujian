@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, Clock, AlertTriangle, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertTriangle, ArrowLeft, ShieldAlert, ChevronDown, ChevronUp, MinusCircle } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import api from '../../../lib/api';
@@ -9,6 +9,16 @@ interface Pelanggaran {
   tipe: string;
   pesan: string;
   timestamp: string;
+}
+
+interface JawabanItem {
+  nomor: number;
+  teks: string;
+  tipe: string;
+  opsiDipilih: { teks: string } | null;
+  opsiBenar: { teks: string } | null;
+  isBenar: boolean;
+  tidakDijawab: boolean;
 }
 
 interface HasilData {
@@ -23,6 +33,7 @@ interface HasilData {
   siswa: { nama: string };
   ujian: { judul: string; mataPelajaran: string; durasi: number };
   pelanggaran: Pelanggaran[];
+  jawaban: JawabanItem[];
 }
 
 function formatDurasi(mulaiAt: string, selesaiAt: string): string {
@@ -58,6 +69,7 @@ export default function HasilUjian() {
   const navigate = useNavigate();
   const [data, setData] = useState<HasilData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -87,7 +99,7 @@ export default function HasilUjian() {
   }
 
   const nilai = data.nilaiAkhir ?? 0;
-  const nilaiDisplay = nilai.toFixed(2);
+  const nilaiDisplay = Math.round(nilai * 100) / 100;
 
   const scoreColor =
     nilai >= 75 ? 'text-emerald-600' :
@@ -105,6 +117,7 @@ export default function HasilUjian() {
     'Belum Lulus';
 
   const submitInfo = labelSubmit(data.submitReason, data.status);
+  const tidakDijawabCount = data.jawaban?.filter(j => j.tidakDijawab).length ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
@@ -198,11 +211,79 @@ export default function HasilUjian() {
         </div>
       )}
 
+      {/* Review Jawaban (collapsible) */}
+      {data.jawaban && data.jawaban.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+            onClick={() => setReviewOpen(o => !o)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800">Review Jawaban</span>
+              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                {data.jumlahBenar} benar · {data.totalSoal - data.jumlahBenar - tidakDijawabCount} salah · {tidakDijawabCount} kosong
+              </span>
+            </div>
+            {reviewOpen
+              ? <ChevronUp className="w-5 h-5 text-slate-400" />
+              : <ChevronDown className="w-5 h-5 text-slate-400" />
+            }
+          </button>
+
+          {reviewOpen && (
+            <div className="border-t border-slate-100 divide-y divide-slate-100">
+              {data.jawaban.map((item) => (
+                <div
+                  key={item.nomor}
+                  className={`px-5 py-4 flex gap-4 items-start ${
+                    item.tidakDijawab ? 'bg-slate-50/50' :
+                    item.isBenar ? 'bg-emerald-50/40' : 'bg-red-50/40'
+                  }`}
+                >
+                  {/* Nomor + ikon */}
+                  <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+                    <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">
+                      {item.nomor}
+                    </span>
+                    {item.tidakDijawab
+                      ? <MinusCircle className="w-4 h-4 text-slate-400" />
+                      : item.isBenar
+                        ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        : <XCircle className="w-4 h-4 text-red-500" />
+                    }
+                  </div>
+
+                  {/* Konten */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-800 leading-snug mb-2">{item.teks}</p>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-slate-500 shrink-0 w-28">Jawaban kamu:</span>
+                        {item.tidakDijawab ? (
+                          <span className="italic text-slate-400">Tidak dijawab</span>
+                        ) : (
+                          <span className={`font-medium ${item.isBenar ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {item.opsiDipilih?.teks ?? '—'}
+                          </span>
+                        )}
+                      </div>
+                      {!item.isBenar && (
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-slate-500 shrink-0 w-28">Jawaban benar:</span>
+                          <span className="font-medium text-emerald-700">{item.opsiBenar?.teks ?? '—'}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* CTA */}
-      <Button
-        className="w-full"
-        onClick={() => navigate('/dashboard/siswa')}
-      >
+      <Button className="w-full" onClick={() => navigate('/dashboard/siswa')}>
         Kembali ke Dashboard
       </Button>
     </div>

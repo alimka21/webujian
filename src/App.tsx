@@ -31,6 +31,7 @@ import RekapNilai from './pages/dashboard/guru/RekapNilai';
 import SiswaDashboard from './pages/dashboard/SiswaDashboard';
 import ExamList from './pages/dashboard/ExamList';
 import RiwayatNilaiSiswa from './pages/dashboard/RiwayatNilaiSiswa';
+import HasilUjian from './pages/dashboard/siswa/HasilUjian';
 import TakeExam from './pages/exam/TakeExam';
 
 export default function App() {
@@ -148,6 +149,11 @@ export default function App() {
             <Route path="riwayat" element={
               <ProtectedRoute allowedRoles={['SISWA']}>
                 <RiwayatNilaiSiswa />
+              </ProtectedRoute>
+            } />
+            <Route path="hasil/:sessionId" element={
+              <ProtectedRoute allowedRoles={['SISWA']}>
+                <HasilUjian />
               </ProtectedRoute>
             } />
           </Route>

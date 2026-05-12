@@ -18,6 +18,7 @@ const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) |
 // ── CORS dinamis: dev + production ────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:3000",
   process.env.FRONTEND_URL,
 ].filter((x): x is string => !!x);
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuthStore, Role } from '../store/authStore';
 import { Button } from '../components/ui/button';
 import { Input, Label } from '../components/ui/input';
@@ -148,7 +149,11 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="password">Kata Sandi</Label>
-                  <button type="button" className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                  <button
+                    type="button"
+                    onClick={() => toast.info('Silakan hubungi administrator sekolah untuk reset password')}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
                     Lupa sandi?
                   </button>
                 </div>

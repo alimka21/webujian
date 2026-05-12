@@ -1,35 +1,34 @@
 import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input, Label } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, ExternalLink, Search, Globe, FileEdit, X } from 'lucide-react';
 import api from '../../lib/api';
+import { useModalA11y } from '../../hooks/useModalA11y';
+
+const EMPTY_FORM = { judul: '', ringkasan: '', konten: '', imageUrl: '', status: 'DRAFT', slug: '' };
 
 export default function CmsManage() {
   const [beritaList, setBeritaList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [search, setSearch] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    judul: '',
-    ringkasan: '',
-    konten: '',
-    imageUrl: '',
-    status: 'DRAFT',
-    slug: ''
-  });
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const modalRef = useModalA11y<HTMLDivElement>(showModal, () => setShowModal(false));
 
   const fetchBerita = async () => {
     try {
       setIsLoading(true);
-      const endpoint = filterStatus === 'ALL' ? '/api/berita' : `/api/berita?status=${filterStatus}`;
-      const res = await api.get(endpoint);
+      const res = await api.get('/api/admin/berita');
       setBeritaList(res);
     } catch (error) {
       console.error(error);
@@ -38,63 +37,41 @@ export default function CmsManage() {
     }
   };
 
-  useEffect(() => {
-    fetchBerita();
-  }, [filterStatus]);
+  useEffect(() => { fetchBerita(); }, []);
 
-  const generateSlug = (title: string) => {
-    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-  };
+  const generateSlug = (title: string) =>
+    title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      judul: title,
-      // Only auto-generate slug if creating new
-      slug: editingId ? prev.slug : generateSlug(title)
-    }));
+    setFormData(prev => ({ ...prev, judul: title, slug: editingId ? prev.slug : generateSlug(title) }));
   };
 
   const handleOpenModal = (b?: any) => {
     if (b) {
       setEditingId(b.id);
-      setFormData({
-        judul: b.judul,
-        ringkasan: b.ringkasan || '',
-        konten: b.konten,
-        imageUrl: b.imageUrl || '',
-        status: b.status,
-        slug: b.slug
-      });
+      setFormData({ judul: b.judul, ringkasan: b.ringkasan || '', konten: b.konten, imageUrl: b.imageUrl || '', status: b.status, slug: b.slug });
     } else {
       setEditingId(null);
-      setFormData({
-        judul: '',
-        ringkasan: '',
-        konten: '',
-        imageUrl: '',
-        status: 'DRAFT',
-        slug: ''
-      });
+      setFormData({ ...EMPTY_FORM });
     }
     setShowModal(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.judul || !formData.konten || !formData.slug) {
-      toast.error("Judul, Slug, dan Konten wajib diisi!");
+  const handleSave = async (overrideStatus?: string) => {
+    const payload = overrideStatus ? { ...formData, status: overrideStatus } : formData;
+    if (!payload.judul || !payload.konten || !payload.slug) {
+      toast.error('Judul, Slug, dan Konten wajib diisi!');
       return;
     }
-
     try {
       setIsSubmitting(true);
       if (editingId) {
-        await api.patch(`/api/berita/${editingId}`, formData);
+        await api.patch(`/api/admin/berita/${editingId}`, payload);
       } else {
-        await api.post('/api/berita', formData);
+        await api.post('/api/admin/berita', payload);
       }
+      toast.success(overrideStatus === 'PUBLISHED' ? 'Berita berhasil diterbitkan!' : 'Draft berhasil disimpan!');
       setShowModal(false);
       fetchBerita();
     } catch (error: any) {
@@ -104,14 +81,39 @@ export default function CmsManage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus berita ini?')) return;
+  const handleTogglePublish = async (b: any) => {
+    const next = b.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
     try {
-      await api.delete(`/api/berita/${id}`);
+      setTogglingId(b.id);
+      await api.patch(`/api/admin/berita/${b.id}`, { status: next });
+      toast.success(next === 'PUBLISHED' ? 'Berita diterbitkan!' : 'Berita dijadikan draft.');
+      fetchBerita();
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal mengubah status');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/api/admin/berita/${id}`);
+      setDeleteConfirmId(null);
+      toast.success('Berita dihapus.');
       fetchBerita();
     } catch (error: any) {
       toast.error(error.message || 'Gagal menghapus berita');
     }
+  };
+
+  const displayList = beritaList
+    .filter(b => filterStatus === 'ALL' || b.status === filterStatus)
+    .filter(b => !search || b.judul.toLowerCase().includes(search.toLowerCase()));
+
+  const statusBadge = (status: string) => {
+    if (status === 'PUBLISHED') return <Badge className="bg-green-100 text-green-700 border-0 hover:bg-green-100">Published</Badge>;
+    if (status === 'DRAFT') return <Badge variant="outline" className="text-slate-600">Draft</Badge>;
+    return <Badge variant="outline" className="text-slate-400">Archived</Badge>;
   };
 
   return (
@@ -127,78 +129,117 @@ export default function CmsManage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Daftar Artikel</CardTitle>
-            </div>
-            <div className="w-full sm:w-64">
-              <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <CardHeader className="pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <CardTitle>Daftar Artikel</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Cari judul..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-52">
                 <option value="ALL">Semua Status</option>
-                <option value="PUBLISHED">Ditayangkan (Published)</option>
-                <option value="DRAFT">Konsep (Draft)</option>
-                <option value="ARCHIVED">Diarsipkan (Archived)</option>
+                <option value="PUBLISHED">Published</option>
+                <option value="DRAFT">Draft</option>
+                <option value="ARCHIVED">Archived</option>
               </Select>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="py-12 text-center text-slate-500">Memuat konten...</div>
-          ) : beritaList.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-200 rounded-xl">
+          ) : displayList.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-200 rounded-xl m-6">
               <p className="text-lg font-medium text-slate-700">Tidak ada berita</p>
-              <p className="text-sm">Klik "Tambah Berita" untuk mulai menulis konten.</p>
+              <p className="text-sm">{search ? 'Coba kata kunci lain.' : 'Klik "Tambah Berita" untuk mulai menulis.'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
                   <tr>
-                    <th className="px-4 py-3 font-semibold w-24">Thumbnail</th>
+                    <th className="px-4 py-3 font-semibold w-20">Gambar</th>
                     <th className="px-4 py-3 font-semibold">Judul & Detail</th>
                     <th className="px-4 py-3 font-semibold text-center">Status</th>
-                    <th className="px-4 py-3 font-semibold text-center w-32">Aksi</th>
+                    <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Dibuat</th>
+                    <th className="px-4 py-3 font-semibold text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {beritaList.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-4">
-                        <div className="w-16 h-12 bg-slate-100 rounded border border-slate-200 overflow-hidden flex items-center justify-center">
-                          {b.imageUrl ? (
-                            <img src={b.imageUrl} alt={b.judul} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-[10px] text-slate-400">No Img</span>
+                  {displayList.map(b => (
+                    <React.Fragment key={b.id}>
+                      <tr className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-4">
+                          <div className="w-16 h-12 bg-slate-100 rounded border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                            {b.imageUrl
+                              ? <img src={b.imageUrl} alt={b.judul} className="w-full h-full object-cover" />
+                              : <span className="text-[10px] text-slate-400">No Img</span>
+                            }
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 max-w-xs">
+                          <p className="font-semibold text-slate-900 line-clamp-1">{b.judul}</p>
+                          <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">/{b.slug}</p>
+                          {b.ringkasan && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{b.ringkasan}</p>}
+                        </td>
+                        <td className="px-4 py-4 text-center">{statusBadge(b.status)}</td>
+                        <td className="px-4 py-4 text-center text-xs text-slate-500 whitespace-nowrap">
+                          <div>{new Date(b.createdAt).toLocaleDateString('id-ID')}</div>
+                          {b.publishedAt && b.status === 'PUBLISHED' && (
+                            <div className="text-green-600 mt-0.5">
+                              Publish: {new Date(b.publishedAt).toLocaleDateString('id-ID')}
+                            </div>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-slate-900 line-clamp-1">{b.judul}</p>
-                        <p className="text-xs text-slate-500 truncate mt-1">/{b.slug}</p>
-                        <p className="text-xs text-slate-400 mt-1">Dibuat: {new Date(b.createdAt).toLocaleDateString()}</p>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <Badge variant={b.status === 'PUBLISHED' ? 'success' : b.status === 'DRAFT' ? 'secondary' : 'outline'} className={b.status === 'PUBLISHED' ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}>
-                          {b.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex justify-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenModal(b)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2" title="Edit">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(b.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2" title="Hapus">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                          {b.status === 'PUBLISHED' && (
-                            <Button variant="ghost" size="sm" onClick={() => window.open(`/berita/${b.slug}`, '_blank')} className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2" title="Lihat Publik">
-                               <ExternalLink className="w-4 h-4" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex justify-center items-center gap-1.5 flex-wrap">
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={() => handleTogglePublish(b)}
+                              disabled={togglingId === b.id || b.status === 'ARCHIVED'}
+                              title={b.status === 'PUBLISHED' ? 'Jadikan Draft' : 'Terbitkan'}
+                              className={`h-8 px-2 ${b.status === 'PUBLISHED' ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
+                            >
+                              {b.status === 'PUBLISHED' ? <FileEdit className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
                             </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenModal(b)} className="text-blue-600 hover:bg-blue-50 h-8 px-2" title="Edit">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(b.id)} className="text-red-500 hover:bg-red-50 h-8 px-2" title="Hapus">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                            {b.status === 'PUBLISHED' && (
+                              <Button variant="ghost" size="sm" onClick={() => window.open(`/berita/${b.slug}`, '_blank')} className="text-slate-500 hover:bg-slate-100 h-8 px-2" title="Lihat Publik">
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {deleteConfirmId === b.id && (
+                        <tr className="bg-red-50">
+                          <td colSpan={5} className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-red-700 font-medium flex-1">
+                                Hapus "<span className="font-semibold">{b.judul}</span>"? Tindakan ini tidak dapat dibatalkan.
+                              </span>
+                              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 px-3 text-xs" onClick={() => handleDelete(b.id)}>
+                                Ya, Hapus
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 px-3 text-xs" onClick={() => setDeleteConfirmId(null)}>
+                                Batal
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -207,84 +248,112 @@ export default function CmsManage() {
         </CardContent>
       </Card>
 
-      {/* Modal / Form Edit */}
+      {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 backdrop-blur-sm shadow-2xl overflow-y-auto">
-          <Card className="w-full max-w-4xl border-0 shadow-xl my-auto flex flex-col max-h-full">
-            <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4 shrink-0">
-              <div className="flex justify-between items-center">
-                <CardTitle>{editingId ? 'Edit Berita' : 'Tulis Berita Baru'}</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowModal(false)}>Batal</Button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="berita-modal-title"
+            className="bg-white w-full max-w-4xl rounded-2xl shadow-xl my-auto flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <h2 id="berita-modal-title" className="text-lg font-bold text-slate-900">{editingId ? 'Edit Berita' : 'Tulis Berita Baru'}</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400" aria-label="Tutup modal">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="judul">Judul Artikel <span className="text-red-500">*</span></Label>
+                <Input id="judul" value={formData.judul} onChange={handleTitleChange} placeholder="Tuliskan judul menarik..." className="text-base font-medium h-11" />
               </div>
-            </CardHeader>
-            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
-              <CardContent className="pt-6 space-y-4 overflow-y-auto max-h-[60vh] scroller">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="judul">Judul Artikel <span className="text-red-500">*</span></Label>
-                  <Input id="judul" required value={formData.judul} onChange={handleTitleChange} placeholder="Tuliskan judul menarik..." className="text-lg font-medium h-12" />
+                  <Label htmlFor="slug">Slug (URL) <span className="text-red-500">*</span></Label>
+                  <Input id="slug" value={formData.slug} onChange={e => setFormData({ ...formData, slug: e.target.value })} placeholder="contoh-judul-berita" className="font-mono text-sm" />
                 </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="slug">Slug (URL) <span className="text-red-500">*</span></Label>
-                    <Input id="slug" required value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} placeholder="contoh-judul-berita" />
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">URL Gambar Header</Label>
+                <Input id="imageUrl" value={formData.imageUrl} onChange={e => setFormData({ ...formData, imageUrl: e.target.value })} placeholder="https://..." />
+                {formData.imageUrl && (
+                  <div className="mt-2 h-36 w-64 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={formData.imageUrl} alt="preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status Publikasi</Label>
-                    <Select id="status" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                      <option value="DRAFT">Simpan sebagai Draft</option>
-                      <option value="PUBLISHED">Langsung Terbitkan (Published)</option>
-                      <option value="ARCHIVED">Arsipkan (Archived)</option>
-                    </Select>
-                  </div>
-                </div>
+                )}
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">URL Gambar Header (Thumbnail)</Label>
-                  <Input id="imageUrl" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} placeholder="https://..." />
-                  {formData.imageUrl && (
-                    <div className="mt-2 h-32 w-48 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                      <img src={formData.imageUrl} alt="preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="ringkasan">Ringkasan</Label>
+                <textarea
+                  id="ringkasan"
+                  value={formData.ringkasan}
+                  onChange={e => setFormData({ ...formData, ringkasan: e.target.value })}
+                  rows={2}
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Ringkasan singkat 1-2 kalimat yang tampil di halaman depan..."
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ringkasan">Ringkasan (Tampil di halaman depan)</Label>
-                  <textarea 
-                    id="ringkasan"
-                    value={formData.ringkasan}
-                    onChange={e => setFormData({...formData, ringkasan: e.target.value})}
-                    className="w-full h-20 p-3 rounded-md border border-gray-200 bg-transparent text-sm focus-[1.5px] border-blue-500 outline-none resize-none"
-                    placeholder="Ringkasan singkat 1-2 kalimat..."
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="konten">Isi Konten Lengkap <span className="text-red-500">*</span></Label>
+                <textarea
+                  id="konten"
+                  value={formData.konten}
+                  onChange={e => setFormData({ ...formData, konten: e.target.value })}
+                  rows={12}
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono"
+                  placeholder="Tuliskan konten lengkap di sini. Mendukung Markdown..."
+                />
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="konten">Isi Konten Lengkap <span className="text-red-500">*</span></Label>
-                  <textarea 
-                    id="konten"
-                    required
-                    value={formData.konten}
-                    onChange={e => setFormData({...formData, konten: e.target.value})}
-                    className="w-full h-64 p-3 rounded-md border border-gray-200 bg-transparent text-sm focus-[1.5px] border-blue-500 outline-none resize-y"
-                    placeholder="Tuliskan berita lengkap di sini. Anda bisa menggunakan markdown jika perlu..."
-                  />
-                </div>
-              </CardContent>
-              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-                {formData.status === 'DRAFT' && (
-                  <Button type="button" variant="outline" className="mr-auto gap-2" onClick={() => window.open(`/berita/preview?t=${Date.now()}`, '_blank')}>
-                    <Eye className="w-4 h-4" /> Preview
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center gap-3 shrink-0 bg-slate-50 rounded-b-2xl">
+              <div className="flex gap-2">
+                {formData.status === 'PUBLISHED' && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => window.open(`/berita/${formData.slug}`, '_blank')} className="gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> Preview
                   </Button>
                 )}
+              </div>
+              <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={isSubmitting}>Batal</Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Konten'}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleSave('DRAFT')}
+                  disabled={isSubmitting}
+                  className="gap-2"
+                >
+                  {isSubmitting ? <div className="w-3.5 h-3.5 border-2 border-slate-400/40 border-t-slate-400 rounded-full animate-spin" /> : null}
+                  Simpan Draft
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleSave('PUBLISHED')}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 gap-2"
+                >
+                  {isSubmitting ? <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                  Publish Sekarang
                 </Button>
               </div>
-            </form>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>

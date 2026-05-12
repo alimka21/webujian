@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Select } from '../../components/ui/select';
 import { Input, Label } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Calendar as CalendarIcon, CheckSquare, Save, Download, BarChart2 } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, Save, Download, BarChart2, ChevronUp, ChevronDown } from 'lucide-react';
 import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -27,6 +27,9 @@ export default function Attendance() {
   const [rekapTahun, setRekapTahun] = useState(new Date().getFullYear());
   const [rekapData, setRekapData] = useState<any[]>([]);
   const [isLoadingRekap, setIsLoadingRekap] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [sortField, setSortField] = useState<string>('nama');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchKelas();
@@ -39,8 +42,8 @@ export default function Attendance() {
       if (res.length > 0) {
         setSelectedKelas(res[0].id);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Gagal memuat daftar kelas');
     }
   };
 
@@ -56,8 +59,7 @@ export default function Attendance() {
     try {
       setIsLoadingSiswa(true);
       // 1. Ambil daftar siswa
-      const kelasData = await api.get(`/api/guru/kelas/${selectedKelas}`);
-      const listSiswa = kelasData.siswa || [];
+      const listSiswa: any[] = await api.get(`/api/guru/siswa?kelasId=${selectedKelas}`);
       
       // 2. Cek apakah di tanggal tersebut sudah ada presensi?
       const existingPresensi = await api.get(`/api/guru/presensi?kelasId=${selectedKelas}&tanggal=${tanggalPilih}`);
@@ -86,8 +88,8 @@ export default function Attendance() {
           keterangan: ''
         })));
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Gagal memuat data siswa');
     } finally {
       setIsLoadingSiswa(false);
     }
@@ -98,8 +100,8 @@ export default function Attendance() {
       setIsLoadingRekap(true);
       const res = await api.get(`/api/guru/presensi/rekap?kelasId=${selectedKelas}&bulan=${rekapBulan}&tahun=${rekapTahun}`);
       setRekapData(res);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Gagal memuat rekap presensi');
     } finally {
       setIsLoadingRekap(false);
     }
@@ -115,6 +117,51 @@ export default function Attendance() {
 
   const handleMarkAllHadir = () => {
     setPresensiSiswa(prev => prev.map(s => ({ ...s, status: 'HADIR' })));
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRekap = [...rekapData].sort((a, b) => {
+    const mul = sortDir === 'asc' ? 1 : -1;
+    if (typeof a[sortField] === 'string') return a[sortField].localeCompare(b[sortField]) * mul;
+    return ((a[sortField] ?? 0) - (b[sortField] ?? 0)) * mul;
+  });
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      let token = localStorage.getItem('token');
+      if (!token) {
+        try {
+          const raw = localStorage.getItem('auth-storage');
+          if (raw) token = JSON.parse(raw)?.state?.token;
+        } catch { /* ignore */ }
+      }
+      const url = `/api/guru/presensi/export?kelasId=${selectedKelas}&bulan=${rekapBulan}&tahun=${rekapTahun}`;
+      const resp = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!resp.ok) throw new Error('Gagal mengunduh file');
+      const blob = await resp.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `Presensi_${rekapBulan}_${rekapTahun}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(href);
+      toast.success('File Excel berhasil diunduh');
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal mengunduh file');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -332,27 +379,43 @@ export default function Attendance() {
                   </div>
 
                   <div className="flex justify-end mb-3">
-                     <Button variant="outline" size="sm" className="gap-2" onClick={() => toast('Fitur export ke Excel sedang dalam pengembangan')}>
-                       <Download className="w-4 h-4" /> Export Excel
-                     </Button>
+                    <Button variant="outline" size="sm" className="gap-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={handleExport} disabled={isExporting}>
+                      {isExporting ? <div className="w-4 h-4 border-2 border-green-700/40 border-t-green-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+                      Export Excel
+                    </Button>
                   </div>
 
                   <div className="overflow-x-auto border rounded-lg">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Nama Siswa</th>
-                          <th className="px-4 py-3 font-semibold text-center text-green-700">Hadir</th>
-                          <th className="px-4 py-3 font-semibold text-center text-yellow-700">Izin</th>
-                          <th className="px-4 py-3 font-semibold text-center text-orange-700">Sakit</th>
-                          <th className="px-4 py-3 font-semibold text-center text-red-700">Alpha</th>
-                          <th className="px-4 py-3 font-semibold text-center">% Kehadiran</th>
+                          {[
+                            { field: 'nama', label: 'Nama Siswa', cls: '' },
+                            { field: 'hadir', label: 'Hadir', cls: 'text-center text-green-700' },
+                            { field: 'izin', label: 'Izin', cls: 'text-center text-yellow-700' },
+                            { field: 'sakit', label: 'Sakit', cls: 'text-center text-orange-700' },
+                            { field: 'alpha', label: 'Alpha', cls: 'text-center text-red-700' },
+                            { field: 'persentase', label: '% Kehadiran', cls: 'text-center' },
+                          ].map(col => (
+                            <th key={col.field} className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-slate-100 ${col.cls}`} onClick={() => handleSort(col.field)}>
+                              <span className="inline-flex items-center gap-1">
+                                {col.label}
+                                {sortField === col.field
+                                  ? sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                  : <span className="w-3.5 h-3.5 opacity-30"><ChevronUp className="w-3.5 h-3.5" /></span>
+                                }
+                              </span>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {rekapData.map((siswa, idx) => (
+                        {sortedRekap.map((siswa, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 font-medium text-slate-900">{siswa.nama}</td>
+                            <td className="px-4 py-3 font-medium text-slate-900">
+                              {siswa.nama}
+                              <div className="text-xs text-slate-400 font-normal">{siswa.nis}</div>
+                            </td>
                             <td className="px-4 py-3 text-center font-medium bg-green-50/30">{siswa.hadir}</td>
                             <td className="px-4 py-3 text-center bg-yellow-50/30">{siswa.izin}</td>
                             <td className="px-4 py-3 text-center bg-orange-50/30">{siswa.sakit}</td>

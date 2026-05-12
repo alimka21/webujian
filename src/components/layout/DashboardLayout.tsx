@@ -82,7 +82,11 @@ export default function DashboardLayout() {
             <GraduationCap className="w-6 h-6 text-blue-500" />
             <span>EduGenZ</span>
           </div>
-          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <button
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Tutup menu navigasi"
+          >
             <X className="w-5 h-5 text-slate-400 hover:text-white" />
           </button>
         </div>
@@ -99,7 +103,7 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto" aria-label="Menu utama">
           {navItems.map((item) => {
             const active = isActiveRoute(item.href);
             return (
@@ -136,9 +140,10 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
         <header className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 shadow-sm z-10">
-          <button 
+          <button
             className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Buka menu navigasi"
           >
             <Menu className="w-6 h-6" />
           </button>

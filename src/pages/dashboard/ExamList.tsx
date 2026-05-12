@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
-import { Clock, BookOpen, AlertCircle, FileText, CheckCircle2, History } from "lucide-react";
+import { Select } from "../../components/ui/select";
+import { Clock, BookOpen, AlertCircle, FileText, CheckCircle2, History, ChevronUp, ChevronDown } from "lucide-react";
 import api from "../../lib/api";
 import { formatDate } from "../../lib/utils";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 export default function ExamList() {
   const navigate = useNavigate();
@@ -18,6 +20,12 @@ export default function ExamList() {
 
   // Modal konfirmasi mulai
   const [confirmModal, setConfirmModal] = useState<any | null>(null);
+  const confirmModalRef = useModalA11y<HTMLDivElement>(confirmModal !== null, () => setConfirmModal(null));
+
+  // Riwayat filter + sort
+  const [filterMapel, setFilterMapel] = useState<string>('');
+  const [sortField, setSortField] = useState<'selesaiAt' | 'nilaiAkhir'>('selesaiAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchData();
@@ -27,10 +35,10 @@ export default function ExamList() {
     try {
       setIsLoading(true);
       if (activeTab === 'AKTIF') {
-        const res = await api.get('/api/siswa/ujian/aktif');
+        const res = await api.get('/api/siswa/ujian-aktif');
         setUjianAktif(res);
       } else {
-        const res = await api.get('/api/siswa/ujian/riwayat');
+        const res = await api.get('/api/siswa/hasil');
         setRiwayat(res);
       }
     } catch (error) {
@@ -58,6 +66,27 @@ export default function ExamList() {
     if (score >= 60) return 'text-yellow-600 font-bold bg-yellow-50';
     return 'text-red-600 font-bold bg-red-50';
   };
+
+  const mapelList = Array.from(new Set(riwayat.map(s => s.ujian.mataPelajaran))).sort();
+
+  const handleSortRiwayat = (field: 'selesaiAt' | 'nilaiAkhir') => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const filteredRiwayat = riwayat
+    .filter(s => !filterMapel || s.ujian.mataPelajaran === filterMapel)
+    .sort((a, b) => {
+      const mul = sortDir === 'asc' ? 1 : -1;
+      if (sortField === 'nilaiAkhir') {
+        return ((a.nilaiAkhir ?? -1) - (b.nilaiAkhir ?? -1)) * mul;
+      }
+      return (new Date(a.selesaiAt || a.mulaiAt).getTime() - new Date(b.selesaiAt || b.mulaiAt).getTime()) * mul;
+    });
 
   return (
     <div className="space-y-6">
@@ -136,30 +165,75 @@ export default function ExamList() {
         </div>
       ) : (
         <Card>
+          {riwayat.length > 0 && (
+            <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3">
+              <span className="text-sm text-slate-500 shrink-0">Filter:</span>
+              <Select
+                value={filterMapel}
+                onChange={e => setFilterMapel(e.target.value)}
+                className="h-8 text-sm w-52"
+              >
+                <option value="">Semua Mata Pelajaran</option>
+                {mapelList.map(m => <option key={m} value={m}>{m}</option>)}
+              </Select>
+              {filterMapel && (
+                <button onClick={() => setFilterMapel('')} className="text-xs text-blue-600 hover:underline">Reset</button>
+              )}
+            </div>
+          )}
           <CardContent className="p-0">
             {riwayat.length === 0 ? (
-               <div className="py-12 flex flex-col items-center justify-center text-slate-500 rounded-xl">
-                 <History className="w-12 h-12 text-slate-300 mb-3" />
-                 <p className="text-lg font-medium text-slate-700">Belum ada riwayat</p>
-                 <p className="text-sm">Anda belum mengerjakan ujian apapun.</p>
+              <div className="py-12 flex flex-col items-center justify-center text-slate-500 rounded-xl">
+                <History className="w-12 h-12 text-slate-300 mb-3" />
+                <p className="text-lg font-medium text-slate-700">Belum ada riwayat</p>
+                <p className="text-sm">Anda belum mengerjakan ujian apapun.</p>
+              </div>
+            ) : filteredRiwayat.length === 0 ? (
+              <div className="py-10 text-center text-slate-500 text-sm">
+                Tidak ada ujian untuk mata pelajaran ini.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 text-xs uppercase">
                     <tr>
-                      <th className="px-6 py-4 font-semibold">Tanggal</th>
+                      <th
+                        className="px-6 py-4 font-semibold cursor-pointer select-none hover:bg-slate-100"
+                        onClick={() => handleSortRiwayat('selesaiAt')}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          Tanggal
+                          {sortField === 'selesaiAt'
+                            ? sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                            : <ChevronUp className="w-3.5 h-3.5 opacity-20" />}
+                        </span>
+                      </th>
                       <th className="px-6 py-4 font-semibold">Ujian</th>
                       <th className="px-6 py-4 font-semibold">Mata Pelajaran</th>
                       <th className="px-6 py-4 font-semibold text-center">Status</th>
-                      <th className="px-6 py-4 font-semibold text-center">Nilai</th>
+                      <th
+                        className="px-6 py-4 font-semibold text-center cursor-pointer select-none hover:bg-slate-100"
+                        onClick={() => handleSortRiwayat('nilaiAkhir')}
+                      >
+                        <span className="inline-flex items-center justify-center gap-1">
+                          Nilai
+                          {sortField === 'nilaiAkhir'
+                            ? sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                            : <ChevronUp className="w-3.5 h-3.5 opacity-20" />}
+                        </span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {riwayat.map(sesi => (
-                      <tr key={sesi.id} className="hover:bg-slate-50/50 transition-colors">
+                    {filteredRiwayat.map(sesi => (
+                      <tr
+                        key={sesi.id}
+                        className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/dashboard/siswa/hasil/${sesi.id}`)}
+                        title="Klik untuk lihat detail"
+                      >
                         <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
-                          {formatDate(sesi.waktuSelesai || sesi.waktuMulai)}
+                          {formatDate(sesi.selesaiAt || sesi.mulaiAt)}
                         </td>
                         <td className="px-6 py-4 font-medium text-slate-900">
                           {sesi.ujian.judul}
@@ -168,17 +242,24 @@ export default function ExamList() {
                           {sesi.ujian.mataPelajaran}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <Badge variant="outline" className={sesi.status === 'SELESAI' ? 'border-green-200 text-green-700 bg-green-50' : ''}>
-                            {sesi.status === 'SELESAI' ? 'Selesai' : sesi.status}
+                          <Badge
+                            variant="outline"
+                            className={
+                              sesi.status === 'SELESAI' ? 'border-green-200 text-green-700 bg-green-50' :
+                              sesi.status === 'AUTO_SUBMIT' ? 'border-red-200 text-red-700 bg-red-50' : ''
+                            }
+                          >
+                            {sesi.status === 'SELESAI' ? 'Selesai' :
+                             sesi.status === 'AUTO_SUBMIT' ? 'Auto-Submit' : sesi.status}
                           </Badge>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {sesi.nilai !== null ? (
-                            <span className={`inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded-md ${getScoreColor(sesi.nilai)}`}>
-                              {sesi.nilai}
+                          {sesi.nilaiAkhir !== null ? (
+                            <span className={`inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded-md ${getScoreColor(sesi.nilaiAkhir)}`}>
+                              {sesi.nilaiAkhir}
                             </span>
                           ) : (
-                            <span className="text-slate-400">-</span>
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
                       </tr>
@@ -194,9 +275,15 @@ export default function ExamList() {
       {/* Modal Konfirmasi Mulai Ujian */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <Card className="w-full max-w-md shadow-xl border-0 animate-in fade-in zoom-in-95 duration-200">
+          <Card
+            ref={confirmModalRef as React.RefObject<HTMLDivElement>}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mulai-ujian-title"
+            className="w-full max-w-md shadow-xl border-0 animate-in fade-in zoom-in-95 duration-200"
+          >
             <CardHeader className="bg-blue-50/50 border-b border-blue-100 pb-4">
-              <CardTitle className="text-xl">Mulai Ujian?</CardTitle>
+              <CardTitle id="mulai-ujian-title" className="text-xl">Mulai Ujian?</CardTitle>
               <CardDescription>Perhatikan peraturan sebelum memulai ujian.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">

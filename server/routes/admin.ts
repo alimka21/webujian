@@ -1,6 +1,7 @@
 // server/routes/admin.ts
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import ExcelJS from 'exceljs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 
@@ -78,16 +79,42 @@ router.post('/users', async (req, res, next) => {
 
 router.patch('/users/:id', async (req, res, next) => {
   try {
-    const { email, role, isActive } = req.body;
-    const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { 
-        ...(email && { email }), 
-        ...(role && { role }),
-        ...(isActive !== undefined && { isActive })
+    const { email, isActive, nama, nis, nip, mataPelajaran, kelasId } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: req.params.id },
+        data: {
+          ...(email && { email }),
+          ...(isActive !== undefined && { isActive })
+        }
+      });
+
+      if (user.role === 'GURU') {
+        await tx.guru.update({
+          where: { userId: req.params.id },
+          data: {
+            ...(nama && { nama }),
+            ...(nip && { nip }),
+            ...(mataPelajaran && { mataPelajaran })
+          }
+        });
+      } else if (user.role === 'SISWA') {
+        await tx.siswa.update({
+          where: { userId: req.params.id },
+          data: {
+            ...(nama && { nama }),
+            ...(nis && { nis }),
+            ...(kelasId && { kelasId })
+          }
+        });
       }
     });
-    res.json(user);
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }
@@ -100,6 +127,79 @@ router.delete('/users/:id', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+router.post('/users/:id/reset-password', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: { guru: true, siswa: true }
+    });
+    if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
+
+    let resetTo = 'password123';
+    if (user.role === 'SISWA' && user.siswa) resetTo = user.siswa.nis;
+    else if (user.role === 'GURU' && user.guru?.nip) resetTo = user.guru.nip;
+
+    const hashed = await bcrypt.hash(resetTo, 10);
+    await prisma.user.update({ where: { id: req.params.id }, data: { password: hashed } });
+
+    res.json({ success: true, resetTo });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Kelas (admin)
+router.get('/kelas', async (req, res, next) => {
+  try {
+    const kelas = await prisma.kelas.findMany({
+      include: {
+        guru: { select: { id: true, nama: true } },
+        _count: { select: { siswa: true } }
+      },
+      orderBy: [{ tingkat: 'asc' }, { nama: 'asc' }]
+    });
+    res.json(kelas);
+  } catch (error) { next(error); }
+});
+
+router.post('/kelas', async (req, res, next) => {
+  try {
+    const { nama, tingkat, tahunAjaran, guruId } = req.body;
+    if (!nama || !tingkat || !tahunAjaran || !guruId) {
+      return res.status(400).json({ error: 'Semua field wajib diisi' });
+    }
+    const kelas = await prisma.kelas.create({ data: { nama, tingkat, tahunAjaran, guruId } });
+    res.status(201).json(kelas);
+  } catch (error) { next(error); }
+});
+
+router.patch('/kelas/:id', async (req, res, next) => {
+  try {
+    const { nama, tingkat, tahunAjaran, guruId } = req.body;
+    const kelas = await prisma.kelas.update({
+      where: { id: req.params.id },
+      data: {
+        ...(nama && { nama }),
+        ...(tingkat && { tingkat }),
+        ...(tahunAjaran && { tahunAjaran }),
+        ...(guruId && { guruId })
+      }
+    });
+    res.json(kelas);
+  } catch (error) { next(error); }
+});
+
+router.delete('/kelas/:id', async (req, res, next) => {
+  try {
+    const jumlahSiswa = await prisma.siswa.count({ where: { kelasId: req.params.id } });
+    if (jumlahSiswa > 0) {
+      return res.status(400).json({ error: `Tidak bisa menghapus kelas yang masih memiliki ${jumlahSiswa} siswa` });
+    }
+    await prisma.kelas.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) { next(error); }
 });
 
 // Berita CMS
@@ -177,6 +277,55 @@ router.delete('/alumni/:id', async (req, res, next) => {
   try {
     await prisma.alumni.delete({ where: { id: req.params.id } });
     res.json({ success: true });
+  } catch(error) {
+    next(error);
+  }
+});
+
+router.get('/alumni/export', async (req, res, next) => {
+  try {
+    const alumni = await prisma.alumni.findMany({ orderBy: [{ tahunLulus: 'desc' }, { nama: 'asc' }] });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Data Alumni');
+
+    ws.columns = [
+      { width: 5 }, { width: 28 }, { width: 14 }, { width: 10 },
+      { width: 20 }, { width: 16 }, { width: 24 }, { width: 22 }, { width: 24 }
+    ];
+
+    ws.mergeCells('A1:I1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = 'DATA ALUMNI';
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center' };
+
+    ws.addRow([]);
+
+    const hRow = ws.addRow(['No', 'Nama', 'NIS', 'Thn Lulus', 'Jurusan', 'Status', 'Instansi', 'Posisi', 'Kontak']);
+    hRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    hRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    const statusLabel: Record<string, string> = {
+      BEKERJA: 'Bekerja', KULIAH: 'Kuliah',
+      WIRAUSAHA: 'Wirausaha', TIDAK_DIKETAHUI: 'Tidak Diketahui'
+    };
+
+    alumni.forEach((al, idx) => {
+      ws.addRow([
+        idx + 1, al.nama, al.nis ?? '-', al.tahunLulus,
+        al.jurusan ?? '-', statusLabel[al.status] ?? al.status,
+        al.instansi ?? '-', al.posisi ?? '-', al.kontak ?? '-'
+      ]);
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="data-alumni.xlsx"');
+    res.send(Buffer.from(buf));
   } catch(error) {
     next(error);
   }
