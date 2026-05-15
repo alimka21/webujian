@@ -9,6 +9,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server.ts", "lib/**/*", "routes/**/*", "prisma/**/*"],
+  "include": ["server.ts", "lib/**/*", "routes/**/*", "prisma/**/*", "types/**/*", "middleware.ts"],
   "exclude": ["node_modules", "dist"]
 }

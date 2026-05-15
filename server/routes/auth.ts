@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 router.post('/login', async (req, res, next) => {
   try {

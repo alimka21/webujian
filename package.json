@@ -11,6 +11,8 @@
     "dev:client": "vite",
     "dev:server": "npm run dev --prefix server",
     "build": "tsc && vite build",
+    "build:all": "npm run build && npm run build --prefix server",
+    "start": "node server/dist/server.js",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },

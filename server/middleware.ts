@@ -2,7 +2,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET wajib di-set di environment variable dan minimal 32 karakter. Generate dengan: openssl rand -base64 48');
+}
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -15,8 +18,8 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
       return res.status(401).json({ error: 'Belum login' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; 
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token tidak valid atau sudah kadaluarsa' });
@@ -25,7 +28,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 
 export const requireRole = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes((req.user as any).role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Akses ditolak. Anda tidak memiliki izin.' });
     }
     next();

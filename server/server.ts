@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import path from "path";
 
 import { logger, errorHandler } from './middleware';
 import authRoutes from './routes/auth';
@@ -63,6 +64,15 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
     error: err.message || "Internal server error",
   });
 });
+
+// ── Serve frontend (production only) ─────────────────
+if (process.env.NODE_ENV === "production") {
+  const frontendDist = path.join(__dirname, "../../dist");
+  app.use(express.static(frontendDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`✅ Backend siap di http://localhost:${PORT}`);
