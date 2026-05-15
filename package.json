@@ -10,8 +10,7 @@
     "dev": "concurrently -n FE,BE -c blue,green \"vite\" \"npm run dev --prefix server\"",
     "dev:client": "vite",
     "dev:server": "npm run dev --prefix server",
-    "build": "vite build",
-    "build:all": "npm run build && npm run build --prefix server",
+    "build": "vite build && npm run build --prefix server",
     "start": "node server/dist/server.js",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
