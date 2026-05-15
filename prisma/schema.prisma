@@ -11,16 +11,16 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique // Digunakan untuk login guru/admin, digabung dengan @siswa.sch.id untuk siswa
   password  String
-  role      String   // SUPER_ADMIN, GURU, SISWA
+  role      String // SUPER_ADMIN, GURU, SISWA
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // UserProfile
-  admin    Admin?
-  guru     Guru?
-  siswa    Siswa?
-  
+  admin Admin?
+  guru  Guru?
+  siswa Siswa?
+
   sessions UserSession[]
 }
 
@@ -54,12 +54,12 @@ model Guru {
 }
 
 model Kelas {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   nama        String
   tingkat     String
   tahunAjaran String
   guruId      String
-  guru        Guru     @relation(fields: [guruId], references: [id])
+  guru        Guru   @relation(fields: [guruId], references: [id])
 
   siswa      Siswa[]
   kelasUjian UjianKelas[]
@@ -82,7 +82,7 @@ model Ujian {
   judul          String
   mataPelajaran  String
   tipeUjian      String?   @default("ULANGAN_HARIAN")
-  durasi         Int       // dalam menit
+  durasi         Int // dalam menit
   tanggalMulai   DateTime?
   tanggalSelesai DateTime?
   acak           Boolean   @default(false)
@@ -107,9 +107,9 @@ model UjianKelas {
 }
 
 model Soal {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   ujianId  String
-  ujian    Ujian  @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  ujian    Ujian   @relation(fields: [ujianId], references: [id], onDelete: Cascade)
   nomor    Int
   teks     String
   imageUrl String?
@@ -121,9 +121,9 @@ model Soal {
 }
 
 model Opsi {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   soalId   String
-  soal     Soal   @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  soal     Soal    @relation(fields: [soalId], references: [id], onDelete: Cascade)
   teks     String
   imageUrl String?
   urutan   Int
@@ -138,7 +138,7 @@ model SesiUjian {
   ujian        Ujian     @relation(fields: [ujianId], references: [id], onDelete: Cascade)
   siswaId      String
   siswa        Siswa     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
-  status       String    // BELUM_MULAI, SEDANG_BERLANGSUNG, SELESAI, AUTO_SUBMIT
+  status       String // BELUM_MULAI, SEDANG_BERLANGSUNG, SELESAI, AUTO_SUBMIT
   mulaiAt      DateTime?
   selesaiAt    DateTime?
   nilaiRaw     Float?
@@ -168,7 +168,7 @@ model Pelanggaran {
   id        String    @id @default(uuid())
   sesiId    String
   sesi      SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
-  tipe      String    // TAB_SWITCH, FULLSCREEN_EXIT, WINDOW_BLUR, DEVTOOLS
+  tipe      String // TAB_SWITCH, FULLSCREEN_EXIT, WINDOW_BLUR, DEVTOOLS
   pesan     String
   timestamp DateTime  @default(now())
 }
@@ -179,23 +179,23 @@ model Presensi {
   kelasId    String
   guruId     String
   tanggal    DateTime
-  status     String   // HADIR, IZIN, SAKIT, ALPHA
+  status     String // HADIR, IZIN, SAKIT, ALPHA
   keterangan String?
 
   @@unique([siswaId, tanggal])
 }
 
 model Alumni {
-  id          String  @id @default(uuid())
-  nama        String
-  nis         String?
-  tahunLulus  Int
-  jurusan     String?
-  status      String  // BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI
-  instansi    String?
-  posisi      String?
-  kontak      String?
-  fotoUrl     String?
+  id         String  @id @default(uuid())
+  nama       String
+  nis        String?
+  tahunLulus Int
+  jurusan    String?
+  status     String // BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI
+  instansi   String?
+  posisi     String?
+  kontak     String?
+  fotoUrl    String?
 }
 
 model Berita {
@@ -205,7 +205,7 @@ model Berita {
   konten      String
   ringkasan   String?
   imageUrl    String?
-  status      String    // DRAFT, PUBLISHED, ARCHIVED
+  status      String // DRAFT, PUBLISHED, ARCHIVED
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -680,12 +680,6 @@ router.post('/presensi', async (req, res, next) => {
     const tgl = new Date(tanggal);
     tgl.setHours(0,0,0,0);
 
-    const ops = presensi.map((p: any) => {
-      // Kita pakai prisma.presensi.upsert jika mungkin disupport oleh provider (di SQLite unique constraint [siswaId, tanggal])
-      // Tapi untuk aman, bisa bikin array lalu insert, dengan penghapusan sebelumnya
-      return p;
-    });
-
     // Menghindari duplikat per hari
     await prisma.presensi.deleteMany({
       where: {

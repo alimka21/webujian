@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -11,16 +11,16 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique // Digunakan untuk login guru/admin, digabung dengan @siswa.sch.id untuk siswa
   password  String
-  role      String   // SUPER_ADMIN, GURU, SISWA
+  role      String // SUPER_ADMIN, GURU, SISWA
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // UserProfile
-  admin    Admin?
-  guru     Guru?
-  siswa    Siswa?
-  
+  admin Admin?
+  guru  Guru?
+  siswa Siswa?
+
   sessions UserSession[]
 }
 
@@ -28,7 +28,7 @@ model UserSession {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
+  token     String   @unique @db.VarChar(512)
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
@@ -49,20 +49,22 @@ model Guru {
   mataPelajaran String
   fotoUrl       String?
 
-  kelas Kelas[]
-  ujian Ujian[]
+  kelas    Kelas[]
+  ujian    Ujian[]
+  presensi Presensi[]
 }
 
 model Kelas {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   nama        String
   tingkat     String
   tahunAjaran String
   guruId      String
-  guru        Guru     @relation(fields: [guruId], references: [id])
+  guru        Guru   @relation(fields: [guruId], references: [id])
 
   siswa      Siswa[]
   kelasUjian UjianKelas[]
+  presensi   Presensi[]
 }
 
 model Siswa {
@@ -75,6 +77,7 @@ model Siswa {
   kelas   Kelas  @relation(fields: [kelasId], references: [id])
 
   sesiUjian SesiUjian[]
+  presensi  Presensi[]
 }
 
 model Ujian {
@@ -82,7 +85,7 @@ model Ujian {
   judul          String
   mataPelajaran  String
   tipeUjian      String?   @default("ULANGAN_HARIAN")
-  durasi         Int       // dalam menit
+  durasi         Int // dalam menit
   tanggalMulai   DateTime?
   tanggalSelesai DateTime?
   acak           Boolean   @default(false)
@@ -107,11 +110,11 @@ model UjianKelas {
 }
 
 model Soal {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   ujianId  String
-  ujian    Ujian  @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  ujian    Ujian   @relation(fields: [ujianId], references: [id], onDelete: Cascade)
   nomor    Int
-  teks     String 
+  teks     String  @db.Text
   imageUrl String?
   tipe     String // PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH
   poin     Float
@@ -121,10 +124,10 @@ model Soal {
 }
 
 model Opsi {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   soalId   String
-  soal     Soal   @relation(fields: [soalId], references: [id], onDelete: Cascade)
-  teks     String
+  soal     Soal    @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  teks     String  @db.Text
   imageUrl String?
   urutan   Int
   benar    Boolean
@@ -138,7 +141,7 @@ model SesiUjian {
   ujian        Ujian     @relation(fields: [ujianId], references: [id], onDelete: Cascade)
   siswaId      String
   siswa        Siswa     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
-  status       String    // BELUM_MULAI, SEDANG_BERLANGSUNG, SELESAI, AUTO_SUBMIT
+  status       String // BELUM_MULAI, SEDANG_BERLANGSUNG, SELESAI, AUTO_SUBMIT
   mulaiAt      DateTime?
   selesaiAt    DateTime?
   nilaiRaw     Float?
@@ -168,44 +171,47 @@ model Pelanggaran {
   id        String    @id @default(uuid())
   sesiId    String
   sesi      SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
-  tipe      String    // TAB_SWITCH, FULLSCREEN_EXIT, WINDOW_BLUR, DEVTOOLS
-  pesan     String    
+  tipe      String // TAB_SWITCH, FULLSCREEN_EXIT, WINDOW_BLUR, DEVTOOLS
+  pesan     String    @db.Text
   timestamp DateTime  @default(now())
 }
 
 model Presensi {
   id         String   @id @default(uuid())
   siswaId    String
+  siswa      Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
   kelasId    String
+  kelas      Kelas    @relation(fields: [kelasId], references: [id], onDelete: Cascade)
   guruId     String
+  guru       Guru     @relation(fields: [guruId], references: [id])
   tanggal    DateTime
-  status     String   // HADIR, IZIN, SAKIT, ALPHA
-  keterangan String?  
+  status     String // HADIR, IZIN, SAKIT, ALPHA
+  keterangan String?  @db.Text
 
   @@unique([siswaId, tanggal])
 }
 
 model Alumni {
-  id          String  @id @default(uuid())
-  nama        String
-  nis         String?
-  tahunLulus  Int
-  jurusan     String?
-  status      String  // BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI
-  instansi    String?
-  posisi      String?
-  kontak      String?
-  fotoUrl     String?
+  id         String  @id @default(uuid())
+  nama       String
+  nis        String?
+  tahunLulus Int
+  jurusan    String?
+  status     String // BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI
+  instansi   String?
+  posisi     String?
+  kontak     String?
+  fotoUrl    String?
 }
 
 model Berita {
   id          String    @id @default(uuid())
   judul       String
   slug        String    @unique
-  konten      String    
-  ringkasan   String?   
+  konten      String    @db.LongText
+  ringkasan   String?   @db.Text
   imageUrl    String?
-  status      String    // DRAFT, PUBLISHED, ARCHIVED
+  status      String // DRAFT, PUBLISHED, ARCHIVED
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
