@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
+import { execSync } from "child_process";
 
 import { logger, errorHandler } from './middleware';
 import authRoutes from './routes/auth';
@@ -12,6 +13,39 @@ import siswaRoutes from './routes/siswa';
 import publicRoutes from './routes/public';
 
 dotenv.config();
+
+// ── Auto-run migrations + seed in production ─────────
+async function bootstrapDatabase() {
+  if (process.env.NODE_ENV !== "production") return;
+  try {
+    const rootDir = path.resolve(__dirname, "../..");
+    const prismaCli = path.join(rootDir, "node_modules/prisma/build/index.js");
+    const enginesDir = path.join(rootDir, "node_modules/@prisma/engines");
+    const schemaPath = path.join(__dirname, "../prisma/schema.prisma");
+    const seedScript = path.join(__dirname, "prisma/seed.js");
+
+    try { execSync(`chmod +x ${enginesDir}/* 2>/dev/null || true`); } catch {}
+
+    console.log("[startup] Running prisma migrate deploy...");
+    execSync(`node ${prismaCli} migrate deploy --schema=${schemaPath}`, {
+      stdio: "inherit",
+      env: process.env,
+    });
+    console.log("[startup] Migration complete.");
+
+    const { prisma } = await import("./lib/prisma");
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      console.log("[startup] Database empty, running seed...");
+      execSync(`node ${seedScript}`, { stdio: "inherit", env: process.env });
+      console.log("[startup] Seed complete.");
+    } else {
+      console.log(`[startup] Database has ${userCount} users, skipping seed.`);
+    }
+  } catch (err) {
+    console.error("[startup] Bootstrap failed:", err);
+  }
+}
 
 const app = express();
 const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3001) : 3001;
@@ -74,7 +108,9 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`✅ Backend siap di http://localhost:${PORT}`);
-  console.log(`   Mode: ${process.env.NODE_ENV || "development"}`);
+bootstrapDatabase().finally(() => {
+  app.listen(PORT, () => {
+    console.log(`✅ Backend siap di http://localhost:${PORT}`);
+    console.log(`   Mode: ${process.env.NODE_ENV || "development"}`);
+  });
 });
