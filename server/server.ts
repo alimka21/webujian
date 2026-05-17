@@ -12,7 +12,7 @@ import guruRoutes from './routes/guru';
 import siswaRoutes from './routes/siswa';
 import publicRoutes from './routes/public';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 // ── Auto-run migrations + seed in production ─────────
 async function bootstrapDatabase() {
