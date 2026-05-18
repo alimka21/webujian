@@ -54,12 +54,12 @@ async function bootstrapDatabase() {
 
     try { execSync(`chmod +x ${enginesDir}/* 2>/dev/null || true`); } catch {}
 
-    console.log("[startup] Running prisma migrate deploy...");
-    execSync(`node ${prismaCli} migrate deploy --schema=${schemaPath}`, {
+    console.log("[startup] Running prisma db push (sync schema -> DB)...");
+    execSync(`node ${prismaCli} db push --schema=${schemaPath} --accept-data-loss --skip-generate`, {
       stdio: "inherit",
       env: process.env,
     });
-    console.log("[startup] Migration complete.");
+    console.log("[startup] Schema sync complete.");
 
     const { prisma } = await import("./lib/prisma");
     const userCount = await prisma.user.count();

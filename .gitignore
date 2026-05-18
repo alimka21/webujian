@@ -38,8 +38,7 @@ Thumbs.db
 **/dev.db-journal
 
 # Prisma
-prisma/migrations/migration_lock.toml
-**/prisma/migrations/migration_lock.toml
+# (migration_lock.toml SHOULD be committed per Prisma docs)
 
 # Misc
 .cache/
