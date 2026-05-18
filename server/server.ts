@@ -3,7 +3,31 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
+import os from "os";
 import { execSync } from "child_process";
+
+// ── Load .env from multiple possible locations ───────
+const envCandidates = [
+  path.join(__dirname, "../.env"),           // server/.env (when running from server/dist/)
+  path.join(__dirname, "../../.env"),        // project root .env
+  path.join(__dirname, "../../server/.env"), // alt path if cwd differs
+  path.join(os.homedir(), ".env"),           // ~/.env (survives deploys)
+  path.join(process.cwd(), ".env"),          // cwd .env
+];
+let envLoadedFrom: string | null = null;
+for (const p of envCandidates) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+    envLoadedFrom = p;
+    break;
+  }
+}
+console.log("[startup] __dirname:", __dirname);
+console.log("[startup] cwd:", process.cwd());
+console.log("[startup] .env loaded from:", envLoadedFrom || "(none — using process.env from system)");
+console.log("[startup] DATABASE_URL set?", !!process.env.DATABASE_URL);
+console.log("[startup] NODE_ENV:", process.env.NODE_ENV);
 
 import { logger, errorHandler } from './middleware';
 import authRoutes from './routes/auth';
@@ -11,8 +35,6 @@ import adminRoutes from './routes/admin';
 import guruRoutes from './routes/guru';
 import siswaRoutes from './routes/siswa';
 import publicRoutes from './routes/public';
-
-dotenv.config({ path: path.join(__dirname, "../.env") });
 
 // ── Auto-run migrations + seed in production ─────────
 async function bootstrapDatabase() {
