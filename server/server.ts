@@ -127,27 +127,23 @@ async function bootstrapDatabase() {
   try {
     const { prisma } = await import("./lib/prisma");
 
-    // Step 1: cek apakah tabel User sudah ada
+    // Step 1: kalau tabel belum ada → apply migration.sql
     const ready = await tablesExist(prisma);
-    if (ready) {
-      const userCount = await prisma.user.count();
-      console.log(`[startup] ✅ Tables exist, ${userCount} users — bootstrap skipped.`);
-      return;
+    if (!ready) {
+      console.log("[startup] Tables missing — applying init migration...");
+      await runInitMigration(prisma);
     }
 
-    // Step 2: tabel belum ada → apply migration.sql
-    console.log("[startup] Tables missing — applying init migration...");
-    await runInitMigration(prisma);
-
-    // Step 3: tabel baru terbuat → jalankan seed (in-process, no spawn)
+    // Step 2: cek user count — kalau kosong, seed (terlepas dari step 1)
+    // Idempotent: seed pakai upsert, aman dijalankan ulang.
     const userCount = await prisma.user.count();
     if (userCount === 0) {
-      console.log("[startup] Running seed (in-process)...");
+      console.log("[startup] Database empty, running seed (in-process)...");
       const { runSeed } = await import("./prisma/seed");
       await runSeed(prisma);
       console.log("[startup] ✅ Seed complete.");
     } else {
-      console.log(`[startup] Database has ${userCount} users, skipping seed.`);
+      console.log(`[startup] ✅ Database has ${userCount} users — seed skipped.`);
     }
   } catch (err: any) {
     console.error("[startup] ❌ Bootstrap failed:", err?.message ?? err);
