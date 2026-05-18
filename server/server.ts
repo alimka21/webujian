@@ -158,6 +158,9 @@ async function bootstrapDatabase() {
 const app = express();
 const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3001) : 3001;
 
+// Flag: bootstrap belum selesai → request ke /api/* (selain /health) dapat 503
+let bootstrapDone = false;
+
 // ── CORS dinamis: dev + production ────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
@@ -186,7 +189,20 @@ app.use(logger);
 
 // ── Health check (Hostinger butuh) ────────────────────
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    bootstrapDone,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ── Gate: blok /api/* sampai bootstrap selesai ────────
+app.use("/api", (_req, res, next) => {
+  if (bootstrapDone) return next();
+  res.status(503).json({
+    error: "Database sedang disiapkan, coba lagi sebentar",
+    retry_after_seconds: 5,
+  });
 });
 
 // ── Mount routes ──────────────────────────────────────
@@ -216,9 +232,22 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-bootstrapDatabase().finally(() => {
-  app.listen(PORT, () => {
-    console.log(`✅ Backend siap di http://localhost:${PORT}`);
-    console.log(`   Mode: ${process.env.NODE_ENV || "development"}`);
-  });
+// LiteSpeed FastCGI punya startup timeout pendek. Listen DULU supaya tidak
+// di-kill, lalu bootstrap jalan di background. Sementara bootstrap belum
+// selesai, request DB-aware akan dapat 503 dari middleware di bawah.
+app.listen(PORT, () => {
+  console.log(`✅ Backend siap di http://localhost:${PORT}`);
+  console.log(`   Mode: ${process.env.NODE_ENV || "development"}`);
+
+  // Bootstrap async di background — TIDAK boleh block listen
+  console.log("[startup] Starting database bootstrap in background...");
+  bootstrapDatabase()
+    .then(() => {
+      bootstrapDone = true;
+      console.log("[startup] ✅ Bootstrap completed.");
+    })
+    .catch((err) => {
+      bootstrapDone = true; // tetap tandai selesai supaya tidak block selamanya
+      console.error("[startup] ❌ Bootstrap rejected:", err?.message ?? err);
+    });
 });
