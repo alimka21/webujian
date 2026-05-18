@@ -100,7 +100,7 @@ async function bootstrapDatabase() {
 
     console.log("[startup] Running prisma db push (sync schema -> DB)...");
     const pushOk = runCaptured(
-      `node "${prismaCli}" db push --schema="${schemaPath}" --accept-data-loss --skip-generate`,
+      `"${process.execPath}" "${prismaCli}" db push --schema="${schemaPath}" --accept-data-loss --skip-generate`,
       "db push"
     );
     if (!pushOk) {
@@ -114,7 +114,7 @@ async function bootstrapDatabase() {
     if (userCount === 0) {
       console.log("[startup] Database empty, running seed...");
       if (fs.existsSync(seedScript)) {
-        runCaptured(`node "${seedScript}"`, "seed");
+        runCaptured(`"${process.execPath}" "${seedScript}"`, "seed");
       } else {
         console.error(`[startup] ❌ Seed script tidak ada di ${seedScript}`);
       }
