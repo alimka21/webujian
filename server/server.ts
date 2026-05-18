@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { execSync } from "child_process";
 
 // ── Load .env from multiple possible locations ───────
 console.log("[startup] __dirname:", __dirname);
@@ -53,87 +52,106 @@ import guruRoutes from './routes/guru';
 import siswaRoutes from './routes/siswa';
 import publicRoutes from './routes/public';
 
-// ── Auto-run migrations + seed in production ─────────
-function resolvePrismaCli(): string | null {
-  // Cari prisma/build/index.js via require.resolve (lebih reliable daripada hardcode path)
-  try {
-    const pkgJsonPath = require.resolve("prisma/package.json");
-    const cliPath = path.join(path.dirname(pkgJsonPath), "build/index.js");
-    if (fs.existsSync(cliPath)) return cliPath;
-  } catch {}
-  // Fallback: cek beberapa lokasi umum
-  const candidates = [
-    path.resolve(__dirname, "../../node_modules/prisma/build/index.js"),
-    path.resolve(__dirname, "../node_modules/prisma/build/index.js"),
-    path.resolve(process.cwd(), "node_modules/prisma/build/index.js"),
-    path.resolve(process.cwd(), "server/node_modules/prisma/build/index.js"),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
-}
+// ── Bootstrap DB in-process (no child process spawning) ──────────
+// LiteSpeed FastCGI spawn beberapa worker; spawning `prisma db push` lewat
+// execSync sering hit EAGAIN. Solusinya: pakai Prisma client langsung untuk
+// cek tabel & eksekusi migration.sql kalau tabel belum ada.
 
-function runCaptured(cmd: string, label: string): boolean {
-  console.log(`[startup] $ ${cmd}`);
+async function tablesExist(prisma: any): Promise<boolean> {
   try {
-    const out = execSync(cmd, { env: process.env, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
-    if (out) console.log(`[startup] ${label} stdout:\n${out}`);
+    await prisma.user.count();
     return true;
   } catch (err: any) {
-    console.error(`[startup] ${label} FAILED — exit code: ${err.status}`);
-    if (err.stdout) console.error(`[startup] ${label} stdout:\n${err.stdout.toString()}`);
-    if (err.stderr) console.error(`[startup] ${label} stderr:\n${err.stderr.toString()}`);
-    if (err.message) console.error(`[startup] ${label} message: ${err.message}`);
-    return false;
+    // P2021 = table doesn't exist; error message biasanya ada "does not exist"
+    if (err?.code === "P2021" || /does not exist/i.test(err?.message ?? "")) {
+      return false;
+    }
+    // Error lain (koneksi gagal, auth gagal, dll) — lempar ke caller
+    throw err;
   }
+}
+
+function splitSqlStatements(sql: string): string[] {
+  // Buang line comments & blok komentar, lalu split by ;
+  const cleaned = sql
+    .replace(/\/\*[\s\S]*?\*\//g, "")        // /* ... */
+    .replace(/^\s*--.*$/gm, "");              // -- line comment
+  return cleaned
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+async function runInitMigration(prisma: any): Promise<void> {
+  // Lokasi migration.sql relatif ke server/dist (file ada di server/prisma/migrations/...)
+  const migrationDir = path.join(__dirname, "../prisma/migrations");
+  if (!fs.existsSync(migrationDir)) {
+    throw new Error(`Migration dir tidak ditemukan: ${migrationDir}`);
+  }
+  const subdirs = fs.readdirSync(migrationDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort();
+  if (subdirs.length === 0) {
+    throw new Error(`Tidak ada migration di ${migrationDir}`);
+  }
+  console.log(`[startup] Found ${subdirs.length} migration(s): ${subdirs.join(", ")}`);
+
+  for (const sub of subdirs) {
+    const sqlFile = path.join(migrationDir, sub, "migration.sql");
+    if (!fs.existsSync(sqlFile)) {
+      console.warn(`[startup]   Skip ${sub}: migration.sql tidak ada`);
+      continue;
+    }
+    const sql = fs.readFileSync(sqlFile, "utf8");
+    const stmts = splitSqlStatements(sql);
+    console.log(`[startup]   Applying ${sub}: ${stmts.length} statement(s)`);
+    for (let i = 0; i < stmts.length; i++) {
+      try {
+        await prisma.$executeRawUnsafe(stmts[i]);
+      } catch (err: any) {
+        // Idempotent: kalau tabel/index sudah ada, abaikan
+        if (/already exists/i.test(err?.message ?? "")) {
+          continue;
+        }
+        console.error(`[startup]   ❌ Statement #${i + 1} gagal:\n${stmts[i].slice(0, 200)}...`);
+        throw err;
+      }
+    }
+  }
+  console.log("[startup] ✅ Schema sync complete (via raw SQL).");
 }
 
 async function bootstrapDatabase() {
   if (process.env.NODE_ENV !== "production") return;
   try {
-    const prismaCli = resolvePrismaCli();
-    if (!prismaCli) {
-      console.error("[startup] ❌ Prisma CLI not found — bootstrap aborted.");
-      console.error("[startup]    Pastikan `prisma` ter-install di node_modules root atau server/");
-      return;
-    }
-    console.log(`[startup] Prisma CLI: ${prismaCli}`);
-
-    const schemaPath = path.join(__dirname, "../prisma/schema.prisma");
-    const seedScript = path.join(__dirname, "prisma/seed.js");
-    console.log(`[startup] Schema:     ${schemaPath} (exists: ${fs.existsSync(schemaPath)})`);
-    console.log(`[startup] Seed:       ${seedScript} (exists: ${fs.existsSync(seedScript)})`);
-
-    // chmod engine binaries (silent if fails)
-    const enginesDir = path.join(path.dirname(prismaCli), "../../@prisma/engines");
-    try { execSync(`chmod +x ${enginesDir}/* 2>/dev/null || true`); } catch {}
-
-    console.log("[startup] Running prisma db push (sync schema -> DB)...");
-    const pushOk = runCaptured(
-      `"${process.execPath}" "${prismaCli}" db push --schema="${schemaPath}" --accept-data-loss --skip-generate`,
-      "db push"
-    );
-    if (!pushOk) {
-      console.error("[startup] ❌ Schema sync gagal — login tidak akan jalan sampai ini di-fix.");
-      return;
-    }
-    console.log("[startup] ✅ Schema sync complete.");
-
     const { prisma } = await import("./lib/prisma");
+
+    // Step 1: cek apakah tabel User sudah ada
+    const ready = await tablesExist(prisma);
+    if (ready) {
+      const userCount = await prisma.user.count();
+      console.log(`[startup] ✅ Tables exist, ${userCount} users — bootstrap skipped.`);
+      return;
+    }
+
+    // Step 2: tabel belum ada → apply migration.sql
+    console.log("[startup] Tables missing — applying init migration...");
+    await runInitMigration(prisma);
+
+    // Step 3: tabel baru terbuat → jalankan seed (in-process, no spawn)
     const userCount = await prisma.user.count();
     if (userCount === 0) {
-      console.log("[startup] Database empty, running seed...");
-      if (fs.existsSync(seedScript)) {
-        runCaptured(`"${process.execPath}" "${seedScript}"`, "seed");
-      } else {
-        console.error(`[startup] ❌ Seed script tidak ada di ${seedScript}`);
-      }
+      console.log("[startup] Running seed (in-process)...");
+      const { runSeed } = await import("./prisma/seed");
+      await runSeed(prisma);
+      console.log("[startup] ✅ Seed complete.");
     } else {
       console.log(`[startup] Database has ${userCount} users, skipping seed.`);
     }
-  } catch (err) {
-    console.error("[startup] Bootstrap unexpected error:", err);
+  } catch (err: any) {
+    console.error("[startup] ❌ Bootstrap failed:", err?.message ?? err);
+    if (err?.stack) console.error(err.stack);
   }
 }
 

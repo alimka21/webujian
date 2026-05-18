@@ -5,9 +5,19 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+// Bisa di-import dan dipanggil dari server.ts (pass prisma client),
+// atau dijalankan standalone via `npx prisma db seed` (buat client baru).
+export async function runSeed(prismaArg?: PrismaClient) {
+  const prisma = prismaArg ?? new PrismaClient();
+  const ownPrisma = !prismaArg;
+  try {
+    await main(prisma);
+  } finally {
+    if (ownPrisma) await prisma.$disconnect();
+  }
+}
 
-async function main() {
+async function main(prisma: PrismaClient) {
   console.log('🌱 Memulai seed database...');
 
   // ============ ADMIN ============
@@ -243,11 +253,12 @@ async function main() {
   console.log('========================\n');
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed gagal:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Standalone execution: `npx prisma db seed` atau `tsx prisma/seed.ts`
+// (kalau di-import dari server.ts, pakai runSeed() langsung — bukan jalur ini)
+if (require.main === module) {
+  runSeed()
+    .catch((e) => {
+      console.error('❌ Seed gagal:', e);
+      process.exit(1);
+    });
+}
