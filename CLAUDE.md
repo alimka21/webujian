@@ -98,8 +98,8 @@ webujian/
 **Production:** MySQL di Hostinger (auto `prisma db push` saat startup, lihat [server/server.ts](server/server.ts#L48))
 
 **Akun Demo** (dari [server/prisma/seed.ts](server/prisma/seed.ts)):
-- Admin: `admin@sekolah.id` / `admin123`
-- Guru: `budi@sekolah.id` / `guru123` (atau `siti@sekolah.id`)
+- Admin: `admin@sekolah.sch.id` / `admin123`
+- Guru: `budi@sekolah.sch.id` / `guru123` (atau `siti@sekolah.sch.id`)
 - Siswa: NIS `2025001` (Ahmad Fauzi) / `siswa123` — NIS lain: 2025002–2025005, 2024001, dst
 
 ---

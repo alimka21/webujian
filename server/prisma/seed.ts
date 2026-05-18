@@ -23,10 +23,10 @@ async function main(prisma: PrismaClient) {
   // ============ ADMIN ============
   const adminPass = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@sekolah.id' },
+    where: { email: 'admin@sekolah.sch.id' },
     update: {},
     create: {
-      email: 'admin@sekolah.id',
+      email: 'admin@sekolah.sch.id',
       password: adminPass,
       role: 'SUPER_ADMIN',
       admin: { create: { nama: 'Administrator Sekolah' } },
@@ -38,10 +38,10 @@ async function main(prisma: PrismaClient) {
   const guruPass = await bcrypt.hash('guru123', 10);
 
   const guru1User = await prisma.user.upsert({
-    where: { email: 'budi@sekolah.id' },
+    where: { email: 'budi@sekolah.sch.id' },
     update: {},
     create: {
-      email: 'budi@sekolah.id',
+      email: 'budi@sekolah.sch.id',
       password: guruPass,
       role: 'GURU',
       guru: { create: { nip: '198501012010011001', nama: 'Budi Santoso, S.Pd', mataPelajaran: 'Matematika' } },
@@ -50,10 +50,10 @@ async function main(prisma: PrismaClient) {
   });
 
   const guru2User = await prisma.user.upsert({
-    where: { email: 'siti@sekolah.id' },
+    where: { email: 'siti@sekolah.sch.id' },
     update: {},
     create: {
-      email: 'siti@sekolah.id',
+      email: 'siti@sekolah.sch.id',
       password: guruPass,
       role: 'GURU',
       guru: { create: { nip: '198703152011012002', nama: 'Siti Aminah, M.Pd', mataPelajaran: 'Bahasa Indonesia' } },
@@ -247,8 +247,8 @@ async function main(prisma: PrismaClient) {
 
   console.log('\n✅ Seed selesai!\n');
   console.log('=== KREDENSIAL LOGIN ===');
-  console.log('Admin   : admin@sekolah.id / admin123');
-  console.log('Guru    : budi@sekolah.id / guru123  (atau siti@sekolah.id)');
+  console.log('Admin   : admin@sekolah.sch.id / admin123');
+  console.log('Guru    : budi@sekolah.sch.id / guru123  (atau siti@sekolah.sch.id)');
   console.log('Siswa   : NIS 2025001 / siswa123     (login pakai NIS, bukan email)');
   console.log('========================\n');
 }

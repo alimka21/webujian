@@ -8,9 +8,9 @@
 -- ============ USERS (admin + 2 guru + 6 siswa) ============
 
 INSERT IGNORE INTO `User` (`id`, `email`, `password`, `role`, `isActive`, `createdAt`, `updatedAt`) VALUES
-('seed-user-admin',  'admin@sekolah.id',       '$2b$10$iVZtShVx8k0sydzBOq.2GOS/vkeveJ6URZY9.73k.wcyk6NYf/7Ze', 'SUPER_ADMIN', 1, NOW(3), NOW(3)),
-('seed-user-guru1',  'budi@sekolah.id',        '$2b$10$eTtgva.r.//pGKVgKrnKHeEkEaFyY6.o8Hbr70DOih0Xsz2yOoqEy', 'GURU',        1, NOW(3), NOW(3)),
-('seed-user-guru2',  'siti@sekolah.id',        '$2b$10$eTtgva.r.//pGKVgKrnKHeEkEaFyY6.o8Hbr70DOih0Xsz2yOoqEy', 'GURU',        1, NOW(3), NOW(3)),
+('seed-user-admin',  'admin@sekolah.sch.id',       '$2b$10$iVZtShVx8k0sydzBOq.2GOS/vkeveJ6URZY9.73k.wcyk6NYf/7Ze', 'SUPER_ADMIN', 1, NOW(3), NOW(3)),
+('seed-user-guru1',  'budi@sekolah.sch.id',        '$2b$10$eTtgva.r.//pGKVgKrnKHeEkEaFyY6.o8Hbr70DOih0Xsz2yOoqEy', 'GURU',        1, NOW(3), NOW(3)),
+('seed-user-guru2',  'siti@sekolah.sch.id',        '$2b$10$eTtgva.r.//pGKVgKrnKHeEkEaFyY6.o8Hbr70DOih0Xsz2yOoqEy', 'GURU',        1, NOW(3), NOW(3)),
 ('seed-user-siswa1', '2025001@siswa.sch.id',   '$2b$10$aQo0ihdjZ040KGdQH6d/5.OBn9O.pxzLSewHg6w.C4QcY8KjQQuuu', 'SISWA',       1, NOW(3), NOW(3)),
 ('seed-user-siswa2', '2025002@siswa.sch.id',   '$2b$10$aQo0ihdjZ040KGdQH6d/5.OBn9O.pxzLSewHg6w.C4QcY8KjQQuuu', 'SISWA',       1, NOW(3), NOW(3)),
 ('seed-user-siswa3', '2025003@siswa.sch.id',   '$2b$10$aQo0ihdjZ040KGdQH6d/5.OBn9O.pxzLSewHg6w.C4QcY8KjQQuuu', 'SISWA',       1, NOW(3), NOW(3)),
@@ -114,6 +114,6 @@ INSERT IGNORE INTO `Alumni` (`id`, `nama`, `nis`, `tahunLulus`, `jurusan`, `stat
 
 -- ============ DONE ============
 -- Login credentials:
---   Admin : admin@sekolah.id / admin123
---   Guru  : budi@sekolah.id  / guru123  (or siti@sekolah.id)
+--   Admin : admin@sekolah.sch.id / admin123
+--   Guru  : budi@sekolah.sch.id  / guru123  (or siti@sekolah.sch.id)
 --   Siswa : NIS 2025001      / siswa123 (login via NIS, not email)
