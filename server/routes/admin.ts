@@ -129,6 +129,185 @@ router.delete('/users/:id', async (req, res, next) => {
   }
 });
 
+// ── Import: download template Excel (siswa | guru) ────────
+router.get('/users/import-template', async (req, res, next) => {
+  try {
+    const type = String(req.query.type ?? '');
+    if (type !== 'siswa' && type !== 'guru') {
+      return res.status(400).json({ error: 'type harus "siswa" atau "guru"' });
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(type === 'siswa' ? 'Template Siswa' : 'Template Guru');
+
+    if (type === 'siswa') {
+      // Kelas reference sheet — biar user bisa pilih dari daftar kelas yg ada
+      const kelas = await prisma.kelas.findMany({ orderBy: [{ tingkat: 'asc' }, { nama: 'asc' }] });
+
+      ws.columns = [
+        { header: 'NIS',        key: 'nis',       width: 16 },
+        { header: 'Nama',       key: 'nama',      width: 32 },
+        { header: 'Nama Kelas', key: 'kelas',     width: 24 },
+      ];
+      ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      ws.getRow(1).eachCell(c => {
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+        c.alignment = { horizontal: 'center' };
+      });
+      // Contoh baris
+      ws.addRow({ nis: '2025010', nama: 'Contoh Nama Siswa', kelas: kelas[0]?.nama ?? 'X IPA 1' });
+
+      // Sheet kedua: daftar kelas yg valid
+      const refSheet = wb.addWorksheet('Daftar Kelas');
+      refSheet.columns = [
+        { header: 'Nama Kelas', key: 'nama',        width: 24 },
+        { header: 'Tingkat',    key: 'tingkat',     width: 10 },
+        { header: 'Tahun Ajaran', key: 'tahun',     width: 16 },
+      ];
+      refSheet.getRow(1).font = { bold: true };
+      kelas.forEach(k => refSheet.addRow({ nama: k.nama, tingkat: k.tingkat, tahun: k.tahunAjaran }));
+    } else {
+      ws.columns = [
+        { header: 'NIP',           key: 'nip',  width: 22 },
+        { header: 'Nama',          key: 'nama', width: 32 },
+        { header: 'Email',         key: 'email', width: 32 },
+        { header: 'Mata Pelajaran', key: 'mapel', width: 22 },
+        { header: 'Password (opsional)', key: 'password', width: 20 },
+      ];
+      ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      ws.getRow(1).eachCell(c => {
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+        c.alignment = { horizontal: 'center' };
+      });
+      ws.addRow({
+        nip: '198000000000000000', nama: 'Contoh Nama Guru',
+        email: 'contoh@sekolah.sch.id', mapel: 'Matematika', password: '',
+      });
+      // Note row
+      const noteRow = ws.addRow([]);
+      noteRow.getCell(1).value = 'Catatan: Kosongkan kolom Password untuk pakai default (NIP).';
+      noteRow.getCell(1).font = { italic: true, color: { argb: 'FF6B7280' } };
+      ws.mergeCells(`A${noteRow.number}:E${noteRow.number}`);
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="template-import-${type}.xlsx"`);
+    res.send(Buffer.from(buf));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── Import: bulk insert siswa atau guru ────────────────────
+// Body: { type: 'siswa'|'guru', items: Array<{...}> }
+// Response: { created, skipped, failed: Array<{row, message}> }
+router.post('/users/import', async (req, res, next) => {
+  try {
+    const { type, items } = req.body as { type?: string; items?: any[] };
+    if (type !== 'siswa' && type !== 'guru') {
+      return res.status(400).json({ error: 'type harus "siswa" atau "guru"' });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'items kosong' });
+    }
+    if (items.length > 500) {
+      return res.status(400).json({ error: 'Maksimal 500 baris per import' });
+    }
+
+    let created = 0;
+    let skipped = 0;
+    const failed: { row: number; message: string }[] = [];
+
+    if (type === 'siswa') {
+      // Pre-load semua kelas untuk match by nama (case-insensitive)
+      const kelasList = await prisma.kelas.findMany();
+      const kelasByNama = new Map(kelasList.map(k => [k.nama.toLowerCase().trim(), k.id]));
+
+      for (let i = 0; i < items.length; i++) {
+        const row = items[i];
+        const rowNumber = i + 2; // +2 karena header di row 1, data mulai row 2
+        const nis = String(row.nis ?? '').trim();
+        const nama = String(row.nama ?? '').trim();
+        const kelasNama = String(row.kelas ?? '').trim();
+
+        if (!nis || !nama || !kelasNama) {
+          failed.push({ row: rowNumber, message: 'NIS, Nama, dan Nama Kelas wajib diisi' });
+          continue;
+        }
+        const kelasId = kelasByNama.get(kelasNama.toLowerCase());
+        if (!kelasId) {
+          failed.push({ row: rowNumber, message: `Kelas "${kelasNama}" tidak ditemukan` });
+          continue;
+        }
+
+        const email = `${nis}@siswa.sch.id`;
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          const hashed = await bcrypt.hash(nis, 10);
+          await prisma.user.create({
+            data: {
+              email, password: hashed, role: 'SISWA',
+              siswa: { create: { nis, nama, kelasId } },
+            },
+          });
+          created++;
+        } catch (err: any) {
+          failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+        }
+      }
+    } else {
+      // type === 'guru'
+      for (let i = 0; i < items.length; i++) {
+        const row = items[i];
+        const rowNumber = i + 2;
+        const nip = String(row.nip ?? '').trim();
+        const nama = String(row.nama ?? '').trim();
+        const email = String(row.email ?? '').trim();
+        const mapel = String(row.mapel ?? row.mataPelajaran ?? '').trim();
+        const password = String(row.password ?? '').trim();
+
+        if (!nip || !nama || !email || !mapel) {
+          failed.push({ row: rowNumber, message: 'NIP, Nama, Email, dan Mata Pelajaran wajib diisi' });
+          continue;
+        }
+        if (!email.includes('@')) {
+          failed.push({ row: rowNumber, message: 'Format email tidak valid' });
+          continue;
+        }
+
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          const hashed = await bcrypt.hash(password || nip, 10);
+          await prisma.user.create({
+            data: {
+              email, password: hashed, role: 'GURU',
+              guru: { create: { nip, nama, mataPelajaran: mapel } },
+            },
+          });
+          created++;
+        } catch (err: any) {
+          failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+        }
+      }
+    }
+
+    res.json({ created, skipped, failed });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/users/:id/reset-password', async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({

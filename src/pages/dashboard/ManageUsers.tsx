@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, KeyRound, Users, GraduationCap, BookOpen, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Pencil, Trash2, Search, KeyRound, Users, GraduationCap, BookOpen, AlertTriangle, Download, Upload, CheckCircle2, XCircle } from 'lucide-react';
+import ExcelJS from 'exceljs';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -108,6 +109,16 @@ export default function ManageUsers() {
   const kelasModalRef = useModalA11y<HTMLDivElement>(showKelasModal, () => setShowKelasModal(false));
   const deleteModalRef = useModalA11y<HTMLDivElement>(deleteConfirm !== null, () => setDeleteConfirm(null));
   const resetModalRef = useModalA11y<HTMLDivElement>(resetConfirm !== null, () => setResetConfirm(null));
+
+  // ── Import state ──
+  type ImportType = 'siswa' | 'guru';
+  type ImportResult = { created: number; skipped: number; failed: { row: number; message: string }[] } | null;
+  const [importing, setImporting] = useState<ImportType | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult>(null);
+  const [importResultType, setImportResultType] = useState<ImportType>('siswa');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingImportType = useRef<ImportType>('siswa');
+  const importResultModalRef = useModalA11y<HTMLDivElement>(importResult !== null, () => setImportResult(null));
 
   // ── Fetch ──
   const fetchSiswa = async () => {
@@ -322,6 +333,105 @@ export default function ManageUsers() {
     finally { setIsResetting(false); }
   };
 
+  // ── Import: download template ──
+  const handleDownloadTemplate = async (type: ImportType) => {
+    try {
+      let token = localStorage.getItem('token');
+      if (!token) {
+        try { const raw = localStorage.getItem('auth-storage'); if (raw) token = JSON.parse(raw)?.state?.token; } catch { /* ignore */ }
+      }
+      const resp = await fetch(`/api/admin/users/import-template?type=${type}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error('Gagal mengunduh template');
+      const blob = await resp.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `template-import-${type}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(href);
+      toast.success('Template berhasil diunduh');
+    } catch (e: any) {
+      toast.error(e.message || 'Gagal mengunduh template');
+    }
+  };
+
+  // ── Import: trigger file picker ──
+  const handleImportClick = (type: ImportType) => {
+    pendingImportType.current = type;
+    fileInputRef.current?.click();
+  };
+
+  // ── Import: parse Excel + kirim ke backend ──
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset supaya file yang sama bisa di-pilih lagi
+    if (!file) return;
+
+    const type = pendingImportType.current;
+    setImporting(type);
+
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error('Sheet pertama tidak ditemukan di file');
+
+      // Baca header row → dapatkan nama kolom (case-insensitive normalize)
+      const headerRow = ws.getRow(1);
+      const headers: string[] = [];
+      headerRow.eachCell((cell, colNumber) => {
+        headers[colNumber] = String(cell.value ?? '').toLowerCase().trim();
+      });
+
+      // Konversi tiap data row jadi object
+      const items: any[] = [];
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // skip header
+        const obj: Record<string, any> = {};
+        row.eachCell((cell, colNumber) => {
+          const key = headers[colNumber];
+          if (!key) return;
+          // Map header → field name
+          let normalized = key;
+          if (key === 'nis') normalized = 'nis';
+          else if (key === 'nama') normalized = 'nama';
+          else if (key === 'nama kelas' || key === 'kelas') normalized = 'kelas';
+          else if (key === 'nip') normalized = 'nip';
+          else if (key === 'email') normalized = 'email';
+          else if (key === 'mata pelajaran' || key === 'mapel') normalized = 'mapel';
+          else if (key.startsWith('password')) normalized = 'password';
+          obj[normalized] = cell.value;
+        });
+        // Skip baris kosong
+        if (Object.values(obj).every(v => v == null || String(v).trim() === '')) return;
+        items.push(obj);
+      });
+
+      if (items.length === 0) {
+        toast.error('Tidak ada data baris yang ter-baca dari file');
+        return;
+      }
+
+      const result = await api.post('/api/admin/users/import', { type, items });
+      setImportResult(result);
+      setImportResultType(type);
+
+      if (result.created > 0) {
+        toast.success(`${result.created} ${type === 'siswa' ? 'siswa' : 'guru'} berhasil di-import`);
+      }
+      // Refresh list
+      if (type === 'siswa') fetchSiswa();
+      else fetchGuru();
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memproses file');
+    } finally {
+      setImporting(null);
+    }
+  };
+
   const tabs = [
     { id: 'SISWA' as const, label: 'Siswa', Icon: Users, count: siswaList.length },
     { id: 'GURU' as const, label: 'Guru', Icon: GraduationCap, count: guruList.length },
@@ -362,9 +472,28 @@ export default function ManageUsers() {
                 {kelasList.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
               </Select>
             </div>
-            <Button onClick={() => openSiswaModal()} className="gap-2 bg-blue-600 hover:bg-blue-700 shrink-0">
-              <Plus className="w-4 h-4" /> Tambah Siswa
-            </Button>
+            <div className="flex gap-2 shrink-0 flex-wrap">
+              <Button
+                onClick={() => handleDownloadTemplate('siswa')}
+                variant="outline"
+                className="gap-2"
+                disabled={importing !== null}
+              >
+                <Download className="w-4 h-4" /> Template
+              </Button>
+              <Button
+                onClick={() => handleImportClick('siswa')}
+                variant="outline"
+                className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+                disabled={importing !== null}
+              >
+                {importing === 'siswa' ? <Spinner /> : <Upload className="w-4 h-4" />}
+                {importing === 'siswa' ? 'Memproses...' : 'Import'}
+              </Button>
+              <Button onClick={() => openSiswaModal()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4" /> Tambah Siswa
+              </Button>
+            </div>
           </div>
 
           <Card>
@@ -425,9 +554,28 @@ export default function ManageUsers() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input value={guruSearch} onChange={e => setGuruSearch(e.target.value)} placeholder="Cari nama atau email..." className="pl-9" />
             </div>
-            <Button onClick={() => openGuruModal()} className="gap-2 bg-blue-600 hover:bg-blue-700 shrink-0">
-              <Plus className="w-4 h-4" /> Tambah Guru
-            </Button>
+            <div className="flex gap-2 shrink-0 flex-wrap">
+              <Button
+                onClick={() => handleDownloadTemplate('guru')}
+                variant="outline"
+                className="gap-2"
+                disabled={importing !== null}
+              >
+                <Download className="w-4 h-4" /> Template
+              </Button>
+              <Button
+                onClick={() => handleImportClick('guru')}
+                variant="outline"
+                className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+                disabled={importing !== null}
+              >
+                {importing === 'guru' ? <Spinner /> : <Upload className="w-4 h-4" />}
+                {importing === 'guru' ? 'Memproses...' : 'Import'}
+              </Button>
+              <Button onClick={() => openGuruModal()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4" /> Tambah Guru
+              </Button>
+            </div>
           </div>
 
           <Card>
@@ -779,6 +927,71 @@ export default function ManageUsers() {
               <Button variant="outline" onClick={() => setResetConfirm(null)} disabled={isResetting}>Batal</Button>
               <Button onClick={handleResetPassword} disabled={isResetting} className="bg-amber-600 hover:bg-amber-700 text-white">
                 {isResetting ? <><Spinner />Mereset...</> : 'Ya, Reset'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Hidden file input untuk import Excel ───────────── */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        className="hidden"
+        onChange={handleFileSelected}
+        aria-hidden="true"
+      />
+
+      {/* ════ MODAL HASIL IMPORT ════ */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div
+            ref={importResultModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-result-title"
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 id="import-result-title" className="text-lg font-bold text-slate-900">
+                Hasil Import {importResultType === 'siswa' ? 'Siswa' : 'Guru'}
+              </h2>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
+                  <p className="text-xs text-green-600 mt-0.5">Berhasil</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-slate-700">{importResult.skipped}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">Sudah ada (skip)</p>
+                </div>
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-center">
+                  <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-red-700">{importResult.failed.length}</p>
+                  <p className="text-xs text-red-600 mt-0.5">Gagal</p>
+                </div>
+              </div>
+
+              {importResult.failed.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-semibold text-red-700 mb-2">Detail kegagalan:</p>
+                  <ul className="space-y-1 text-xs text-red-600">
+                    {importResult.failed.map((f, i) => (
+                      <li key={i}>
+                        <span className="font-mono font-semibold">Baris {f.row}:</span> {f.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-6 flex justify-end">
+              <Button onClick={() => setImportResult(null)} className="bg-blue-600 hover:bg-blue-700">
+                Tutup
               </Button>
             </div>
           </div>
