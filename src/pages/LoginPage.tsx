@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore, Role } from '../store/authStore';
 import { Button } from '../components/ui/button';
 import { Input, Label } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
-import { Eye, EyeOff, AlertTriangle, GraduationCap, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, AlertTriangle, GraduationCap, ChevronDown, Home } from 'lucide-react';
 
 const SCHOOL_NAME = 'SMA Negeri 1 Demo';
 
@@ -168,6 +168,15 @@ export default function LoginPage() {
 
       {/* Nama Sekolah */}
       <p className="mt-6 text-sm font-medium text-slate-600 text-center">{SCHOOL_NAME}</p>
+
+      {/* Link ke Beranda */}
+      <Link
+        to="/"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+      >
+        <Home className="w-4 h-4" />
+        Kembali ke Beranda
+      </Link>
     </div>
   );
 }

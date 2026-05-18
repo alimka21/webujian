@@ -56,7 +56,7 @@ export default function DashboardLayout() {
     try {
       await logout();
       toast.success('Berhasil keluar. Sampai jumpa!');
-      navigate('/login');
+      navigate('/');
     } catch (err: any) {
       toast.error(err?.message || 'Gagal keluar, coba lagi');
       setIsLoggingOut(false);
