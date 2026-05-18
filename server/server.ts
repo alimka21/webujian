@@ -27,12 +27,23 @@ for (const p of envCandidates) {
   const exists = fs.existsSync(p);
   console.log(`[startup] check ${p}: ${exists ? "EXISTS" : "no"}`);
   if (exists && !envLoadedFrom) {
-    dotenv.config({ path: p });
+    // override:true → .env selalu menang atas env var yang sudah di-set Hostinger panel
+    dotenv.config({ path: p, override: true });
     envLoadedFrom = p;
   }
 }
 console.log("[startup] .env loaded from:", envLoadedFrom || "(none — using process.env from system)");
-console.log("[startup] DATABASE_URL set?", !!process.env.DATABASE_URL);
+
+// Debug: tampilkan DATABASE_URL dengan password disensor supaya bisa diverifikasi tanpa bocor kredensial
+const dbUrl = process.env.DATABASE_URL;
+if (dbUrl) {
+  const sanitized = dbUrl.replace(/:([^:@\/]+)@/, ":***@");
+  console.log(`[startup] DATABASE_URL preview: ${sanitized}`);
+  console.log(`[startup] DATABASE_URL length: ${dbUrl.length} chars`);
+  console.log(`[startup] DATABASE_URL starts with: "${dbUrl.slice(0, 8)}"`);
+} else {
+  console.log("[startup] DATABASE_URL: (NOT SET)");
+}
 console.log("[startup] NODE_ENV:", process.env.NODE_ENV);
 
 import { logger, errorHandler } from './middleware';
