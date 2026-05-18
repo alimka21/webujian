@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LogOut, Menu, X, LayoutDashboard, Users, FileText, 
+import { toast } from 'sonner';
+import {
+  LogOut, Menu, X, LayoutDashboard, Users, FileText,
   GraduationCap, ClipboardList, PenTool, BarChart3, Newspaper, CalendarCheck
 } from 'lucide-react';
 import { useAuthStore, Role } from '../../store/authStore';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface NavItem {
   label: string;
@@ -40,13 +42,24 @@ const navConfig: Record<Role, NavItem[]> = {
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+  const logoutModalRef = useModalA11y<HTMLDivElement>(showLogoutConfirm, () => setShowLogoutConfirm(false));
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      toast.success('Berhasil keluar. Sampai jumpa!');
+      navigate('/login');
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal keluar, coba lagi');
+      setIsLoggingOut(false);
+    }
   };
 
   const navItems = user ? navConfig[user.role] : [];
@@ -126,8 +139,8 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <button 
-            onClick={handleLogout}
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
           >
             <LogOut className="w-5 h-5" />
@@ -168,6 +181,50 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+
+      {/* ── Modal Konfirmasi Logout ───────────────────────── */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div
+            ref={logoutModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-modal-title"
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div className="px-6 pt-6 pb-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                <LogOut className="w-6 h-6 text-red-600" />
+              </div>
+              <h2 id="logout-modal-title" className="text-lg font-bold text-slate-900 text-center">
+                Keluar dari sistem?
+              </h2>
+              <p className="text-sm text-slate-500 text-center mt-1">
+                Anda harus login kembali untuk mengakses dashboard.
+              </p>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={isLoggingOut}
+                className="flex-1"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmLogout}
+                disabled={isLoggingOut}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isLoggingOut ? 'Memproses...' : 'Ya, Keluar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
