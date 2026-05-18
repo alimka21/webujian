@@ -43,35 +43,86 @@ import siswaRoutes from './routes/siswa';
 import publicRoutes from './routes/public';
 
 // ── Auto-run migrations + seed in production ─────────
+function resolvePrismaCli(): string | null {
+  // Cari prisma/build/index.js via require.resolve (lebih reliable daripada hardcode path)
+  try {
+    const pkgJsonPath = require.resolve("prisma/package.json");
+    const cliPath = path.join(path.dirname(pkgJsonPath), "build/index.js");
+    if (fs.existsSync(cliPath)) return cliPath;
+  } catch {}
+  // Fallback: cek beberapa lokasi umum
+  const candidates = [
+    path.resolve(__dirname, "../../node_modules/prisma/build/index.js"),
+    path.resolve(__dirname, "../node_modules/prisma/build/index.js"),
+    path.resolve(process.cwd(), "node_modules/prisma/build/index.js"),
+    path.resolve(process.cwd(), "server/node_modules/prisma/build/index.js"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
+function runCaptured(cmd: string, label: string): boolean {
+  console.log(`[startup] $ ${cmd}`);
+  try {
+    const out = execSync(cmd, { env: process.env, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+    if (out) console.log(`[startup] ${label} stdout:\n${out}`);
+    return true;
+  } catch (err: any) {
+    console.error(`[startup] ${label} FAILED — exit code: ${err.status}`);
+    if (err.stdout) console.error(`[startup] ${label} stdout:\n${err.stdout.toString()}`);
+    if (err.stderr) console.error(`[startup] ${label} stderr:\n${err.stderr.toString()}`);
+    if (err.message) console.error(`[startup] ${label} message: ${err.message}`);
+    return false;
+  }
+}
+
 async function bootstrapDatabase() {
   if (process.env.NODE_ENV !== "production") return;
   try {
-    const rootDir = path.resolve(__dirname, "../..");
-    const prismaCli = path.join(rootDir, "node_modules/prisma/build/index.js");
-    const enginesDir = path.join(rootDir, "node_modules/@prisma/engines");
+    const prismaCli = resolvePrismaCli();
+    if (!prismaCli) {
+      console.error("[startup] ❌ Prisma CLI not found — bootstrap aborted.");
+      console.error("[startup]    Pastikan `prisma` ter-install di node_modules root atau server/");
+      return;
+    }
+    console.log(`[startup] Prisma CLI: ${prismaCli}`);
+
     const schemaPath = path.join(__dirname, "../prisma/schema.prisma");
     const seedScript = path.join(__dirname, "prisma/seed.js");
+    console.log(`[startup] Schema:     ${schemaPath} (exists: ${fs.existsSync(schemaPath)})`);
+    console.log(`[startup] Seed:       ${seedScript} (exists: ${fs.existsSync(seedScript)})`);
 
+    // chmod engine binaries (silent if fails)
+    const enginesDir = path.join(path.dirname(prismaCli), "../../@prisma/engines");
     try { execSync(`chmod +x ${enginesDir}/* 2>/dev/null || true`); } catch {}
 
     console.log("[startup] Running prisma db push (sync schema -> DB)...");
-    execSync(`node ${prismaCli} db push --schema=${schemaPath} --accept-data-loss --skip-generate`, {
-      stdio: "inherit",
-      env: process.env,
-    });
-    console.log("[startup] Schema sync complete.");
+    const pushOk = runCaptured(
+      `node "${prismaCli}" db push --schema="${schemaPath}" --accept-data-loss --skip-generate`,
+      "db push"
+    );
+    if (!pushOk) {
+      console.error("[startup] ❌ Schema sync gagal — login tidak akan jalan sampai ini di-fix.");
+      return;
+    }
+    console.log("[startup] ✅ Schema sync complete.");
 
     const { prisma } = await import("./lib/prisma");
     const userCount = await prisma.user.count();
     if (userCount === 0) {
       console.log("[startup] Database empty, running seed...");
-      execSync(`node ${seedScript}`, { stdio: "inherit", env: process.env });
-      console.log("[startup] Seed complete.");
+      if (fs.existsSync(seedScript)) {
+        runCaptured(`node "${seedScript}"`, "seed");
+      } else {
+        console.error(`[startup] ❌ Seed script tidak ada di ${seedScript}`);
+      }
     } else {
       console.log(`[startup] Database has ${userCount} users, skipping seed.`);
     }
   } catch (err) {
-    console.error("[startup] Bootstrap failed:", err);
+    console.error("[startup] Bootstrap unexpected error:", err);
   }
 }
 
