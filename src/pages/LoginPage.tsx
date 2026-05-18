@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input, Label } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
-import { Eye, EyeOff, AlertTriangle, GraduationCap } from 'lucide-react';
+import { Eye, EyeOff, AlertTriangle, GraduationCap, ChevronDown } from 'lucide-react';
 
 const SCHOOL_NAME = 'SMA Negeri 1 Demo';
 
@@ -85,17 +85,23 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="role">Peran</Label>
-              <Select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-                disabled={isLoading}
-                className="h-11"
-              >
-                <option value="SISWA">Siswa</option>
-                <option value="GURU">Guru</option>
-                <option value="SUPER_ADMIN">Admin</option>
-              </Select>
+              <div className="relative">
+                <Select
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  disabled={isLoading}
+                  className="h-12 text-center text-base font-semibold bg-blue-50 border-blue-200 text-blue-900 pr-10"
+                >
+                  <option value="SISWA">Siswa</option>
+                  <option value="GURU">Guru</option>
+                  <option value="SUPER_ADMIN">Admin</option>
+                </Select>
+                <ChevronDown
+                  className="w-5 h-5 text-blue-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -107,7 +113,7 @@ export default function LoginPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={isLoading}
-                className="h-11"
+                className="h-11 bg-slate-50 border-slate-300 focus-visible:bg-white focus-visible:border-blue-500"
                 autoComplete={role === 'SISWA' ? 'username' : 'email'}
               />
             </div>
@@ -131,7 +137,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="pr-10 h-11"
+                  className="pr-10 h-11 bg-slate-50 border-slate-300 focus-visible:bg-white focus-visible:border-blue-500"
                   autoComplete="current-password"
                 />
                 <button
