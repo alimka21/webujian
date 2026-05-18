@@ -513,6 +513,110 @@ router.delete('/ujian/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ── Import alumni: template Excel ──────────────────────
+router.get('/alumni/import-template', async (req, res, next) => {
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Template Alumni');
+
+    ws.columns = [
+      { header: 'Nama',         key: 'nama',       width: 28 },
+      { header: 'NIS',          key: 'nis',        width: 14 },
+      { header: 'Tahun Lulus',  key: 'tahunLulus', width: 14 },
+      { header: 'Jurusan',      key: 'jurusan',    width: 18 },
+      { header: 'Status',       key: 'status',     width: 16 },
+      { header: 'Instansi',     key: 'instansi',   width: 24 },
+      { header: 'Posisi',       key: 'posisi',     width: 22 },
+      { header: 'Kontak',       key: 'kontak',     width: 24 },
+    ];
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+      c.alignment = { horizontal: 'center' };
+    });
+
+    ws.addRow({
+      nama: 'Contoh Nama Alumni', nis: '2021001', tahunLulus: 2024,
+      jurusan: 'IPA', status: 'KULIAH', instansi: 'Universitas Indonesia',
+      posisi: 'Mahasiswa Teknik', kontak: '08123456789',
+    });
+
+    const noteRow = ws.addRow([]);
+    noteRow.getCell(1).value = 'Status valid: BEKERJA, KULIAH, WIRAUSAHA, TIDAK_DIKETAHUI. Wajib: Nama, Tahun Lulus, Status.';
+    noteRow.getCell(1).font = { italic: true, color: { argb: 'FF6B7280' } };
+    ws.mergeCells(`A${noteRow.number}:H${noteRow.number}`);
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="template-import-alumni.xlsx"');
+    res.send(Buffer.from(buf));
+  } catch (error) { next(error); }
+});
+
+// ── Import alumni: bulk insert ─────────────────────────
+router.post('/alumni/import', async (req, res, next) => {
+  try {
+    const { items } = req.body as { items?: any[] };
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'items kosong' });
+    }
+    if (items.length > 500) {
+      return res.status(400).json({ error: 'Maksimal 500 baris per import' });
+    }
+
+    const VALID_STATUS = new Set(['BEKERJA', 'KULIAH', 'WIRAUSAHA', 'TIDAK_DIKETAHUI']);
+
+    let created = 0;
+    let skipped = 0;
+    const failed: { row: number; message: string }[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const row = items[i];
+      const rowNumber = i + 2;
+      const nama = String(row.nama ?? '').trim();
+      const nis = String(row.nis ?? '').trim() || null;
+      const tahunLulusRaw = row.tahunLulus;
+      const tahunLulus = Number(tahunLulusRaw);
+      const jurusan = String(row.jurusan ?? '').trim() || null;
+      const status = String(row.status ?? '').trim().toUpperCase();
+      const instansi = String(row.instansi ?? '').trim() || null;
+      const posisi = String(row.posisi ?? '').trim() || null;
+      const kontak = String(row.kontak ?? '').trim() || null;
+
+      if (!nama || !tahunLulusRaw || !status) {
+        failed.push({ row: rowNumber, message: 'Nama, Tahun Lulus, dan Status wajib diisi' });
+        continue;
+      }
+      if (!Number.isFinite(tahunLulus) || tahunLulus < 1900 || tahunLulus > 2100) {
+        failed.push({ row: rowNumber, message: `Tahun Lulus "${tahunLulusRaw}" tidak valid` });
+        continue;
+      }
+      if (!VALID_STATUS.has(status)) {
+        failed.push({ row: rowNumber, message: `Status "${status}" tidak valid (BEKERJA/KULIAH/WIRAUSAHA/TIDAK_DIKETAHUI)` });
+        continue;
+      }
+
+      // Idempotent: kalau ada NIS yang sama, skip (NIS bukan unique di schema tapi
+      // di-treat sebagai natural key untuk import)
+      if (nis) {
+        const existing = await prisma.alumni.findFirst({ where: { nis } });
+        if (existing) { skipped++; continue; }
+      }
+
+      try {
+        await prisma.alumni.create({
+          data: { nama, nis, tahunLulus, jurusan, status, instansi, posisi, kontak },
+        });
+        created++;
+      } catch (err: any) {
+        failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+      }
+    }
+
+    res.json({ created, skipped, failed });
+  } catch (error) { next(error); }
+});
+
 router.get('/alumni/export', async (req, res, next) => {
   try {
     const alumni = await prisma.alumni.findMany({ orderBy: [{ tahunLulus: 'desc' }, { nama: 'asc' }] });

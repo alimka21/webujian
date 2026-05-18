@@ -1,11 +1,12 @@
 import { toast } from 'sonner';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ExcelJS from 'exceljs';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input, Label } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Download, Edit, Trash2, Building, GraduationCap, Briefcase, Users, HelpCircle, Search, X } from 'lucide-react';
+import { Plus, Download, Edit, Trash2, Building, GraduationCap, Briefcase, Users, HelpCircle, Search, X, Upload, CheckCircle2, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { Pagination } from '../../components/ui/pagination';
@@ -62,6 +63,13 @@ export default function AlumniTracer() {
   const [isExporting, setIsExporting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const modalRef = useModalA11y<HTMLDivElement>(showModal, () => setShowModal(false));
+
+  // ── Import state ──
+  type ImportResult = { created: number; skipped: number; failed: { row: number; message: string }[] } | null;
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const importResultModalRef = useModalA11y<HTMLDivElement>(importResult !== null, () => setImportResult(null));
 
   // Reset ke halaman 1 saat search/filter berubah
   useEffect(() => { setCurrentPage(1); }, [search, filterTahun, filterStatus, filterJurusan]);
@@ -158,6 +166,88 @@ export default function AlumniTracer() {
     }
   };
 
+  // ── Import: download template ──
+  const handleDownloadTemplate = async () => {
+    try {
+      let token = localStorage.getItem('token');
+      if (!token) {
+        try { const raw = localStorage.getItem('auth-storage'); if (raw) token = JSON.parse(raw)?.state?.token; } catch { /* ignore */ }
+      }
+      const resp = await fetch('/api/admin/alumni/import-template', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error('Gagal mengunduh template');
+      const blob = await resp.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = 'template-import-alumni.xlsx';
+      a.click();
+      URL.revokeObjectURL(href);
+      toast.success('Template berhasil diunduh');
+    } catch (e: any) {
+      toast.error(e.message || 'Gagal mengunduh template');
+    }
+  };
+
+  // ── Import: parse Excel + kirim ke backend ──
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error('Sheet pertama tidak ditemukan di file');
+
+      const headerRow = ws.getRow(1);
+      const headers: string[] = [];
+      headerRow.eachCell((cell, col) => {
+        headers[col] = String(cell.value ?? '').toLowerCase().trim();
+      });
+
+      const items: any[] = [];
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const obj: Record<string, any> = {};
+        row.eachCell((cell, col) => {
+          const key = headers[col];
+          if (!key) return;
+          let normalized = key;
+          if (key === 'nama') normalized = 'nama';
+          else if (key === 'nis') normalized = 'nis';
+          else if (key === 'tahun lulus' || key === 'tahunlulus') normalized = 'tahunLulus';
+          else if (key === 'jurusan') normalized = 'jurusan';
+          else if (key === 'status') normalized = 'status';
+          else if (key === 'instansi') normalized = 'instansi';
+          else if (key === 'posisi') normalized = 'posisi';
+          else if (key === 'kontak') normalized = 'kontak';
+          obj[normalized] = cell.value;
+        });
+        if (Object.values(obj).every(v => v == null || String(v).trim() === '')) return;
+        items.push(obj);
+      });
+
+      if (items.length === 0) {
+        toast.error('Tidak ada data baris yang ter-baca dari file');
+        return;
+      }
+
+      const result = await api.post('/api/admin/alumni/import', { items });
+      setImportResult(result);
+      if (result.created > 0) toast.success(`${result.created} alumni berhasil di-import`);
+      fetchAlumni();
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memproses file');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Stats
   const stats = alumniList.reduce((acc: Record<string, number>, al) => {
     acc[al.status] = (acc[al.status] || 0) + 1;
@@ -221,7 +311,19 @@ export default function AlumniTracer() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tracer Study Alumni</h1>
           <p className="text-slate-500 mt-1">Pantau jejak karir dan pendidikan lanjutan lulusan.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" className="gap-2" onClick={handleDownloadTemplate} disabled={importing}>
+            <Download className="w-4 h-4" /> Template
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? <div className="w-4 h-4 border-2 border-green-400/40 border-t-green-700 rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+            {importing ? 'Memproses...' : 'Import'}
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={isExporting}>
             {isExporting ? <div className="w-4 h-4 border-2 border-slate-400/40 border-t-slate-600 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             Export Excel
@@ -488,6 +590,66 @@ export default function AlumniTracer() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input untuk import Excel */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        className="hidden"
+        onChange={handleFileSelected}
+        aria-hidden="true"
+      />
+
+      {/* Modal Hasil Import */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div
+            ref={importResultModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="alumni-import-result-title"
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 id="alumni-import-result-title" className="text-lg font-bold text-slate-900">Hasil Import Alumni</h2>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
+                  <p className="text-xs text-green-600 mt-0.5">Berhasil</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-slate-700">{importResult.skipped}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">Sudah ada (skip)</p>
+                </div>
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-center">
+                  <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-red-700">{importResult.failed.length}</p>
+                  <p className="text-xs text-red-600 mt-0.5">Gagal</p>
+                </div>
+              </div>
+              {importResult.failed.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-semibold text-red-700 mb-2">Detail kegagalan:</p>
+                  <ul className="space-y-1 text-xs text-red-600">
+                    {importResult.failed.map((f, i) => (
+                      <li key={i}>
+                        <span className="font-mono font-semibold">Baris {f.row}:</span> {f.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-6 flex justify-end">
+              <Button onClick={() => setImportResult(null)} className="bg-blue-600 hover:bg-blue-700">Tutup</Button>
+            </div>
           </div>
         </div>
       )}
