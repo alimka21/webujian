@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GraduationCap, ArrowLeft, Calendar, Share2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Calendar, Share2, Link as LinkIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import api from '../lib/api';
@@ -17,15 +17,17 @@ export default function BeritaDetail() {
       try {
         setIsLoading(true);
         window.scrollTo(0, 0);
-        
-        // Asumsi API fetch berita by slug, jika tidak ada filter manual dari list
-        const resList = await api.get('/api/berita?limit=100'); // Ambil list lalu cari slug untuk prototype ini (karena api by slug mungkin belum ada)
-        const item = resList.find((b: any) => b.slug === slug);
-        
-        if (item) {
-          setBerita(item);
-          // Ambil 3 berita lainnya
-          setBeritaLain(resList.filter((b: any) => b.id !== item.id).slice(0, 3));
+
+        // Fetch by slug + ambil 3 berita lain (publik) untuk section "Terkait"
+        const [detail, listResp] = await Promise.all([
+          api.get(`/api/berita/${slug}`).catch(() => null),
+          api.get('/api/berita?limit=4').catch(() => ({ data: [] })),
+        ]);
+
+        if (detail) {
+          setBerita(detail);
+          const lain = (listResp.data || []).filter((b: any) => b.id !== detail.id).slice(0, 3);
+          setBeritaLain(lain);
         } else {
           setBerita(null);
         }
@@ -35,9 +37,50 @@ export default function BeritaDetail() {
         setIsLoading(false);
       }
     };
-    
+
     if (slug) fetchDetail();
   }, [slug]);
+
+  // ── Share handlers ──────────────────────────────────────
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({
+          title: berita?.judul ?? 'Berita Sekolah',
+          text: berita?.ringkasan ?? berita?.judul ?? '',
+          url: shareUrl,
+        });
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') toast.error('Gagal membuka menu berbagi');
+      }
+    } else {
+      // Fallback: salin link
+      handleCopyLink();
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link disalin ke clipboard');
+    } catch {
+      toast.error('Gagal menyalin link');
+    }
+  };
+
+  const shareWhatsApp = () => {
+    const text = encodeURIComponent(`${berita?.judul ?? ''}\n${shareUrl}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+  const shareFacebook = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'noopener,noreferrer');
+  };
+  const shareTwitter = () => {
+    const text = encodeURIComponent(berita?.judul ?? '');
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'noopener,noreferrer');
+  };
 
   if (isLoading) {
     return (
@@ -119,12 +162,41 @@ export default function BeritaDetail() {
             </article>
 
             {/* Share action */}
-            <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between">
-               <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Bagikan:</span>
-               <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2" onClick={() => navigator.clipboard.writeText(window.location.href).then(()=>toast('Link disalin!'))}>
-                     <Share2 className="w-4 h-4" /> Salin Tautan
-                  </Button>
+            <div className="mt-12 pt-8 border-t border-slate-100">
+               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Bagikan artikel ini:</span>
+                  <div className="flex gap-2 flex-wrap">
+                     <Button variant="outline" size="sm" className="gap-2" onClick={handleNativeShare} title="Bagikan">
+                        <Share2 className="w-4 h-4" /> Bagikan
+                     </Button>
+                     <Button
+                        variant="outline" size="sm"
+                        className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                        onClick={shareWhatsApp}
+                        aria-label="Bagikan ke WhatsApp"
+                     >
+                        WhatsApp
+                     </Button>
+                     <Button
+                        variant="outline" size="sm"
+                        className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        onClick={shareFacebook}
+                        aria-label="Bagikan ke Facebook"
+                     >
+                        Facebook
+                     </Button>
+                     <Button
+                        variant="outline" size="sm"
+                        className="gap-2 bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100"
+                        onClick={shareTwitter}
+                        aria-label="Bagikan ke X / Twitter"
+                     >
+                        X / Twitter
+                     </Button>
+                     <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyLink} aria-label="Salin tautan">
+                        <LinkIcon className="w-4 h-4" /> Salin Link
+                     </Button>
+                  </div>
                </div>
             </div>
          </div>

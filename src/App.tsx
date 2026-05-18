@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
+import BeritaList from './pages/BeritaList';
 import BeritaDetail from './pages/BeritaDetail';
 import NotFoundPage from './pages/NotFoundPage';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -46,6 +47,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/berita" element={<BeritaList />} />
         <Route path="/berita/:slug" element={<BeritaDetail />} />
         
         {/* Public route but redirect if logged in */}
