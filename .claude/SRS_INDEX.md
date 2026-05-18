@@ -77,12 +77,12 @@ REQ-010 (UI/UX)
 | Label | Status | Catatan |
 |-------|--------|---------|
 | `REQ-001` | ✅ Selesai | Login multi-role berjalan |
-| `REQ-002` | ✅ ~90% | Export PDF/Excel perlu dicek |
+| `REQ-002` | ✅ ~95% | + Admin overview/delete (commit 895fe6d). Export PDF/Excel perlu dicek |
 | `REQ-003` | ✅ Selesai | Anti-cheat aktif |
 | `REQ-004` | ⚠️ ~70% | Export Excel belum terhubung backend |
 | `REQ-005` | ⚠️ ~75% | Paginasi belum ada |
 | `REQ-006` | ⚠️ ~80% | Fitur preview belum |
-| `REQ-007` | ✅ ~85% | Paginasi belum ada |
+| `REQ-007` | ✅ ~95% | + Bulk import siswa/guru via Excel (commit 01257d3). Paginasi sudah ada |
 | `REQ-008` | ⚠️ ~70% | Error state silent perlu fix |
 | `REQ-009` | 🟡 Sedang berjalan | Setup Hostinger Node.js + MySQL XAMPP dev, init migration & seed sudah committed |
 | `REQ-010` | ⚠️ ~60% | 26 issue audit sedang di-fix |
