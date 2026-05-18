@@ -24,6 +24,14 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>(
   const containerRef = useRef<T | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Simpan onClose di ref supaya effect tidak re-run setiap parent re-render
+  // (jika ada di deps array, focus akan terus-menerus pindah ke input pertama
+  // tiap user mengetik di form di dalam modal).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -41,9 +49,9 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>(
     const id = window.setTimeout(focusFirst, 50);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onClose) {
+      if (e.key === 'Escape' && onCloseRef.current) {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !containerRef.current) return;
@@ -77,7 +85,7 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>(
       document.removeEventListener('keydown', handleKeyDown);
       previouslyFocused.current?.focus?.();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return containerRef;
 }
