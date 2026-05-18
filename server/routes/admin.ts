@@ -461,6 +461,58 @@ router.delete('/alumni/:id', async (req, res, next) => {
   }
 });
 
+// ── Ujian (admin view-all + delete) ─────────────────────
+// Admin punya hak baca semua ujian dari seluruh guru + bisa hapus
+// untuk kepentingan housekeeping. Edit konten ujian/soal tetap di
+// tangan guru pemilik via /api/guru/ujian/*.
+router.get('/ujian', async (req, res, next) => {
+  try {
+    const ujianList = await prisma.ujian.findMany({
+      include: {
+        guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
+        kelas: { include: { kelas: { select: { id: true, nama: true, tingkat: true } } } },
+        _count: { select: { soal: true, sesiUjian: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(ujianList);
+  } catch (error) { next(error); }
+});
+
+router.get('/ujian/:id', async (req, res, next) => {
+  try {
+    const ujian = await prisma.ujian.findUnique({
+      where: { id: req.params.id },
+      include: {
+        guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
+        kelas: { include: { kelas: true } },
+        soal: { include: { opsi: true }, orderBy: { nomor: 'asc' } },
+        _count: { select: { sesiUjian: true } },
+      },
+    });
+    if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    res.json(ujian);
+  } catch (error) { next(error); }
+});
+
+router.delete('/ujian/:id', async (req, res, next) => {
+  try {
+    const sesiCount = await prisma.sesiUjian.count({
+      where: {
+        ujianId: req.params.id,
+        status: { in: ['SEDANG_BERLANGSUNG', 'SELESAI', 'AUTO_SUBMIT'] },
+      },
+    });
+    if (sesiCount > 0) {
+      return res.status(400).json({
+        error: `Tidak bisa menghapus: ${sesiCount} siswa sudah mengerjakan ujian ini`,
+      });
+    }
+    await prisma.ujian.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
+
 router.get('/alumni/export', async (req, res, next) => {
   try {
     const alumni = await prisma.alumni.findMany({ orderBy: [{ tahunLulus: 'desc' }, { nama: 'asc' }] });

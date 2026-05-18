@@ -13,6 +13,7 @@ import DashboardLayout from './components/layout/DashboardLayout';
 
 // Admin
 import AdminDashboard from './pages/dashboard/AdminDashboard';
+import AdminUjianList from './pages/dashboard/AdminUjianList';
 import AlumniTracer from './pages/dashboard/AlumniTracer';
 import CmsManage from './pages/dashboard/CmsManage';
 import ManageUsers from './pages/dashboard/ManageUsers';
@@ -76,6 +77,11 @@ export default function App() {
             <Route path="users" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                 <ManageUsers />
+              </ProtectedRoute>
+            } />
+            <Route path="ujian" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <AdminUjianList />
               </ProtectedRoute>
             } />
             <Route path="alumni" element={

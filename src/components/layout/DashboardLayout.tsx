@@ -21,6 +21,7 @@ const navConfig: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', href: '/dashboard/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
     { label: 'Pengguna', href: '/dashboard/admin/users', icon: <Users className="w-5 h-5" /> },
+    { label: 'Ujian', href: '/dashboard/admin/ujian', icon: <FileText className="w-5 h-5" /> },
     { label: 'Alumni', href: '/dashboard/admin/alumni', icon: <GraduationCap className="w-5 h-5" /> },
     { label: 'Berita / CMS', href: '/dashboard/admin/cms', icon: <Newspaper className="w-5 h-5" /> },
     { label: 'Statistik', href: '/dashboard/admin/stats', icon: <BarChart3 className="w-5 h-5" /> },
