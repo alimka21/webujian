@@ -18,6 +18,7 @@ import AdminUjianList from './pages/dashboard/AdminUjianList';
 import AlumniTracer from './pages/dashboard/AlumniTracer';
 import CmsManage from './pages/dashboard/CmsManage';
 import ManageUsers from './pages/dashboard/ManageUsers';
+import SiteSettings from './pages/dashboard/SiteSettings';
 import StatsAdmin from './pages/dashboard/StatsAdmin';
 
 // Guru
@@ -94,6 +95,11 @@ export default function App() {
             <Route path="cms" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                 <CmsManage />
+              </ProtectedRoute>
+            } />
+            <Route path="site" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <SiteSettings />
               </ProtectedRoute>
             } />
             <Route path="stats" element={

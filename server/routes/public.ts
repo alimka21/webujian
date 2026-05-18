@@ -35,6 +35,17 @@ router.get('/berita/:slug', async (req, res, next) => {
   } catch(error) { next(error); }
 });
 
+// Singleton: SiteConfig untuk landing page. Auto-create kalau belum ada.
+router.get('/site-config', async (req, res, next) => {
+  try {
+    let config = await prisma.siteConfig.findFirst();
+    if (!config) {
+      config = await prisma.siteConfig.create({ data: {} });
+    }
+    res.json(config);
+  } catch (error) { next(error); }
+});
+
 router.get('/alumni/stats', async (req, res, next) => {
   try {
     const alumniList = await prisma.alumni.findMany();

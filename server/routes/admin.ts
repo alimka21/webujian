@@ -666,4 +666,37 @@ router.get('/alumni/export', async (req, res, next) => {
   }
 });
 
+// ── SiteConfig (admin update) ──────────────────────────
+// Whitelist field — biar request body tidak bisa nyelundupin field
+// yang tidak diinginkan (misal id, updatedAt).
+const SITE_CONFIG_FIELDS = [
+  'namaSekolah', 'tagline', 'deskripsi',
+  'logoUrl', 'faviconUrl', 'heroImageUrl',
+  'heroBadge', 'heroTitle', 'heroSubtitle',
+  'profilImageUrl', 'sejarah',
+  'visi', 'misi', 'tujuan',
+  'alamat', 'telepon', 'email', 'whatsapp',
+  'facebook', 'instagram', 'twitter', 'youtube', 'tiktok',
+] as const;
+
+router.patch('/site-config', async (req, res, next) => {
+  try {
+    const data: Record<string, any> = {};
+    for (const key of SITE_CONFIG_FIELDS) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+
+    let config = await prisma.siteConfig.findFirst();
+    if (!config) {
+      config = await prisma.siteConfig.create({ data });
+    } else {
+      config = await prisma.siteConfig.update({
+        where: { id: config.id },
+        data,
+      });
+    }
+    res.json(config);
+  } catch (error) { next(error); }
+});
+
 export default router;

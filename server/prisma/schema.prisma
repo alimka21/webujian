@@ -216,3 +216,38 @@ model Berita {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
+
+// Singleton config untuk landing page (1 row saja).
+// Admin meng-edit via /dashboard/admin/site, dibaca publik via /api/site-config.
+model SiteConfig {
+  id             String   @id @default(uuid())
+  namaSekolah    String   @default("Sekolah Hebat")
+  tagline        String?  @db.Text
+  deskripsi      String?  @db.Text
+
+  logoUrl        String?  @db.LongText
+  faviconUrl     String?  @db.LongText
+  heroImageUrl   String?  @db.LongText
+  heroBadge      String?
+  heroTitle      String?  @db.Text
+  heroSubtitle   String?  @db.Text
+  profilImageUrl String?  @db.LongText
+  sejarah        String?  @db.LongText
+
+  visi           String?  @db.Text
+  misi           String?  @db.Text
+  tujuan         String?  @db.Text
+
+  alamat         String?  @db.Text
+  telepon        String?
+  email          String?
+  whatsapp       String?
+
+  facebook       String?
+  instagram      String?
+  twitter        String?
+  youtube        String?
+  tiktok         String?
+
+  updatedAt      DateTime @updatedAt
+}

@@ -1,42 +1,82 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { GraduationCap, ArrowRight, BookOpen, Users, Trophy, ChevronRight, CheckCircle2 } from 'lucide-react';
+import {
+  GraduationCap, ArrowRight, BookOpen, Users, Trophy, ChevronRight, CheckCircle2,
+  Facebook, Instagram, Twitter, Youtube, Music2,
+} from 'lucide-react';
 import api from '../lib/api';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+// Fallback defaults — dipakai kalau SiteConfig belum di-edit oleh admin
+const DEFAULT_CONFIG = {
+  namaSekolah: 'Sekolah Hebat',
+  tagline: 'Pusat pendidikan terdepan yang mendidik generasi berprestasi.',
+  deskripsi: 'Sistem manajemen sekolah terpadu yang memadukan keunggulan akademik, karakter mulia, dan wawasan global.',
+  logoUrl: '',
+  faviconUrl: '',
+  heroImageUrl: '',
+  heroBadge: 'Penerimaan Siswa Baru 2026/2027',
+  heroTitle: 'Membangun Generasi Pemimpin Masa Depan',
+  heroSubtitle: 'Sistem manajemen sekolah terpadu yang memadukan keunggulan akademik, karakter mulia, dan wawasan global untuk menyongsong masa depan yang cerah.',
+  profilImageUrl: '',
+  sejarah: 'Berdiri sejak tahun 2005, sekolah ini telah mendedikasikan diri untuk mencetak lulusan berprestasi yang siap mengabdi pada masyarakat.',
+  visi: 'Menjadi lembaga pendidikan terdepan yang menghasilkan insan berkarakter mulia, cerdas, terampil, dan berwawasan global.',
+  misi: 'Menyelenggarakan pendidikan yang bermutu tinggi.\nMembina karakter jujur, disiplin, dan bertanggung jawab.\nMengembangkan potensi minat dan bakat secara optimal.',
+  tujuan: 'Mempersiapkan siswa untuk melanjutkan ke jenjang pendidikan yang lebih tinggi atau memasuki dunia wirausaha dan dunia kerja dengan bekal kompetensi yang relevan.',
+  alamat: 'Jl. Pendidikan No. 123, Kota Pelajar, Indonesia 12345',
+  telepon: '(021) 555-0123',
+  email: 'info@sekolah.sch.id',
+  whatsapp: '',
+  facebook: '', instagram: '', twitter: '', youtube: '', tiktok: '',
+};
+
+type SiteConfig = typeof DEFAULT_CONFIG;
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const [berita, setBerita] = useState<any[]>([]);
   const [alumniStats, setAlumniStats] = useState<any[]>([]);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
+
+  // Helper: merge null/empty config fields with defaults
+  const cfg = useMemo<SiteConfig>(() => {
+    const merged: any = { ...DEFAULT_CONFIG };
+    for (const key of Object.keys(DEFAULT_CONFIG) as (keyof SiteConfig)[]) {
+      const v = (siteConfig as any)[key];
+      if (v != null && String(v).trim() !== '') merged[key] = v;
+    }
+    return merged;
+  }, [siteConfig]);
 
   useEffect(() => {
     const fetchPublicData = async () => {
       try {
-        const resBerita = await api.get('/api/berita?limit=3');
+        const [resBerita, resAlumni, resConfig] = await Promise.all([
+          api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
+          api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
+          api.get('/api/site-config').catch(() => null),
+        ]);
+
         setBerita(resBerita.data || []);
 
-        const resAlumni = await api.get('/api/alumni/stats');
-        
-        // Transform the dictionary to array for recharts
-        const rawStats = resAlumni.perStatus || { BEKERJA: 120, KULIAH: 150, WIRAUSAHA: 30 }; // Fallback data
+        const rawStats = resAlumni.perStatus || { BEKERJA: 120, KULIAH: 150, WIRAUSAHA: 30 };
         const chartData = [
           { name: 'Kerja', value: rawStats.BEKERJA || 0, color: '#3b82f6' },
           { name: 'Kuliah', value: rawStats.KULIAH || 0, color: '#22c55e' },
           { name: 'Wirausaha', value: rawStats.WIRAUSAHA || 0, color: '#eab308' },
         ].filter(d => d.value > 0);
-        
         setAlumniStats(chartData.length > 0 ? chartData : [
           { name: 'Kerja', value: 120, color: '#3b82f6' },
           { name: 'Kuliah', value: 150, color: '#22c55e' },
           { name: 'Wirausaha', value: 30, color: '#eab308' },
         ]);
-        
+
+        if (resConfig) setSiteConfig(resConfig);
       } catch (err) {
         console.error(err);
-        // Set fallback data
         setAlumniStats([
           { name: 'Kerja', value: 120, color: '#3b82f6' },
           { name: 'Kuliah', value: 150, color: '#22c55e' },
@@ -46,6 +86,35 @@ export default function LandingPage() {
     };
     fetchPublicData();
   }, []);
+
+  // Update document title + favicon dinamis
+  useEffect(() => {
+    document.title = cfg.namaSekolah;
+    if (cfg.faviconUrl) {
+      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = cfg.faviconUrl;
+    }
+  }, [cfg.namaSekolah, cfg.faviconUrl]);
+
+  // Helper: render misi sebagai list (split per baris)
+  const misiList = useMemo(
+    () => cfg.misi.split(/\r?\n/).map(s => s.trim()).filter(Boolean),
+    [cfg.misi]
+  );
+
+  // Active social links (skip empty)
+  const socials = [
+    { url: cfg.facebook, label: 'Facebook', Icon: Facebook },
+    { url: cfg.instagram, label: 'Instagram', Icon: Instagram },
+    { url: cfg.twitter, label: 'Twitter / X', Icon: Twitter },
+    { url: cfg.youtube, label: 'YouTube', Icon: Youtube },
+    { url: cfg.tiktok, label: 'TikTok', Icon: Music2 },
+  ].filter(s => s.url && s.url.trim() !== '');
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -58,10 +127,14 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50">
         <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 hidden sm:block">Sekolah Hebat</span>
+            {cfg.logoUrl ? (
+              <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-8 h-8 rounded-lg object-contain shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+            )}
+            <span className="font-bold text-xl tracking-tight text-slate-900 hidden sm:block">{cfg.namaSekolah}</span>
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
@@ -81,31 +154,39 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-4">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
-            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium rounded-full">
-              Penerimaan Siswa Baru 2024/2025
-            </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight tracking-tight">
-              Membangun Generasi <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Pemimpin Masa Depan</span>
+            {cfg.heroBadge && (
+              <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium rounded-full">
+                {cfg.heroBadge}
+              </Badge>
+            )}
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight tracking-tight whitespace-pre-wrap">
+              {cfg.heroTitle}
             </h1>
-            <p className="text-lg text-slate-600 leading-relaxed max-w-lg">
-              Sistem manajemen sekolah terpadu yang memadukan keunggulan akademik, karakter mulia, dan wawasan global untuk menyongsong masa depan yang cerah.
+            <p className="text-lg text-slate-600 leading-relaxed max-w-lg whitespace-pre-wrap">
+              {cfg.heroSubtitle}
             </p>
             <div className="flex flex-wrap gap-4 pt-4">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 rounded-full h-12 px-8 text-base">
+              <Button size="lg" onClick={() => scrollTo('profil')} className="bg-blue-600 hover:bg-blue-700 rounded-full h-12 px-8 text-base">
                 Mulai Jelajah
               </Button>
-              <Button size="lg" variant="outline" className="rounded-full h-12 px-8 text-base gap-2 bg-white">
-                Lihat Brosur <ArrowRight className="w-4 h-4" />
+              <Button size="lg" variant="outline" onClick={() => scrollTo('berita')} className="rounded-full h-12 px-8 text-base gap-2 bg-white">
+                Lihat Berita <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
           <div className="relative">
             <div className="absolute inset-0 bg-blue-100 rounded-[3rem] transform rotate-3 scale-105 -z-10"></div>
-            <img 
-              src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=800&auto=format&fit=crop" 
-              alt="Siswa bahagia" 
-              className="rounded-[3rem] shadow-2xl object-cover aspect-[4/3] w-full"
-            />
+            {cfg.heroImageUrl ? (
+              <img
+                src={cfg.heroImageUrl}
+                alt={cfg.namaSekolah}
+                className="rounded-[3rem] shadow-2xl object-cover aspect-[4/3] w-full"
+              />
+            ) : (
+              <div className="rounded-[3rem] shadow-2xl bg-gradient-to-br from-blue-100 to-blue-200 aspect-[4/3] w-full flex items-center justify-center">
+                <GraduationCap className="w-24 h-24 text-blue-400" />
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -120,12 +201,18 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
             <div className="order-2 md:order-1 relative">
-              <img src="https://images.unsplash.com/photo-1546410531-bea5aadcb6ce?q=80&w=800&auto=format&fit=crop" alt="Fasilitas" className="rounded-3xl shadow-lg" />
+              {cfg.profilImageUrl ? (
+                <img src={cfg.profilImageUrl} alt={`Profil ${cfg.namaSekolah}`} className="rounded-3xl shadow-lg object-cover w-full aspect-[4/3]" />
+              ) : (
+                <div className="rounded-3xl shadow-lg bg-gradient-to-br from-slate-100 to-slate-200 aspect-[4/3] w-full flex items-center justify-center">
+                  <BookOpen className="w-20 h-20 text-slate-400" />
+                </div>
+              )}
             </div>
             <div className="order-1 md:order-2 space-y-6">
               <h3 className="text-2xl font-bold text-slate-900">Sejarah Singkat</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Berdiri sejak tahun 2005, sekolah ini telah mendedikasikan diri untuk mencetak lulusan berprestasi yang siap mengabdi pada masyarakat. Dengan kurikulum yang beradaptasi pada perkembangan zaman, kami memastikan setiap siswa mendapatkan pendidikan terbaik.
+              <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                {cfg.sejarah}
               </p>
               <ul className="space-y-3">
                 {['Akreditasi A Nasional', 'Fasilitas Laboratorium Lengkap', 'Pengajar Tersertifikasi', 'Lingkungan Hijau & Asri'].map((item, i) => (
@@ -142,27 +229,25 @@ export default function LandingPage() {
             <Card className="bg-blue-600 text-white border-0 shadow-lg shadow-blue-500/20">
               <CardContent className="p-8">
                 <h4 className="text-xl font-bold mb-4">Visi</h4>
-                <p className="text-blue-100 leading-relaxed">
-                  "Menjadi lembaga pendidikan terdepan yang menghasilkan insan berkarakter mulia, cerdas, terampil, dan berwawasan global."
-                </p>
+                <p className="text-blue-100 leading-relaxed whitespace-pre-wrap">{cfg.visi}</p>
               </CardContent>
             </Card>
             <Card className="bg-slate-900 text-white border-0 shadow-lg shadow-slate-900/20">
               <CardContent className="p-8">
                 <h4 className="text-xl font-bold mb-4">Misi</h4>
-                <ul className="space-y-2 text-slate-300 list-disc pl-5">
-                  <li>Menyelenggarakan pendidikan yang bermutu tinggi.</li>
-                  <li>Membina karakter jujur, disiplin, dan bertanggung jawab.</li>
-                  <li>Mengembangkan potensi minat dan bakat secara optimal.</li>
-                </ul>
+                {misiList.length > 1 ? (
+                  <ul className="space-y-2 text-slate-300 list-disc pl-5">
+                    {misiList.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                ) : (
+                  <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{cfg.misi}</p>
+                )}
               </CardContent>
             </Card>
             <Card className="bg-white border border-slate-200 shadow-xl shadow-slate-200/50">
               <CardContent className="p-8">
                 <h4 className="text-xl font-bold mb-4 text-slate-900">Tujuan</h4>
-                <p className="text-slate-600 leading-relaxed">
-                  Mempersiapkan siswa untuk melanjutkan ke jenjang pendidikan yang lebih tinggi atau memasuki dunia wirausaha dan dunia kerja dengan bekal kompetensi yang relevan.
-                </p>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{cfg.tujuan}</p>
               </CardContent>
             </Card>
           </div>
@@ -350,16 +435,18 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-1 space-y-4">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              <span className="font-bold text-xl tracking-tight text-white">Sekolah Hebat</span>
+              {cfg.logoUrl ? (
+                <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-8 h-8 rounded-lg object-contain bg-white p-1 shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+              )}
+              <span className="font-bold text-xl tracking-tight text-white">{cfg.namaSekolah}</span>
             </div>
-            <p className="text-sm leading-relaxed">
-              Pusat pendidikan terdepan yang mendidik generasi berprestasi dan berintegritas.
-            </p>
+            <p className="text-sm leading-relaxed">{cfg.tagline}</p>
           </div>
-          
+
           <div>
             <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-sm">Tautan Cepat</h4>
             <ul className="space-y-3 text-sm">
@@ -369,29 +456,43 @@ export default function LandingPage() {
               <li><Link to="/login" className="hover:text-white transition-colors">Portal Siswa/Guru</Link></li>
             </ul>
           </div>
-          
+
           <div className="md:col-span-2">
             <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-sm">Hubungi Kami</h4>
             <div className="space-y-3 text-sm">
-              <p>Jl. Pendidikan No. 123, Kota Pelajar, Indonesia 12345</p>
-              <p>Email: info@sekolahhebat.sch.id</p>
-              <p>Telepon: (021) 555-0123</p>
-            </div>
-            {/* Dummy Map Placeholder */}
-            <div className="w-full h-32 bg-slate-800 rounded-xl mt-6 flex items-center justify-center border border-slate-700/50 overflow-hidden relative">
-               <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=Jakarta&zoom=13&size=600x300&maptype=roadmap&style=element:geometry%7Ccolor:0x242f3e&style=element:labels.text.stroke%7Ccolor:0x242f3e&style=element:labels.text.fill%7Ccolor:0x746855&key=invalid_key')] bg-cover bg-center opacity-40 mix-blend-luminosity"></div>
-               <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-slate-500">Peta Lokasi</span>
+              {cfg.alamat && <p className="whitespace-pre-wrap">{cfg.alamat}</p>}
+              {cfg.email && <p>Email: <a href={`mailto:${cfg.email}`} className="hover:text-white transition-colors">{cfg.email}</a></p>}
+              {cfg.telepon && <p>Telepon: <a href={`tel:${cfg.telepon.replace(/[^\d+]/g, '')}`} className="hover:text-white transition-colors">{cfg.telepon}</a></p>}
+              {cfg.whatsapp && (
+                <p>WhatsApp:{' '}
+                  <a
+                    href={`https://wa.me/${cfg.whatsapp.replace(/[^\d]/g, '')}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >{cfg.whatsapp}</a>
+                </p>
+              )}
             </div>
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 text-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>&copy; {new Date().getFullYear()} Sekolah Hebat. Semua hak dilindungi.</p>
-          <div className="flex gap-4">
-            {/* Social Links Placeholders */}
-            <a href="#" className="hover:text-white transition-colors">Facebook</a>
-            <a href="#" className="hover:text-white transition-colors">Instagram</a>
-            <a href="#" className="hover:text-white transition-colors">Twitter</a>
-          </div>
+          <p>&copy; {new Date().getFullYear()} {cfg.namaSekolah}. Semua hak dilindungi.</p>
+          {socials.length > 0 && (
+            <div className="flex gap-3">
+              {socials.map(({ url, label, Icon }) => (
+                <a
+                  key={label}
+                  href={url ?? '#'}
+                  target="_blank" rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+                  aria-label={label}
+                  title={label}
+                >
+                  <Icon className="w-4 h-4" />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </footer>
     </div>

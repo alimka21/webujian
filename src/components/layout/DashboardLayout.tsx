@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  LogOut, Menu, X, LayoutDashboard, Users, FileText,
+  LogOut, Menu, X, LayoutDashboard, Users, FileText, Settings,
   GraduationCap, ClipboardList, PenTool, BarChart3, Newspaper, CalendarCheck
 } from 'lucide-react';
 import { useAuthStore, Role } from '../../store/authStore';
@@ -24,6 +24,7 @@ const navConfig: Record<Role, NavItem[]> = {
     { label: 'Ujian', href: '/dashboard/admin/ujian', icon: <FileText className="w-5 h-5" /> },
     { label: 'Alumni', href: '/dashboard/admin/alumni', icon: <GraduationCap className="w-5 h-5" /> },
     { label: 'Berita / CMS', href: '/dashboard/admin/cms', icon: <Newspaper className="w-5 h-5" /> },
+    { label: 'Pengaturan Situs', href: '/dashboard/admin/site', icon: <Settings className="w-5 h-5" /> },
     { label: 'Statistik', href: '/dashboard/admin/stats', icon: <BarChart3 className="w-5 h-5" /> },
   ],
   GURU: [
