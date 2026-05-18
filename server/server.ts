@@ -8,23 +8,29 @@ import os from "os";
 import { execSync } from "child_process";
 
 // ── Load .env from multiple possible locations ───────
+console.log("[startup] __dirname:", __dirname);
+console.log("[startup] cwd:", process.cwd());
+console.log("[startup] os.homedir():", os.homedir());
+console.log("[startup] process.env.HOME:", process.env.HOME);
+
 const envCandidates = [
-  path.join(__dirname, "../.env"),           // server/.env (when running from server/dist/)
-  path.join(__dirname, "../../.env"),        // project root .env
-  path.join(__dirname, "../../server/.env"), // alt path if cwd differs
-  path.join(os.homedir(), ".env"),           // ~/.env (survives deploys)
-  path.join(process.cwd(), ".env"),          // cwd .env
+  path.join(__dirname, "../.env"),
+  path.join(__dirname, "../../.env"),
+  path.join(__dirname, "../../server/.env"),
+  path.join(os.homedir(), ".env"),
+  path.join(process.cwd(), ".env"),
+  "/home/u120188252/.env",
+  "/home/u120188252/domains/mediumaquamarine-camel-941738.hostingersite.com/.env",
 ];
 let envLoadedFrom: string | null = null;
 for (const p of envCandidates) {
-  if (fs.existsSync(p)) {
+  const exists = fs.existsSync(p);
+  console.log(`[startup] check ${p}: ${exists ? "EXISTS" : "no"}`);
+  if (exists && !envLoadedFrom) {
     dotenv.config({ path: p });
     envLoadedFrom = p;
-    break;
   }
 }
-console.log("[startup] __dirname:", __dirname);
-console.log("[startup] cwd:", process.cwd());
 console.log("[startup] .env loaded from:", envLoadedFrom || "(none — using process.env from system)");
 console.log("[startup] DATABASE_URL set?", !!process.env.DATABASE_URL);
 console.log("[startup] NODE_ENV:", process.env.NODE_ENV);
