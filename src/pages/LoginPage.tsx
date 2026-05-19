@@ -4,11 +4,25 @@ import { toast } from 'sonner';
 import { useAuthStore, Role } from '../store/authStore';
 import { Button } from '../components/ui/button';
 import { Input, Label } from '../components/ui/input';
-import { Select } from '../components/ui/select';
-import { Card, CardContent } from '../components/ui/card';
-import { Eye, EyeOff, AlertTriangle, GraduationCap, ChevronDown, Home } from 'lucide-react';
+import {
+  Eye, EyeOff, AlertTriangle, GraduationCap, Home,
+  Shield, ClipboardList, BookOpen,
+} from 'lucide-react';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
-const SCHOOL_NAME = 'SMA Negeri 1 Demo';
+interface RoleOption {
+  value: Role;
+  label: string;
+  icon: React.ElementType;
+}
+
+const ROLE_OPTIONS: RoleOption[] = [
+  { value: 'SUPER_ADMIN', label: 'Admin', icon: Shield },
+  { value: 'GURU',        label: 'Guru',  icon: ClipboardList },
+  { value: 'SISWA',       label: 'Siswa', icon: BookOpen },
+];
+
+const roleLabel = (role: Role) => ROLE_OPTIONS.find(r => r.value === role)?.label ?? 'Sistem';
 
 export default function LoginPage() {
   const [role, setRole] = useState<Role>('SISWA');
@@ -20,6 +34,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoading } = useAuthStore();
+  const siteConfig = useSiteConfig();
+  const schoolName = siteConfig.namaSekolah || 'Portal Sekolah';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,52 +74,66 @@ export default function LoginPage() {
   const identifierPlaceholder = role === 'SISWA' ? 'Contoh: 20250001' : 'Contoh: email@sekolah.sch.id';
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      {/* Logo */}
-      <div className="text-center mb-6">
-        <div className="mx-auto bg-blue-600 w-14 h-14 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-blue-200">
-          <GraduationCap className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo + nama sekolah */}
+        <div className="text-center mb-8">
+          <div className="mx-auto w-16 h-16 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm mb-4">
+            {siteConfig.logoUrl
+              ? <img src={siteConfig.logoUrl} alt={schoolName} className="w-full h-full object-contain rounded-xl bg-on-primary p-1" />
+              : <GraduationCap className="w-9 h-9" />}
+          </div>
+          <h1 className="text-headline-md text-on-surface">{schoolName}</h1>
+          <p className="text-sm text-on-surface-variant mt-1">Portal Akademik Digital</p>
         </div>
-      </div>
 
-      {/* Form Card */}
-      <Card className="w-full max-w-md shadow-xl shadow-slate-200/50 border-0">
-        <CardContent className="p-6 sm:p-8">
-          <h1 className="text-xl font-bold text-slate-900 mb-1">Selamat Datang</h1>
-          <p className="text-sm text-slate-500 mb-6">Pilih peran Anda untuk masuk ke sistem.</p>
-
+        {/* Card form */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-6 sm:p-8">
+          {/* Error banner */}
           {errorMsg && (
             <div
               role="alert"
-              className="mb-5 bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2 border border-red-100"
+              className="mb-5 flex items-start gap-2 rounded-lg border border-error/20 bg-error-container px-3 py-2.5 text-sm text-error font-medium"
             >
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span className="text-sm font-medium">{errorMsg}</span>
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="role">Peran</Label>
-              <div className="relative">
-                <Select
-                  id="role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  disabled={isLoading}
-                  className="h-12 text-center text-base font-semibold bg-blue-50 border-blue-200 text-blue-900 pr-10"
-                >
-                  <option value="SISWA">Siswa</option>
-                  <option value="GURU">Guru</option>
-                  <option value="SUPER_ADMIN">Admin</option>
-                </Select>
-                <ChevronDown
-                  className="w-5 h-5 text-blue-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  aria-hidden="true"
-                />
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Role selector — 3 pill buttons */}
+            <div className="space-y-2">
+              <Label>Pilih Peran</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {ROLE_OPTIONS.map(({ value, label, icon: Icon }) => {
+                  const active = role === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setRole(value)}
+                      disabled={isLoading}
+                      aria-pressed={active}
+                      className={`flex flex-col items-center justify-center gap-1.5 rounded-full py-3 px-2 text-label-sm font-bold uppercase tracking-wider transition-all active:translate-y-px ${
+                        active
+                          ? 'bg-primary text-on-primary shadow-sm'
+                          : 'border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="pt-1 flex justify-center">
+                <span className="inline-flex items-center rounded-full bg-primary-container/20 text-primary px-3 py-1 text-label-sm font-bold uppercase tracking-wider">
+                  Masuk sebagai {roleLabel(role)}
+                </span>
               </div>
             </div>
 
+            {/* Identifier */}
             <div className="space-y-1.5">
               <Label htmlFor="identifier">{identifierLabel}</Label>
               <Input
@@ -113,18 +143,18 @@ export default function LoginPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={isLoading}
-                className="h-11 bg-slate-50 border-slate-300 focus-visible:bg-white focus-visible:border-blue-500"
                 autoComplete={role === 'SISWA' ? 'username' : 'email'}
               />
             </div>
 
+            {/* Password */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <Label htmlFor="password">Kata Sandi</Label>
                 <button
                   type="button"
                   onClick={() => toast.info('Silakan hubungi administrator sekolah untuk reset password')}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-xs text-primary hover:underline font-medium"
                 >
                   Lupa sandi?
                 </button>
@@ -137,13 +167,13 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="pr-10 h-11 bg-slate-50 border-slate-300 focus-visible:bg-white focus-visible:border-blue-500"
+                  className="pr-10"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
                   disabled={isLoading}
                   aria-label={showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'}
                 >
@@ -152,31 +182,35 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full h-11 text-base mt-2">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              size="lg"
+              className="w-full"
+            >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
                   <span>Memproses...</span>
                 </div>
               ) : (
-                'Masuk ke Sistem'
+                `Masuk sebagai ${roleLabel(role)}`
               )}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Nama Sekolah */}
-      <p className="mt-6 text-sm font-medium text-slate-600 text-center">{SCHOOL_NAME}</p>
-
-      {/* Link ke Beranda */}
-      <Link
-        to="/"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
-      >
-        <Home className="w-4 h-4" />
-        Kembali ke Beranda
-      </Link>
+        {/* Link kembali ke beranda */}
+        <div className="mt-6 text-center">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+          >
+            <Home className="w-4 h-4" />
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
