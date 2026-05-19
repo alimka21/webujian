@@ -149,13 +149,22 @@ async function runInitMigration(prisma: any): Promise<void> {
 }
 
 // Module-level guard supaya bootstrap maksimal 1x per worker process.
-// Beberapa LiteSpeed worker bisa spawn di waktu yang sangat dekat — tanpa
-// guard ini, semua attempt jalan paralel & saling tabrakan dengan request
-// pertama yang masuk, memicu Prisma engine panic "timer has gone away".
 let bootstrapStarted = false;
 
 async function bootstrapDatabase() {
   if (process.env.NODE_ENV !== "production") return;
+
+  // Bootstrap di-disable secara default karena Prisma engine pada beberapa
+  // shared hosting (Hostinger CloudLinux) panic "timer has gone away" saat
+  // dipakai untuk $executeRawUnsafe. Migration & seed dijalankan manual
+  // lewat phpMyAdmin (lihat server/prisma/migrations/*/migration.sql dan
+  // server/prisma/seed.sql).
+  // Untuk meng-enable lagi: set ENABLE_BOOTSTRAP=true di environment.
+  if (process.env.ENABLE_BOOTSTRAP !== "true") {
+    console.log("[startup] Bootstrap di-skip (ENABLE_BOOTSTRAP != true). Pakai phpMyAdmin untuk migration/seed manual.");
+    return;
+  }
+
   if (bootstrapStarted) {
     console.log("[startup] Bootstrap sudah berjalan di proses ini — skip.");
     return;
@@ -163,16 +172,8 @@ async function bootstrapDatabase() {
   bootstrapStarted = true;
   try {
     const { prisma } = await import("./lib/prisma");
-
-    // Step 1: Apply migration baru saja (tracked via _app_migrations).
-    // Setelah commit fix ini, runInitMigration cek tabel _app_migrations dan
-    // langsung return kalau semua migration sudah pernah jalan — jadi worker
-    // berikutnya cuma butuh 1 round-trip ke DB, bukan eksekusi ulang ratusan
-    // CREATE TABLE statement.
     await runInitMigration(prisma);
 
-    // Step 2: cek user count — kalau kosong, seed.
-    // Idempotent: seed pakai upsert, aman dijalankan ulang.
     const userCount = await prisma.user.count();
     if (userCount === 0) {
       console.log("[startup] Database empty, running seed (in-process)...");
