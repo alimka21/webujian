@@ -1,47 +1,72 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import {
-  GraduationCap, ArrowRight, BookOpen, Users, Trophy, ChevronRight, CheckCircle2,
-  Facebook, Instagram, Twitter, Youtube, Music2,
+  GraduationCap, ArrowRight, FileText, CalendarCheck, ClipboardList,
+  Newspaper, ShieldCheck, Users, Briefcase, BookOpen,
+  Facebook, Instagram, Twitter, Youtube, Music2, MapPin, Mail, Phone,
 } from 'lucide-react';
 import api from '../lib/api';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-// Fallback defaults — dipakai kalau SiteConfig belum di-edit oleh admin
+// Fallback config — dipakai kalau admin belum atur SiteSettings
 const DEFAULT_CONFIG = {
-  namaSekolah: 'Sekolah Hebat',
+  namaSekolah: 'Portal Sekolah',
   tagline: 'Pusat pendidikan terdepan yang mendidik generasi berprestasi.',
-  deskripsi: 'Sistem manajemen sekolah terpadu yang memadukan keunggulan akademik, karakter mulia, dan wawasan global.',
+  deskripsi: 'Sistem manajemen sekolah terpadu — ujian online, presensi digital, tracer alumni, dan portal informasi dalam satu platform.',
   logoUrl: '',
   faviconUrl: '',
-  heroImageUrl: '',
-  heroBadge: 'Penerimaan Siswa Baru 2026/2027',
-  heroTitle: 'Membangun Generasi Pemimpin Masa Depan',
-  heroSubtitle: 'Sistem manajemen sekolah terpadu yang memadukan keunggulan akademik, karakter mulia, dan wawasan global untuk menyongsong masa depan yang cerah.',
-  profilImageUrl: '',
-  sejarah: 'Berdiri sejak tahun 2005, sekolah ini telah mendedikasikan diri untuk mencetak lulusan berprestasi yang siap mengabdi pada masyarakat.',
-  visi: 'Menjadi lembaga pendidikan terdepan yang menghasilkan insan berkarakter mulia, cerdas, terampil, dan berwawasan global.',
-  misi: 'Menyelenggarakan pendidikan yang bermutu tinggi.\nMembina karakter jujur, disiplin, dan bertanggung jawab.\nMengembangkan potensi minat dan bakat secara optimal.',
-  tujuan: 'Mempersiapkan siswa untuk melanjutkan ke jenjang pendidikan yang lebih tinggi atau memasuki dunia wirausaha dan dunia kerja dengan bekal kompetensi yang relevan.',
-  alamat: 'Jl. Pendidikan No. 123, Kota Pelajar, Indonesia 12345',
-  telepon: '(021) 555-0123',
-  email: 'info@sekolah.sch.id',
+  alamat: '',
+  telepon: '',
+  email: '',
   whatsapp: '',
   facebook: '', instagram: '', twitter: '', youtube: '', tiktok: '',
 };
 
 type SiteConfig = typeof DEFAULT_CONFIG;
 
+// Placeholder stat — bisa di-edit di code kalau sekolah punya angka real.
+// Alumni di-fetch real-time dari /api/alumni/stats.
+const STATS_HARDCODED = {
+  siswa: '1,250+',
+  guru: '85+',
+  tahunBerdiri: '2005',
+};
+
+// Hero icon grid (3x2)
+const HERO_FEATURES: { Icon: React.ElementType; label: string }[] = [
+  { Icon: FileText,       label: 'Ujian Online' },
+  { Icon: CalendarCheck,  label: 'Presensi Digital' },
+  { Icon: GraduationCap,  label: 'Tracer Alumni' },
+  { Icon: ClipboardList,  label: 'Rekap Nilai' },
+  { Icon: Newspaper,      label: 'Berita Sekolah' },
+  { Icon: ShieldCheck,    label: 'Anti-Curang' },
+];
+
+// Fitur unggulan utama (3 cards)
+const FITUR_UTAMA: { Icon: React.ElementType; title: string; desc: string }[] = [
+  {
+    Icon: FileText,
+    title: 'Ujian Online',
+    desc: 'Bank soal lengkap dengan timer otomatis, anti-cheat, dan koreksi instan. Hasil & rekap nilai langsung tersedia.',
+  },
+  {
+    Icon: CalendarCheck,
+    title: 'Presensi Digital',
+    desc: 'Catat kehadiran siswa per sesi pelajaran. Setiap guru punya rekap presensi sendiri, export Excel.',
+  },
+  {
+    Icon: GraduationCap,
+    title: 'Tracer Alumni',
+    desc: 'Lulusan bisa daftar mandiri. Lihat sebaran karir & pendidikan alumni lewat statistik publik.',
+  },
+];
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const [berita, setBerita] = useState<any[]>([]);
-  const [alumniStats, setAlumniStats] = useState<any[]>([]);
+  const [alumniStats, setAlumniStats] = useState<Record<string, number>>({});
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
 
-  // Helper: merge null/empty config fields with defaults
   const cfg = useMemo<SiteConfig>(() => {
     const merged: any = { ...DEFAULT_CONFIG };
     for (const key of Object.keys(DEFAULT_CONFIG) as (keyof SiteConfig)[]) {
@@ -52,42 +77,18 @@ export default function LandingPage() {
   }, [siteConfig]);
 
   useEffect(() => {
-    const fetchPublicData = async () => {
-      try {
-        const [resBerita, resAlumni, resConfig] = await Promise.all([
-          api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
-          api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
-          api.get('/api/site-config').catch(() => null),
-        ]);
-
-        setBerita(resBerita.data || []);
-
-        const rawStats = resAlumni.perStatus || { BEKERJA: 120, KULIAH: 150, WIRAUSAHA: 30 };
-        const chartData = [
-          { name: 'Kerja', value: rawStats.BEKERJA || 0, color: '#3b82f6' },
-          { name: 'Kuliah', value: rawStats.KULIAH || 0, color: '#22c55e' },
-          { name: 'Wirausaha', value: rawStats.WIRAUSAHA || 0, color: '#eab308' },
-        ].filter(d => d.value > 0);
-        setAlumniStats(chartData.length > 0 ? chartData : [
-          { name: 'Kerja', value: 120, color: '#3b82f6' },
-          { name: 'Kuliah', value: 150, color: '#22c55e' },
-          { name: 'Wirausaha', value: 30, color: '#eab308' },
-        ]);
-
-        if (resConfig) setSiteConfig(resConfig);
-      } catch (err) {
-        console.error(err);
-        setAlumniStats([
-          { name: 'Kerja', value: 120, color: '#3b82f6' },
-          { name: 'Kuliah', value: 150, color: '#22c55e' },
-          { name: 'Wirausaha', value: 30, color: '#eab308' },
-        ]);
-      }
-    };
-    fetchPublicData();
+    Promise.all([
+      api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
+      api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
+      api.get('/api/site-config').catch(() => null),
+    ]).then(([resBerita, resAlumni, resConfig]) => {
+      setBerita(resBerita.data || []);
+      setAlumniStats(resAlumni.perStatus || {});
+      if (resConfig) setSiteConfig(resConfig);
+    });
   }, []);
 
-  // Update document title + favicon dinamis
+  // Document title + favicon
   useEffect(() => {
     document.title = cfg.namaSekolah;
     if (cfg.faviconUrl) {
@@ -101,388 +102,319 @@ export default function LandingPage() {
     }
   }, [cfg.namaSekolah, cfg.faviconUrl]);
 
-  // Helper: render misi sebagai list (split per baris)
-  const misiList = useMemo(
-    () => cfg.misi.split(/\r?\n/).map(s => s.trim()).filter(Boolean),
-    [cfg.misi]
-  );
-
-  // Active social links (skip empty)
-  const socials = [
-    { url: cfg.facebook, label: 'Facebook', Icon: Facebook },
-    { url: cfg.instagram, label: 'Instagram', Icon: Instagram },
-    { url: cfg.twitter, label: 'Twitter / X', Icon: Twitter },
-    { url: cfg.youtube, label: 'YouTube', Icon: Youtube },
-    { url: cfg.tiktok, label: 'TikTok', Icon: Music2 },
-  ].filter(s => s.url && s.url.trim() !== '');
-
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const totalAlumni = Object.values(alumniStats).reduce((sum, n) => sum + (n || 0), 0);
+  const alumniBekerja = alumniStats.BEKERJA || 0;
+  const alumniKuliah = alumniStats.KULIAH || 0;
+  const alumniWirausaha = alumniStats.WIRAUSAHA || 0;
+
+  // Active social links
+  const socials = [
+    { url: (cfg as any).facebook,  label: 'Facebook',  Icon: Facebook },
+    { url: (cfg as any).instagram, label: 'Instagram', Icon: Instagram },
+    { url: (cfg as any).twitter,   label: 'Twitter / X', Icon: Twitter },
+    { url: (cfg as any).youtube,   label: 'YouTube',   Icon: Youtube },
+    { url: (cfg as any).tiktok,    label: 'TikTok',    Icon: Music2 },
+  ].filter(s => s.url && s.url.trim() !== '');
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+    <div className="min-h-screen bg-background text-on-background">
+      {/* ═════════════════ 1. NAVBAR ═════════════════ */}
+      <nav className="sticky top-0 z-40 h-16 bg-surface/95 backdrop-blur-md border-b border-outline-variant">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
             {cfg.logoUrl ? (
-              <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-8 h-8 rounded-lg object-contain shrink-0" />
+              <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-9 h-9 rounded-lg object-contain shrink-0" />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0">
                 <GraduationCap className="w-5 h-5" />
               </div>
             )}
-            <span className="font-bold text-xl tracking-tight text-slate-900 hidden sm:block">{cfg.namaSekolah}</span>
-          </div>
-          
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <button onClick={() => window.scrollTo(0, 0)} className="hover:text-blue-600 transition-colors">Beranda</button>
-            <button onClick={() => scrollTo('profil')} className="hover:text-blue-600 transition-colors">Profil</button>
-            <button onClick={() => scrollTo('berita')} className="hover:text-blue-600 transition-colors">Berita</button>
-            <button onClick={() => scrollTo('alumni')} className="hover:text-blue-600 transition-colors">Alumni</button>
+            <span className="font-bold text-lg tracking-tight text-primary hidden sm:block">{cfg.namaSekolah}</span>
           </div>
 
-          <Button onClick={() => navigate('/login')} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">
+          <div className="hidden md:flex items-center gap-7 text-label-md font-medium text-on-surface-variant">
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-primary transition-colors">Beranda</button>
+            <button onClick={() => scrollTo('fitur')} className="hover:text-primary transition-colors">Fitur</button>
+            <button onClick={() => scrollTo('berita')} className="hover:text-primary transition-colors">Berita</button>
+            <button onClick={() => scrollTo('alumni')} className="hover:text-primary transition-colors">Alumni</button>
+            <button onClick={() => scrollTo('kontak')} className="hover:text-primary transition-colors">Kontak</button>
+          </div>
+
+          <Button onClick={() => navigate('/login')} size="sm">
             Login Portal
           </Button>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
+      {/* ═════════════════ 2. HERO ═════════════════ */}
+      <section className="bg-primary text-on-primary px-4 sm:px-6 py-20 sm:py-28">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            {cfg.heroBadge && (
-              <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium rounded-full">
-                {cfg.heroBadge}
-              </Badge>
-            )}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight tracking-tight whitespace-pre-wrap">
-              {cfg.heroTitle}
+          <div className="space-y-7">
+            <span className="inline-flex items-center rounded-full bg-on-primary/10 px-3 py-1 text-label-sm font-bold uppercase tracking-wider">
+              {cfg.namaSekolah}
+            </span>
+            <h1 className="text-headline-lg leading-tight">
+              Portal Akademik <br className="hidden sm:block" />
+              <span className="text-secondary-container">Digital</span>
             </h1>
-            <p className="text-lg text-slate-600 leading-relaxed max-w-lg whitespace-pre-wrap">
-              {cfg.heroSubtitle}
+            <p className="text-lg text-on-primary/85 max-w-lg leading-relaxed">
+              {cfg.deskripsi}
             </p>
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Button size="lg" onClick={() => scrollTo('profil')} className="bg-blue-600 hover:bg-blue-700 rounded-full h-12 px-8 text-base">
-                Mulai Jelajah
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => scrollTo('berita')} className="rounded-full h-12 px-8 text-base gap-2 bg-white">
-                Lihat Berita <ArrowRight className="w-4 h-4" />
-              </Button>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => navigate('/login')}
+                className="inline-flex items-center gap-2 rounded-full bg-on-primary text-primary px-7 py-3 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/90 active:translate-y-px transition-all shadow-sm"
+              >
+                Login Portal <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => scrollTo('fitur')}
+                className="inline-flex items-center gap-2 rounded-full border border-on-primary/30 text-on-primary px-7 py-3 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/10 transition-all"
+              >
+                Lihat Fitur
+              </button>
             </div>
           </div>
-          <div className="relative">
-            <div className="absolute inset-0 bg-blue-100 rounded-[3rem] transform rotate-3 scale-105 -z-10"></div>
-            {cfg.heroImageUrl ? (
-              <img
-                src={cfg.heroImageUrl}
-                alt={cfg.namaSekolah}
-                className="rounded-[3rem] shadow-2xl object-cover aspect-[4/3] w-full"
-              />
-            ) : (
-              <div className="rounded-[3rem] shadow-2xl bg-gradient-to-br from-blue-100 to-blue-200 aspect-[4/3] w-full flex items-center justify-center">
-                <GraduationCap className="w-24 h-24 text-blue-400" />
+
+          {/* Icon grid 3x2 — gantikan stock photo */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-md md:ml-auto">
+            {HERO_FEATURES.map(({ Icon, label }, i) => (
+              <div
+                key={i}
+                className="aspect-square bg-on-primary/10 border border-on-primary/15 rounded-xl flex flex-col items-center justify-center gap-2 p-3 hover:bg-on-primary/15 transition-colors"
+              >
+                <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-on-primary" />
+                <span className="text-label-sm text-on-primary/85 text-center font-medium leading-tight">{label}</span>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Profil Sekolah */}
-      <section id="profil" className="py-20 bg-white px-4">
+      {/* ═════════════════ 3. STATISTIK ═════════════════ */}
+      <section id="statistik" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-16">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Profil & Identitas Sekolah</h2>
-            <p className="text-slate-500 text-lg">Mengenal lebih dekat lingkungan dan budaya belajar di institusi kami.</p>
+          <div className="text-center mb-12">
+            <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Sekilas Tentang Kami</p>
+            <h2 className="text-headline-md text-on-surface">Statistik Sekolah</h2>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
-            <div className="order-2 md:order-1 relative">
-              {cfg.profilImageUrl ? (
-                <img src={cfg.profilImageUrl} alt={`Profil ${cfg.namaSekolah}`} className="rounded-3xl shadow-lg object-cover w-full aspect-[4/3]" />
-              ) : (
-                <div className="rounded-3xl shadow-lg bg-gradient-to-br from-slate-100 to-slate-200 aspect-[4/3] w-full flex items-center justify-center">
-                  <BookOpen className="w-20 h-20 text-slate-400" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: BookOpen,      label: 'Siswa Aktif',       value: STATS_HARDCODED.siswa },
+              { icon: Users,         label: 'Tenaga Pendidik',   value: STATS_HARDCODED.guru },
+              { icon: GraduationCap, label: 'Alumni Terdata',    value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
+              { icon: Briefcase,     label: 'Berdiri Sejak',     value: STATS_HARDCODED.tahunBerdiri },
+            ].map(({ icon: Icon, label, value }, i) => (
+              <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 text-center">
+                <div className="mx-auto w-12 h-12 bg-primary-container/20 text-primary rounded-lg flex items-center justify-center mb-3">
+                  <Icon className="w-6 h-6" />
                 </div>
-              )}
-            </div>
-            <div className="order-1 md:order-2 space-y-6">
-              <h3 className="text-2xl font-bold text-slate-900">Sejarah Singkat</h3>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                {cfg.sejarah}
-              </p>
-              <ul className="space-y-3">
-                {['Akreditasi A Nasional', 'Fasilitas Laboratorium Lengkap', 'Pengajar Tersertifikasi', 'Lingkungan Hijau & Asri'].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-700 font-medium">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" /> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                <div className="text-5xl font-bold text-primary tracking-tight">{value}</div>
+                <div className="text-sm text-on-surface-variant mt-2 font-medium">{label}</div>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          {/* Visi Misi */}
+      {/* ═════════════════ 4. FITUR UNGGULAN ═════════════════ */}
+      <section id="fitur" className="bg-surface px-4 sm:px-6 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 max-w-2xl mx-auto space-y-3">
+            <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Yang Kami Tawarkan</p>
+            <h2 className="text-headline-md text-on-surface">Fitur Unggulan</h2>
+            <p className="text-on-surface-variant">Solusi digital terintegrasi untuk seluruh aktivitas akademik sekolah.</p>
+          </div>
           <div className="grid md:grid-cols-3 gap-6">
-            <Card className="bg-blue-600 text-white border-0 shadow-lg shadow-blue-500/20">
-              <CardContent className="p-8">
-                <h4 className="text-xl font-bold mb-4">Visi</h4>
-                <p className="text-blue-100 leading-relaxed whitespace-pre-wrap">{cfg.visi}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-900 text-white border-0 shadow-lg shadow-slate-900/20">
-              <CardContent className="p-8">
-                <h4 className="text-xl font-bold mb-4">Misi</h4>
-                {misiList.length > 1 ? (
-                  <ul className="space-y-2 text-slate-300 list-disc pl-5">
-                    {misiList.map((m, i) => <li key={i}>{m}</li>)}
-                  </ul>
-                ) : (
-                  <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{cfg.misi}</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="bg-white border border-slate-200 shadow-xl shadow-slate-200/50">
-              <CardContent className="p-8">
-                <h4 className="text-xl font-bold mb-4 text-slate-900">Tujuan</h4>
-                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{cfg.tujuan}</p>
-              </CardContent>
-            </Card>
+            {FITUR_UTAMA.map(({ Icon, title, desc }, i) => (
+              <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow">
+                <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-lg flex items-center justify-center mb-4">
+                  <Icon className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-on-surface text-lg mb-2">{title}</h3>
+                <p className="text-on-surface-variant text-sm leading-relaxed">{desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Keunggulan */}
-      <section className="py-20 bg-slate-50 px-4 border-y border-slate-200">
+      {/* ═════════════════ 5. BERITA TERBARU ═════════════════ */}
+      <section id="berita" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-20">
         <div className="max-w-7xl mx-auto">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <BookOpen className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-lg text-slate-900 mb-2">Kurikulum Terpadu</h4>
-              <p className="text-sm text-slate-500">Menggabungkan kurikulum nasional dengan program pengembangan soft skill.</p>
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+            <div>
+              <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Informasi Terkini</p>
+              <h2 className="text-headline-md text-on-surface">Berita Sekolah</h2>
             </div>
-            <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-lg text-slate-900 mb-2">Tenaga Pendidik</h4>
-              <p className="text-sm text-slate-500">Guru-guru profesional yang berdedikasi dan inspiratif dalam mengajar.</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Trophy className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-lg text-slate-900 mb-2">Segudang Prestasi</h4>
-              <p className="text-sm text-slate-500">Berbagai kejuaraan di tingkat regional hingga nasional berhasil diraih.</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <GraduationCap className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-lg text-slate-900 mb-2">Fasilitas Modern</h4>
-              <p className="text-sm text-slate-500">Lingkungan belajar yang didukung dengan teknologi terbaru dan ruang yang nyaman.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats & Alumni Tracer */}
-      <section id="alumni" className="py-20 bg-slate-900 text-white px-4 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-400 via-slate-900 to-slate-900"></div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            
-            <div className="space-y-10">
-              <div className="space-y-4">
-                <h2 className="text-3xl font-bold tracking-tight">Statistik & Persebaran Alumni</h2>
-                <p className="text-slate-400 text-lg leading-relaxed">
-                  Kami bangga dengan pencapaian ribuan alumni yang kini telah tersebar di berbagai sektor profesional, membuktikan kualitas lulusan kami.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                   <div className="text-4xl font-extrabold text-blue-400 mb-2">1,250+</div>
-                   <div className="text-sm text-slate-300 font-medium">Siswa Aktif</div>
-                </div>
-                <div>
-                   <div className="text-4xl font-extrabold text-green-400 mb-2">85+</div>
-                   <div className="text-sm text-slate-300 font-medium">Tenaga Pendidik</div>
-                </div>
-                <div>
-                   <div className="text-4xl font-extrabold text-purple-400 mb-2">15,000+</div>
-                   <div className="text-sm text-slate-300 font-medium">Total Alumni</div>
-                </div>
-                <div>
-                   <div className="text-4xl font-extrabold text-orange-400 mb-2">320+</div>
-                   <div className="text-sm text-slate-300 font-medium">Prestasi Nasional</div>
-                </div>
-              </div>
-
-              <Link to="/alumni/daftar">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 rounded-full h-12 px-6 gap-2">
-                  Daftar Sebagai Alumni <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl">
-              <h3 className="text-xl font-bold text-center mb-6">Tracer Study Angkatan Terakhir</h3>
-              <div className="h-64 mb-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={alumniStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {alumniStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: '#e2e8f0' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-6">
-                 {alumniStats.map((stat) => (
-                   <div key={stat.name} className="flex items-center gap-2">
-                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: stat.color }}></span>
-                     <span className="text-sm text-slate-300">{stat.name}</span>
-                   </div>
-                 ))}
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* Berita Terbaru */}
-      <section id="berita" className="py-20 bg-white px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-end gap-4 mb-12">
-            <div className="space-y-3">
-              <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Berita & Informasi Utama</h2>
-              <p className="text-slate-500">Ikuti perkembangan terbaru dari lingkungan sekolah.</p>
-            </div>
-            <Link to="/berita" className="text-blue-600 font-semibold flex items-center gap-1 hover:text-blue-700 transition-colors">
-              Lihat Semua <ChevronRight className="w-4 h-4" />
+            <Link to="/berita" className="text-primary font-bold inline-flex items-center gap-1.5 hover:underline text-label-md uppercase tracking-wider">
+              Lihat Semua <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {berita.length === 0 ? (
-               [1, 2, 3].map(i => (
-                 <Card key={i} className="border-0 shadow-lg shadow-slate-200/50 overflow-hidden flex flex-col group cursor-pointer animate-pulse">
-                   <div className="h-48 bg-slate-200 w-full"></div>
-                   <CardContent className="p-6">
-                     <div className="h-4 bg-slate-200 rounded w-1/3 mb-4"></div>
-                     <div className="h-6 bg-slate-200 rounded w-full mb-2"></div>
-                     <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
-                     <div className="h-4 bg-slate-200 rounded w-full"></div>
-                   </CardContent>
-                 </Card>
-               ))
-            ) : (
-              berita.map(b => (
-                <Link to={`/berita/${b.slug}`} key={b.id} className="block group">
-                  <Card className="border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden h-full flex flex-col">
-                    <div className="h-48 overflow-hidden bg-slate-100 relative">
-                      {b.imageUrl ? (
-                        <img 
-                          src={b.imageUrl} 
-                          alt={b.judul} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400">
-                           <BookOpen className="w-10 h-10 opacity-20" />
-                        </div>
-                      )}
-                      <div className="absolute top-4 left-4">
-                         <Badge className="bg-white/90 text-slate-900 hover:bg-white backdrop-blur-sm border-0 font-semibold shadow-sm">
-                           {new Date(b.createdAt).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric'})}
-                         </Badge>
-                      </div>
+              <div className="md:col-span-3 py-16 text-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl bg-surface-container-lowest">
+                <Newspaper className="w-10 h-10 mx-auto text-outline-variant mb-2" />
+                Belum ada berita yang dipublikasikan.
+              </div>
+            ) : berita.map((b: any) => (
+              <Link
+                to={`/berita/${b.slug}`}
+                key={b.id}
+                className="group flex flex-col bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
+              >
+                <div className="aspect-video bg-surface-container overflow-hidden">
+                  {b.imageUrl ? (
+                    <img
+                      src={b.imageUrl}
+                      alt={b.judul}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-outline-variant">
+                      <Newspaper className="w-12 h-12" />
                     </div>
-                    <CardContent className="p-6 flex flex-col flex-1">
-                      <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
-                        {b.judul}
-                      </h3>
-                      <p className="text-slate-600 text-sm leading-relaxed mb-6 line-clamp-3 flex-1">
-                        {b.ringkasan}
-                      </p>
-                      <div className="flex items-center text-sm font-semibold text-blue-600 mt-auto">
-                        Baca Selengkapnya <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))
-            )}
+                  )}
+                </div>
+                <div className="p-5 flex flex-col flex-1">
+                  <p className="text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">
+                    {new Date(b.publishedAt ?? b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                  <h3 className="font-bold text-on-surface text-lg leading-tight mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                    {b.judul}
+                  </h3>
+                  {b.ringkasan && (
+                    <p className="text-sm text-on-surface-variant line-clamp-2">{b.ringkasan}</p>
+                  )}
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-950 text-slate-400 py-16 px-4 border-t border-slate-900">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
-          <div className="col-span-1 md:col-span-1 space-y-4">
-            <div className="flex items-center gap-2 mb-6">
-              {cfg.logoUrl ? (
-                <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-8 h-8 rounded-lg object-contain bg-white p-1 shrink-0" />
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-                  <GraduationCap className="w-5 h-5" />
-                </div>
-              )}
-              <span className="font-bold text-xl tracking-tight text-white">{cfg.namaSekolah}</span>
+      {/* ═════════════════ 6. TRACER ALUMNI TEASER ═════════════════ */}
+      <section id="alumni" className="bg-primary text-on-primary px-4 sm:px-6 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-5">
+              <p className="text-label-sm text-on-primary/70 uppercase tracking-wider font-bold">Tracer Alumni</p>
+              <h2 className="text-headline-lg leading-tight">
+                Lulusan Kami <span className="text-secondary-container">Tersebar</span> Di Mana-mana
+              </h2>
+              <p className="text-on-primary/85 leading-relaxed">
+                Pantau jejak karir & pendidikan ribuan alumni. Sudah lulus? Daftar mandiri dan jadi bagian dari komunitas.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <button
+                  onClick={() => navigate('/alumni/daftar')}
+                  className="inline-flex items-center gap-2 rounded-full bg-on-primary text-primary px-6 py-2.5 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/90 active:translate-y-px transition-all"
+                >
+                  Daftar Alumni <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => scrollTo('statistik')}
+                  className="inline-flex items-center gap-2 rounded-full border border-on-primary/30 text-on-primary px-6 py-2.5 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/10 transition-all"
+                >
+                  Lihat Statistik
+                </button>
+              </div>
             </div>
-            <p className="text-sm leading-relaxed">{cfg.tagline}</p>
-          </div>
 
-          <div>
-            <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-sm">Tautan Cepat</h4>
-            <ul className="space-y-3 text-sm">
-              <li><button onClick={() => scrollTo('profil')} className="hover:text-white transition-colors">Profil Sekolah</button></li>
-              <li><button onClick={() => scrollTo('berita')} className="hover:text-white transition-colors">Berita & Pengumuman</button></li>
-              <li><button onClick={() => scrollTo('alumni')} className="hover:text-white transition-colors">Tracer Alumni</button></li>
-              <li><Link to="/login" className="hover:text-white transition-colors">Portal Siswa/Guru</Link></li>
-            </ul>
-          </div>
-
-          <div className="md:col-span-2">
-            <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-sm">Hubungi Kami</h4>
-            <div className="space-y-3 text-sm">
-              {cfg.alamat && <p className="whitespace-pre-wrap">{cfg.alamat}</p>}
-              {cfg.email && <p>Email: <a href={`mailto:${cfg.email}`} className="hover:text-white transition-colors">{cfg.email}</a></p>}
-              {cfg.telepon && <p>Telepon: <a href={`tel:${cfg.telepon.replace(/[^\d+]/g, '')}`} className="hover:text-white transition-colors">{cfg.telepon}</a></p>}
-              {cfg.whatsapp && (
-                <p>WhatsApp:{' '}
-                  <a
-                    href={`https://wa.me/${cfg.whatsapp.replace(/[^\d]/g, '')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="hover:text-white transition-colors"
-                  >{cfg.whatsapp}</a>
-                </p>
-              )}
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              {[
+                { label: 'Bekerja',   value: alumniBekerja,   accent: 'text-secondary-container' },
+                { label: 'Kuliah',    value: alumniKuliah,    accent: 'text-tertiary-container' },
+                { label: 'Wirausaha', value: alumniWirausaha, accent: 'text-secondary-container' },
+              ].map(({ label, value, accent }, i) => (
+                <div key={i} className="bg-on-primary/10 border border-on-primary/15 rounded-xl p-5 text-center">
+                  <div className={`text-4xl sm:text-5xl font-bold ${accent} tracking-tight`}>{value}</div>
+                  <div className="text-label-sm text-on-primary/85 uppercase tracking-wider font-medium mt-2">{label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 text-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>&copy; {new Date().getFullYear()} {cfg.namaSekolah}. Semua hak dilindungi.</p>
+      </section>
+
+      {/* ═════════════════ 7. FOOTER ═════════════════ */}
+      <footer id="kontak" className="bg-inverse-surface text-inverse-on-surface px-4 sm:px-6 py-14">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-10">
+          {/* Brand */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              {cfg.logoUrl ? (
+                <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-9 h-9 rounded-lg object-contain bg-inverse-on-surface p-1" />
+              ) : (
+                <div className="w-9 h-9 rounded-lg bg-inverse-primary text-primary flex items-center justify-center">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+              )}
+              <span className="font-bold text-lg">{cfg.namaSekolah}</span>
+            </div>
+            <p className="text-sm text-inverse-on-surface/75 leading-relaxed">{cfg.tagline}</p>
+          </div>
+
+          {/* Tautan cepat */}
+          <div>
+            <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Tautan Cepat</h4>
+            <ul className="space-y-2 text-sm">
+              <li><button onClick={() => scrollTo('fitur')} className="hover:text-inverse-primary transition-colors">Fitur Unggulan</button></li>
+              <li><button onClick={() => scrollTo('berita')} className="hover:text-inverse-primary transition-colors">Berita</button></li>
+              <li><button onClick={() => scrollTo('alumni')} className="hover:text-inverse-primary transition-colors">Tracer Alumni</button></li>
+              <li><Link to="/alumni/daftar" className="hover:text-inverse-primary transition-colors">Daftar Alumni</Link></li>
+              <li><Link to="/login" className="hover:text-inverse-primary transition-colors">Login Portal</Link></li>
+            </ul>
+          </div>
+
+          {/* Kontak */}
+          <div className="md:col-span-2">
+            <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Hubungi Kami</h4>
+            <ul className="space-y-2.5 text-sm text-inverse-on-surface/85">
+              {cfg.alamat && (
+                <li className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span className="whitespace-pre-wrap">{cfg.alamat}</span>
+                </li>
+              )}
+              {cfg.email && (
+                <li className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 shrink-0" />
+                  <a href={`mailto:${cfg.email}`} className="hover:text-inverse-primary transition-colors">{cfg.email}</a>
+                </li>
+              )}
+              {cfg.telepon && (
+                <li className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 shrink-0" />
+                  <a href={`tel:${cfg.telepon.replace(/[^\d+]/g, '')}`} className="hover:text-inverse-primary transition-colors">{cfg.telepon}</a>
+                </li>
+              )}
+              {cfg.whatsapp && (
+                <li className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 shrink-0" />
+                  <a
+                    href={`https://wa.me/${cfg.whatsapp.replace(/[^\d]/g, '')}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="hover:text-inverse-primary transition-colors"
+                  >
+                    WhatsApp: {cfg.whatsapp}
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-inverse-on-surface/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-inverse-on-surface/70">
+            &copy; {new Date().getFullYear()} {cfg.namaSekolah}. Semua hak dilindungi.
+          </p>
           {socials.length > 0 && (
             <div className="flex gap-3">
               {socials.map(({ url, label, Icon }) => (
@@ -490,7 +422,7 @@ export default function LandingPage() {
                   key={label}
                   href={url ?? '#'}
                   target="_blank" rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-inverse-on-surface/10 hover:bg-inverse-primary hover:text-primary text-inverse-on-surface flex items-center justify-center transition-colors"
                   aria-label={label}
                   title={label}
                 >
