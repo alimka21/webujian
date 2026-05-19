@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Trash2, FileText, AlertTriangle, Eye, ClipboardList } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Trash2, FileText, AlertTriangle, ClipboardList, Plus, PenTool, BarChart3 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -49,6 +50,7 @@ const getStatus = (start: string | null, end: string | null): { label: string; c
 };
 
 export default function AdminUjianList() {
+  const navigate = useNavigate();
   const [ujianList, setUjianList] = useState<UjianRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -115,9 +117,17 @@ export default function AdminUjianList() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Kelola Ujian</h1>
-        <p className="text-slate-500 mt-1">Pantau & kelola semua ujian yang dibuat guru.</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Kelola Ujian</h1>
+          <p className="text-slate-500 mt-1">Pantau & kelola semua ujian dari semua guru.</p>
+        </div>
+        <Button
+          onClick={() => navigate('/dashboard/guru/ujian/baru')}
+          className="gap-2 bg-blue-600 hover:bg-blue-700 shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Buat Ujian Baru
+        </Button>
       </div>
 
       {/* Filter bar */}
@@ -234,17 +244,36 @@ export default function AdminUjianList() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteConfirm(u)}
-                              className="text-red-500 hover:bg-red-50 h-8 px-2"
-                              aria-label={`Hapus ujian ${u.judul}`}
-                              disabled={u._count.sesiUjian > 0}
-                              title={u._count.sesiUjian > 0 ? 'Tidak bisa hapus: sudah ada sesi siswa' : 'Hapus ujian'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => navigate(`/dashboard/guru/ujian/${u.id}/soal`)}
+                                className="text-slate-600 hover:bg-slate-100 h-8 px-2"
+                                aria-label={`Kelola soal ujian ${u.judul}`}
+                                title="Kelola Soal"
+                              >
+                                <PenTool className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => navigate(`/dashboard/guru/rekap?ujianId=${u.id}`)}
+                                className="text-blue-600 hover:bg-blue-50 h-8 px-2"
+                                aria-label={`Lihat hasil ujian ${u.judul}`}
+                                title="Lihat Hasil / Rekap Nilai"
+                              >
+                                <BarChart3 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => setDeleteConfirm(u)}
+                                className="text-red-500 hover:bg-red-50 h-8 px-2"
+                                aria-label={`Hapus ujian ${u.judul}`}
+                                disabled={u._count.sesiUjian > 0}
+                                title={u._count.sesiUjian > 0 ? 'Tidak bisa hapus: sudah ada sesi siswa' : 'Hapus ujian'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );

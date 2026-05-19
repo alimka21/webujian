@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input, Label } from '../../../components/ui/input';
+import { Select } from '../../../components/ui/select';
 import { ArrowLeft, CheckCircle2, Save, AlertTriangle, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { useModalA11y } from '../../../hooks/useModalA11y';
+import { useAuthStore } from '../../../store/authStore';
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
@@ -15,7 +17,11 @@ function FieldError({ msg }: { msg?: string }) {
 
 export default function BuatUjian() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'SUPER_ADMIN';
   const [kelasList, setKelasList] = useState<any[]>([]);
+  const [guruList, setGuruList] = useState<{ id: string; nama: string; mataPelajaran: string }[]>([]);
+  const [guruId, setGuruId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -53,7 +59,19 @@ export default function BuatUjian() {
       }
     };
     fetchKelas();
-  }, []);
+
+    // Admin perlu pilih guru pemilik ujian
+    if (isAdmin) {
+      api.get('/api/admin/users?role=GURU')
+        .then((users: any[]) => {
+          const list = users
+            .filter(u => u.guru)
+            .map(u => ({ id: u.guru.id, nama: u.guru.nama, mataPelajaran: u.guru.mataPelajaran }));
+          setGuruList(list);
+        })
+        .catch(() => toast.error('Gagal memuat daftar guru'));
+    }
+  }, [isAdmin]);
 
   const toggleKelas = (id: string) => {
     setSelectedKelas(prev => 
@@ -76,6 +94,7 @@ export default function BuatUjian() {
     setErrorMsg('');
 
     const errs: Record<string, string> = {};
+    if (isAdmin && !guruId) errs.guruId = 'Pilih guru pemilik ujian';
     if (!judul.trim()) errs.judul = 'Judul ujian wajib diisi';
     if (!mataPelajaran.trim()) errs.mataPelajaran = 'Mata pelajaran wajib diisi';
     if (!durasi || parseInt(durasi) < 5) errs.durasi = 'Durasi minimal 5 menit';
@@ -103,7 +122,8 @@ export default function BuatUjian() {
         tanggalMulai,
         tanggalSelesai,
         acak,
-        kelasIds: selectedKelas
+        kelasIds: selectedKelas,
+        ...(isAdmin && guruId ? { guruId } : {}),
       });
 
       toast.success('Ujian berhasil dibuat! Silakan tambahkan soal.');
@@ -149,6 +169,26 @@ export default function BuatUjian() {
               <CardDescription>Berikan judul dan mata pelajaran untuk ujian ini.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+              {isAdmin && (
+                <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label htmlFor="guruId" className="text-blue-900">
+                    Buat Ujian Atas Nama Guru <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-xs text-blue-700">Sebagai admin, kamu wajib memilih guru yang menjadi pemilik ujian ini.</p>
+                  <Select
+                    id="guruId"
+                    value={guruId}
+                    onChange={e => setGuruId(e.target.value)}
+                    className={errors.guruId ? 'border-red-500' : 'bg-white'}
+                  >
+                    <option value="">-- Pilih guru pemilik ujian --</option>
+                    {guruList.map(g => (
+                      <option key={g.id} value={g.id}>{g.nama} ({g.mataPelajaran})</option>
+                    ))}
+                  </Select>
+                  <FieldError msg={errors.guruId} />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="judul">Judul Ujian <span className="text-red-500">*</span></Label>
                 <Input

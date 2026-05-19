@@ -109,7 +109,7 @@ export default function App() {
             } />
           </Route>
 
-          {/* GURU ROUTES */}
+          {/* GURU ROUTES (ujian/soal/rekap juga dibuka untuk SUPER_ADMIN) */}
           <Route path="guru">
             <Route index element={
               <ProtectedRoute allowedRoles={['GURU']}>
@@ -117,17 +117,17 @@ export default function App() {
               </ProtectedRoute>
             } />
             <Route path="ujian" element={
-              <ProtectedRoute allowedRoles={['GURU']}>
+              <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                 <DaftarUjian />
               </ProtectedRoute>
             } />
             <Route path="ujian/baru" element={
-              <ProtectedRoute allowedRoles={['GURU']}>
+              <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                 <BuatUjian />
               </ProtectedRoute>
             } />
             <Route path="ujian/:id/soal" element={
-              <ProtectedRoute allowedRoles={['GURU']}>
+              <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                 <KelolaSoal />
               </ProtectedRoute>
             } />
@@ -142,7 +142,7 @@ export default function App() {
               </ProtectedRoute>
             } />
             <Route path="rekap" element={
-              <ProtectedRoute allowedRoles={['GURU']}>
+              <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                 <RekapNilai />
               </ProtectedRoute>
             } />

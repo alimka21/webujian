@@ -6,7 +6,25 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 
 const router = Router();
-router.use(requireAuth, requireRole(['GURU']));
+// SUPER_ADMIN dibolehkan agar bisa mengelola ujian/soal/hasil milik
+// semua guru (REQ-002 + REQ-007). Tiap handler yang spesifik untuk
+// "guru saya" memakai helper resolveScope() di bawah untuk membedakan
+// admin (lihat semua) vs guru (hanya milik sendiri).
+router.use(requireAuth, requireRole(['GURU', 'SUPER_ADMIN']));
+
+/**
+ * Resolve scope berdasarkan role:
+ * - admin → { isAdmin: true, guruId: null }; queries jangan filter by guruId
+ * - guru  → { isAdmin: false, guruId: '<id>' }; queries filter by guruId
+ * Untuk endpoint yang butuh guruId (POST ujian, POST presensi), admin
+ * wajib kirim guruId di body atau query.
+ */
+async function resolveScope(req: any): Promise<{ isAdmin: boolean; guruId: string | null }> {
+  const role = req.user?.role;
+  if (role === 'SUPER_ADMIN') return { isAdmin: true, guruId: null };
+  const guru = await prisma.guru.findUnique({ where: { userId: req.user.userId } });
+  return { isAdmin: false, guruId: guru?.id ?? null };
+}
 
 router.get('/stats', async (req, res, next) => {
   try {
@@ -50,10 +68,14 @@ router.get('/stats', async (req, res, next) => {
 
 router.get('/kelas', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
-    const kelas = await prisma.kelas.findMany({ 
-      where: { guruId: guru?.id },
-      include: { _count: { select: { siswa: true } } }
+    const scope = await resolveScope(req);
+    const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
+    const kelas = await prisma.kelas.findMany({
+      where,
+      include: {
+        _count: { select: { siswa: true } },
+        guru: { select: { id: true, nama: true } },
+      },
     });
     res.json(kelas);
   } catch (error) {
@@ -137,10 +159,12 @@ router.delete('/siswa/:id', async (req, res, next) => {
 // Ujian
 router.get('/ujian', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
+    const scope = await resolveScope(req);
+    const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
     const ujianList = await prisma.ujian.findMany({
-      where: { guruId: guru?.id },
+      where,
       include: {
+        guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
         kelas: { include: { kelas: true } },
         _count: { select: { soal: true, sesiUjian: true } }
       },
@@ -152,21 +176,31 @@ router.get('/ujian', async (req, res, next) => {
 
 router.post('/ujian', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
-    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai, acak, kelasIds } = req.body;
-    
+    const scope = await resolveScope(req);
+    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai, acak, kelasIds, guruId: bodyGuruId } = req.body;
+
     if (!judul || !mataPelajaran || !durasi || !tanggalMulai || !tanggalSelesai) {
       return res.status(400).json({ error: "Semua field wajib diisi" });
     }
 
+    // Admin wajib pilih guru pemilik ujian; guru pakai ID dari session-nya.
+    const finalGuruId = scope.isAdmin ? String(bodyGuruId ?? '').trim() : scope.guruId;
+    if (!finalGuruId) {
+      return res.status(400).json({
+        error: scope.isAdmin
+          ? 'Admin wajib memilih guru pemilik ujian (kirim guruId di body)'
+          : 'Akun guru tidak ditemukan',
+      });
+    }
+
     const ujian = await prisma.ujian.create({
-      data: { 
+      data: {
         judul, mataPelajaran, tipeUjian,
         durasi: Number(durasi),
         tanggalMulai: new Date(tanggalMulai),
         tanggalSelesai: new Date(tanggalSelesai),
         acak: !!acak,
-        guruId: guru!.id,
+        guruId: finalGuruId,
         kelas: {
           create: (kelasIds || []).map((kId: string) => ({ kelasId: kId }))
         }
