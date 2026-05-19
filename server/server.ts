@@ -98,8 +98,18 @@ async function runInitMigration(prisma: any): Promise<void> {
       try {
         await prisma.$executeRawUnsafe(stmts[i]);
       } catch (err: any) {
-        // Idempotent: kalau tabel/index sudah ada, abaikan
-        if (/already exists/i.test(err?.message ?? "")) {
+        const msg = err?.message ?? "";
+        // Idempotent: swallow no-op error untuk statement yang sudah pernah jalan.
+        // - CREATE TABLE/INDEX yang sudah ada → "already exists"
+        // - DROP INDEX yang sudah di-drop → "check that ... exists" / "1091" /
+        //   "no such index" / "doesn't exist"
+        if (
+          /already exists/i.test(msg) ||
+          /check that .* exists/i.test(msg) ||
+          /no such index/i.test(msg) ||
+          /doesn'?t exist/i.test(msg) ||
+          /\b1091\b/.test(msg)
+        ) {
           continue;
         }
         console.error(`[startup]   ❌ Statement #${i + 1} gagal:\n${stmts[i].slice(0, 200)}...`);

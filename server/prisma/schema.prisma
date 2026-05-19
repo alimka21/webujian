@@ -188,7 +188,10 @@ model Presensi {
   status     String // HADIR, IZIN, SAKIT, ALPHA
   keterangan String?  @db.Text
 
-  @@unique([siswaId, tanggal])
+  // Per-sesi-guru: setiap guru bisa mencatat presensi siswa pada tanggal
+  // yang sama (mis. pelajaran berbeda). Unique key memasukkan guruId
+  // supaya banyak record valid per-siswa-per-hari, satu per guru.
+  @@unique([siswaId, tanggal, guruId])
 }
 
 model Alumni {

@@ -198,8 +198,8 @@ export default function Attendance() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Manajemen Presensi</h1>
-          <p className="text-slate-500 mt-1">Catat dan pantau kehadiran siswa Anda.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Presensi Sesi Saya</h1>
+          <p className="text-slate-500 mt-1">Catatan kehadiran siswa untuk sesi pelajaran yang Anda ampu. Guru lain punya catatan terpisah.</p>
         </div>
         
         <div className="flex bg-slate-100 p-1 rounded-lg">
@@ -278,8 +278,13 @@ export default function Attendance() {
                          <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">Sudah Disimpan</Badge>
                       )}
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleMarkAllHadir} className="text-blue-600 bg-white">
-                      <CheckSquare className="w-4 h-4 mr-1.5" /> Tandai Semua Hadir
+                    <Button
+                      size="sm"
+                      onClick={handleMarkAllHadir}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      title="Set semua siswa jadi HADIR"
+                    >
+                      <CheckSquare className="w-4 h-4 mr-1.5" /> Hadir Semua
                     </Button>
                   </div>
 

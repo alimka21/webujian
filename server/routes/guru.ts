@@ -708,25 +708,23 @@ router.get('/ujian/:id/export', async (req, res, next) => {
 router.post('/presensi', async (req, res, next) => {
   try {
     const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
+    if (!guru) return res.status(400).json({ error: 'Hanya guru yang bisa mencatat presensi' });
     const { kelasId, tanggal, presensi } = req.body;
-    
-    // Batch insert/upsert
-    const tgl = new Date(tanggal);
-    tgl.setHours(0,0,0,0);
 
-    // Menghindari duplikat per hari
+    const tgl = new Date(tanggal);
+    tgl.setHours(0, 0, 0, 0);
+
+    // Hanya hapus record SESI INI (guru yang sama) — biarkan presensi
+    // dari guru lain di hari yang sama tetap utuh.
     await prisma.presensi.deleteMany({
-      where: {
-        kelasId,
-        tanggal: tgl
-      }
+      where: { kelasId, tanggal: tgl, guruId: guru.id }
     });
 
     const result = await prisma.presensi.createMany({
       data: presensi.map((p: any) => ({
         siswaId: p.siswaId,
         kelasId,
-        guruId: guru!.id,
+        guruId: guru.id,
         tanggal: tgl,
         status: p.status,
         keterangan: p.keterangan || null
@@ -739,25 +737,29 @@ router.post('/presensi', async (req, res, next) => {
 
 router.get('/presensi', async (req, res, next) => {
   try {
+    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, tanggal } = req.query;
     if (!kelasId || !tanggal) return res.status(400).json({ error: 'kelasId dan tanggal wajib diisi' });
+    if (!guru) return res.json([]);
 
     const tgl = new Date(String(tanggal));
-    tgl.setHours(0,0,0,0);
+    tgl.setHours(0, 0, 0, 0);
 
     const records = await prisma.presensi.findMany({
-      where: { kelasId: String(kelasId), tanggal: tgl },
+      where: { kelasId: String(kelasId), tanggal: tgl, guruId: guru.id },
       include: { siswa: true }
     });
-    
+
     res.json(records);
   } catch(error) { next(error); }
 });
 
 router.get('/presensi/rekap', async (req, res, next) => {
   try {
+    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, bulan, tahun } = req.query;
     if (!kelasId || !bulan || !tahun) return res.status(400).json({ error: 'kelasId, bulan, tahun wajib' });
+    if (!guru) return res.json([]);
 
     const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
     const endObj = new Date(Number(tahun), Number(bulan), 1); // exclusive upper bound
@@ -765,6 +767,7 @@ router.get('/presensi/rekap', async (req, res, next) => {
     const records = await prisma.presensi.findMany({
       where: {
         kelasId: String(kelasId),
+        guruId: guru.id,
         tanggal: { gte: startObj, lt: endObj }
       },
       include: { siswa: { select: { id: true, nama: true, nis: true } } }
@@ -795,15 +798,17 @@ router.get('/presensi/rekap', async (req, res, next) => {
 
 router.get('/presensi/export', async (req, res, next) => {
   try {
+    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, bulan, tahun } = req.query;
     if (!kelasId || !bulan || !tahun) return res.status(400).json({ error: 'kelasId, bulan, tahun wajib' });
+    if (!guru) return res.status(403).json({ error: 'Hanya guru yang bisa export presensi' });
 
     const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
     const endObj = new Date(Number(tahun), Number(bulan), 1);
 
     const [records, kelas] = await Promise.all([
       prisma.presensi.findMany({
-        where: { kelasId: String(kelasId), tanggal: { gte: startObj, lt: endObj } },
+        where: { kelasId: String(kelasId), guruId: guru.id, tanggal: { gte: startObj, lt: endObj } },
         include: { siswa: { select: { id: true, nama: true, nis: true } } }
       }),
       prisma.kelas.findUnique({ where: { id: String(kelasId) }, select: { nama: true } })
