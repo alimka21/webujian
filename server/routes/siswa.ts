@@ -72,9 +72,12 @@ router.get('/ujian-aktif', async (req, res, next) => {
       },
       include: {
         ujian: {
-          include: { sesiUjian: { where: { siswaId: siswa?.id } } }
-        }
-      }
+          include: {
+            sesiUjian: { where: { siswaId: siswa?.id } },
+            _count: { select: { soal: true } },
+          },
+        },
+      },
     });
 
     const result = records

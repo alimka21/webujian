@@ -504,13 +504,15 @@ export default function ManageUsers() {
                 <div className="py-12 text-center text-slate-500">Tidak ada siswa ditemukan.</div>
               ) : (
                 <div className="overflow-x-auto">
+                  <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700">
+                    💡 Siswa login menggunakan <strong>NIS</strong> (bukan email). Email otomatis di-generate untuk keperluan sistem.
+                  </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
                       <tr>
                         <th className="px-4 py-3 font-semibold">NIS</th>
                         <th className="px-4 py-3 font-semibold">Nama Siswa</th>
                         <th className="px-4 py-3 font-semibold">Kelas</th>
-                        <th className="px-4 py-3 font-semibold">Email Login</th>
                         <th className="px-4 py-3 font-semibold text-center">Aksi</th>
                       </tr>
                     </thead>
@@ -520,7 +522,6 @@ export default function ManageUsers() {
                           <td className="px-4 py-3 font-mono font-medium text-slate-700">{u.siswa?.nis}</td>
                           <td className="px-4 py-3 font-medium text-slate-900">{u.siswa?.nama}</td>
                           <td className="px-4 py-3 text-slate-600">{u.siswa?.kelas?.nama || '-'}</td>
-                          <td className="px-4 py-3 text-xs text-slate-400">{u.email}</td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
                               <Button variant="ghost" size="sm" onClick={() => openSiswaModal(u)} className="h-8 px-2 text-blue-600 hover:bg-blue-50" aria-label={`Edit ${u.siswa?.nama}`}><Pencil className="w-4 h-4" /></Button>

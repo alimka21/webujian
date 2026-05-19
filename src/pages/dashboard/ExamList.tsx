@@ -53,7 +53,17 @@ export default function ExamList() {
       setStartingUjianId(ujianId);
       const res = await api.post(`/api/siswa/ujian/${ujianId}/mulai`);
       setConfirmModal(null);
-      navigate(`/exam/${res.sessionId}`);
+
+      // Buka ujian di tab baru supaya dashboard siswa tetap utuh di tab asli.
+      // Kalau popup di-block browser, fallback ke navigate biasa (tab yang sama).
+      const examUrl = `/exam/${res.sessionId}`;
+      const newTab = window.open(examUrl, '_blank', 'noopener,noreferrer');
+      if (!newTab) {
+        toast.warning('Tab baru di-block browser, lanjut di tab ini');
+        navigate(examUrl);
+      } else {
+        toast.success('Ujian dibuka di tab baru. Selamat mengerjakan!');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Gagal memulai ujian');
     } finally {

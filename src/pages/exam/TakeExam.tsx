@@ -214,6 +214,26 @@ export default function TakeExam() {
 
   if (!sessionData) return null;
 
+  // Ujian belum punya soal — tampilkan pesan jelas, jangan blank
+  if (soalList.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Ujian Belum Siap</h2>
+          <p className="text-slate-500">
+            Ujian <strong>{sessionData.ujian.judul}</strong> belum memiliki soal. Silakan hubungi guru pengampu untuk mengisi soal ujian terlebih dahulu.
+          </p>
+          <Button onClick={() => navigate('/dashboard/siswa')} className="w-full">
+            Kembali ke Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const currentSoal = soalList[currentIndex];
   const answeredCount = Object.keys(answers).filter(k => answers[k] && answers[k].length > 0).length;
   const flaggedCount = Object.values(flagged).filter(v => v).length;
