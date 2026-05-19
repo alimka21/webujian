@@ -4,7 +4,14 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Binary engine (subprocess) lebih stabil di Hostinger CloudLinux daripada
+  // library engine yang nge-panic "timer has gone away" karena Tokio thread
+  // pool gagal start di environment dengan ulimit ketat.
+  engineType    = "binary"
+  // Cover variasi host: Hostinger Premium = CloudLinux (rhel-like), VPS bisa
+  // debian, dev macOS = native. `prisma generate` akan download semuanya.
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
 }
 
 model User {
