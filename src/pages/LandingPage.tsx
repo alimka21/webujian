@@ -322,6 +322,12 @@ export default function LandingPage() {
                    <div className="text-sm text-slate-300 font-medium">Prestasi Nasional</div>
                 </div>
               </div>
+
+              <Link to="/alumni/daftar">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 rounded-full h-12 px-6 gap-2">
+                  Daftar Sebagai Alumni <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </div>
 
             <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl">

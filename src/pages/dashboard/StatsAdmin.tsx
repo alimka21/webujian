@@ -69,14 +69,6 @@ export default function StatsAdmin() {
         ))}
       </div>
 
-      <div className="mt-8 p-6 bg-slate-50 rounded-xl border">
-        <h3 className="text-lg font-semibold text-slate-800 border-b pb-2 mb-4">Informasi Sistem</h3>
-        <ul className="space-y-2 text-slate-600">
-          <li><strong>Versi Aplikasi:</strong> 1.0.0</li>
-          <li><strong>Versi Database:</strong> SQLite / Prisma</li>
-          <li><strong>Zona Waktu Server:</strong> {Intl.DateTimeFormat().resolvedOptions().timeZone}</li>
-        </ul>
-      </div>
     </div>
   );
 }

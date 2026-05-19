@@ -3,12 +3,14 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'sonner';
 import { useAuthStore } from './store/authStore';
 import ProtectedRoute from './components/ProtectedRoute';
+import api from './lib/api';
 
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import BeritaList from './pages/BeritaList';
 import BeritaDetail from './pages/BeritaDetail';
+import AlumniRegister from './pages/AlumniRegister';
 import NotFoundPage from './pages/NotFoundPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 
@@ -44,12 +46,33 @@ export default function App() {
     fetchMe();
   }, [fetchMe, token]);
 
+  // Set document.title + favicon dari SiteConfig (sekali per mount).
+  // Dipasang di App supaya semua page (login, dashboard, exam) pakai
+  // nama sekolah yg sama, bukan hardcoded "Web Ujian Premium".
+  useEffect(() => {
+    api.get('/api/site-config')
+      .then((cfg) => {
+        if (cfg?.namaSekolah) document.title = cfg.namaSekolah;
+        if (cfg?.faviconUrl) {
+          let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = cfg.faviconUrl;
+        }
+      })
+      .catch(() => { /* biarkan default "Memuat..." */ });
+  }, []);
+
   return (
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/berita" element={<BeritaList />} />
         <Route path="/berita/:slug" element={<BeritaDetail />} />
+        <Route path="/alumni/daftar" element={<AlumniRegister />} />
         
         {/* Public route but redirect if logged in */}
         <Route path="/login" element={<LoginPage />} />
