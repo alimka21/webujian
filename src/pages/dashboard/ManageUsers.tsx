@@ -504,9 +504,6 @@ export default function ManageUsers() {
                 <div className="py-12 text-center text-slate-500">Tidak ada siswa ditemukan.</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700">
-                    💡 Siswa login menggunakan <strong>NIS</strong> (bukan email). Email otomatis di-generate untuk keperluan sistem.
-                  </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
                       <tr>
