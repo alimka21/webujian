@@ -36,8 +36,13 @@ interface HasilData {
   jawaban: JawabanItem[];
 }
 
-function formatDurasi(mulaiAt: string, selesaiAt: string): string {
-  const diff = Math.floor((new Date(selesaiAt).getTime() - new Date(mulaiAt).getTime()) / 1000);
+function formatDurasi(mulaiAt: string, selesaiAt: string, maksMenit?: number): string {
+  let diff = Math.floor((new Date(selesaiAt).getTime() - new Date(mulaiAt).getTime()) / 1000);
+  // Cap ke durasi maks ujian — kalau wall-clock melebihi (mis. siswa idle/abandon),
+  // pakai durasi resmi ujian. Lebih masuk akal daripada angka jam-jaman.
+  if (typeof maksMenit === 'number' && diff > maksMenit * 60) {
+    diff = maksMenit * 60;
+  }
   const menit = Math.floor(diff / 60);
   const detik = diff % 60;
   if (menit === 0) return `${detik} detik`;
@@ -167,19 +172,26 @@ export default function HasilUjian() {
             <p className="text-xs text-slate-500">Durasi Pengerjaan</p>
             <p className="text-lg font-bold text-slate-800">
               {data.mulaiAt && data.selesaiAt
-                ? formatDurasi(data.mulaiAt, data.selesaiAt)
+                ? formatDurasi(data.mulaiAt, data.selesaiAt, data.ujian.durasi)
                 : `${data.ujian.durasi} menit`}
             </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Maks: {data.ujian.durasi} menit</p>
           </div>
         </div>
       </div>
 
       {/* Status Submit */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-xs text-slate-500 mb-1">Status Ujian</p>
           <Badge variant={submitInfo.variant}>{submitInfo.teks}</Badge>
         </div>
+        {data.mulaiAt && (
+          <div className="text-right">
+            <p className="text-xs text-slate-500 mb-1">Waktu Mulai</p>
+            <p className="text-sm font-medium text-slate-700">{formatWaktu(data.mulaiAt)}</p>
+          </div>
+        )}
         {data.selesaiAt && (
           <div className="text-right">
             <p className="text-xs text-slate-500 mb-1">Waktu Selesai</p>

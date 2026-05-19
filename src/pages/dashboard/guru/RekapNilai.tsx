@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { Select } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
-import { Search, Download, AlertTriangle, X, ChevronUp, ChevronDown, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
+import { Search, Download, AlertTriangle, X, ChevronUp, ChevronDown, CheckCircle2, XCircle, MinusCircle, RotateCcw } from 'lucide-react';
 import api from '../../../lib/api';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 
@@ -28,6 +28,27 @@ export default function RekapNilai() {
   const [detailData, setDetailData] = useState<any | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const detailModalRef = useModalA11y<HTMLDivElement>(detailSesiId !== null, () => setDetailSesiId(null));
+
+  // Reset confirm
+  const [resetTarget, setResetTarget] = useState<{ sesiId: string; nama: string; nis: string } | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const resetModalRef = useModalA11y<HTMLDivElement>(resetTarget !== null, () => setResetTarget(null));
+
+  const handleResetSesi = async () => {
+    if (!resetTarget || !selectedUjian) return;
+    try {
+      setIsResetting(true);
+      const res = await api.delete(`/api/guru/ujian/${selectedUjian}/sesi/${resetTarget.sesiId}`);
+      toast.success(res?.message || `Sesi siswa "${resetTarget.nama}" berhasil di-reset`);
+      setResetTarget(null);
+      // Refresh rekap
+      fetchRekap();
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal reset sesi siswa');
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   useEffect(() => { fetchUjian(); }, []);
 
@@ -417,15 +438,32 @@ export default function RekapNilai() {
                           )}
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-blue-600 bg-blue-50 hover:bg-blue-100 h-8"
-                            onClick={() => handleOpenDetail(sesi.sesiId)}
-                            disabled={!sesi.sesiId}
-                          >
-                            <Search className="w-4 h-4 mr-1.5" /> Detail
-                          </Button>
+                          <div className="flex gap-1 justify-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 bg-blue-50 hover:bg-blue-100 h-8"
+                              onClick={() => handleOpenDetail(sesi.sesiId)}
+                              disabled={!sesi.sesiId}
+                            >
+                              <Search className="w-4 h-4 mr-1" /> Detail
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-amber-600 hover:bg-amber-50 h-8 px-2"
+                              onClick={() => setResetTarget({
+                                sesiId: sesi.sesiId,
+                                nama: sesi.siswa.nama,
+                                nis: sesi.siswa.nis,
+                              })}
+                              disabled={!sesi.sesiId}
+                              title="Reset — siswa bisa kerjakan ulang"
+                              aria-label={`Reset sesi ujian ${sesi.siswa.nama}`}
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -443,6 +481,54 @@ export default function RekapNilai() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Modal Konfirmasi Reset Sesi ──────────────────── */}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div
+            ref={resetModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-sesi-title"
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div className="px-6 pt-6 pb-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                <RotateCcw className="w-6 h-6 text-amber-600" />
+              </div>
+              <h2 id="reset-sesi-title" className="text-lg font-bold text-slate-900 text-center">
+                Reset Sesi Ujian?
+              </h2>
+              <p className="text-sm text-slate-500 text-center mt-1">
+                <strong className="text-slate-700">{resetTarget.nama}</strong>
+                <span className="text-slate-400"> (NIS {resetTarget.nis})</span>
+              </p>
+              <div className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                Jawaban, nilai, dan catatan pelanggaran siswa ini akan <strong>dihapus permanen</strong>. Siswa bisa mengerjakan ujian dari awal lagi.
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResetTarget(null)}
+                disabled={isResetting}
+                className="flex-1"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={handleResetSesi}
+                disabled={isResetting}
+                className="flex-1 bg-amber-600 hover:bg-amber-700"
+              >
+                {isResetting ? 'Memproses...' : 'Ya, Reset'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

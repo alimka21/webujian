@@ -439,6 +439,28 @@ router.get('/ujian/:id/hasil', async (req, res, next) => {
 });
 
 // Detail jawaban per sesi (untuk modal)
+// Reset sesi siswa supaya bisa mengerjakan ujian dari awal.
+// Hapus SesiUjian — Jawaban & Pelanggaran ikut terhapus via onDelete: Cascade.
+// Saat siswa klik Mulai Ujian lagi, sesi baru terbuat (mulaiAt fresh).
+router.delete('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
+  try {
+    const sesi = await prisma.sesiUjian.findUnique({
+      where: { id: req.params.sesiId },
+      include: { siswa: { select: { nama: true, nis: true } } },
+    });
+    if (!sesi || sesi.ujianId !== req.params.id) {
+      return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    }
+
+    await prisma.sesiUjian.delete({ where: { id: req.params.sesiId } });
+
+    res.json({
+      success: true,
+      message: `Sesi ujian "${sesi.siswa.nama}" (NIS ${sesi.siswa.nis}) berhasil di-reset. Siswa bisa mengerjakan ulang.`,
+    });
+  } catch (error) { next(error); }
+});
+
 router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
   try {
     const sesi = await prisma.sesiUjian.findUnique({
