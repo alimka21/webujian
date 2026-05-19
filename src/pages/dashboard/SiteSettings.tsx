@@ -5,7 +5,6 @@ import {
   AlertTriangle, Upload, X, ImagePlus,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent } from '../../components/ui/card';
 import { Input, Label } from '../../components/ui/input';
 import api from '../../lib/api';
 import { fileToResizedBase64, dataUrlSizeKB } from '../../lib/imageUtils';
@@ -13,26 +12,24 @@ import { fileToResizedBase64, dataUrlSizeKB } from '../../lib/imageUtils';
 type Config = Record<string, string | null>;
 
 const Spinner = () => (
-  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-2" />
+  <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin inline-block mr-2" />
 );
 
 const Section = ({
   icon: Icon, title, description, children,
 }: { icon: any; title: string; description: string; children: React.ReactNode }) => (
-  <Card>
-    <CardContent className="p-6">
-      <div className="flex items-start gap-3 mb-5">
-        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          <p className="text-sm text-slate-500">{description}</p>
-        </div>
+  <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+    <div className="flex items-start gap-3 mb-5">
+      <div className="w-10 h-10 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5" />
       </div>
-      <div className="space-y-4">{children}</div>
-    </CardContent>
-  </Card>
+      <div>
+        <h2 className="text-headline-sm text-on-surface">{title}</h2>
+        <p className="text-sm text-on-surface-variant">{description}</p>
+      </div>
+    </div>
+    <div className="space-y-4">{children}</div>
+  </section>
 );
 
 const TextField = ({
@@ -54,7 +51,7 @@ const TextAreaField = ({
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="flex w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface shadow-sm transition-colors placeholder:text-on-surface-variant/70 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
     />
   </div>
 );
@@ -64,9 +61,7 @@ interface ImageFieldProps {
   hint: string;
   value: string;
   onChange: (v: string) => void;
-  /** Maksimum px untuk resize. Default 800 (untuk foto). Pakai 256 untuk logo, 64 untuk favicon. */
   maxWidth?: number;
-  /** Preview aspect: 'wide' untuk hero, 'square' untuk logo/favicon, 'photo' default */
   preview?: 'wide' | 'square' | 'photo';
 }
 
@@ -100,14 +95,14 @@ const ImageField: React.FC<ImageFieldProps> = ({ label, hint, value, onChange, m
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <p className="text-xs text-slate-400">{hint}</p>
+      <p className="text-xs text-on-surface-variant">{hint}</p>
       {value ? (
         <div className="relative inline-block">
-          <img src={value} alt={label} className={`rounded-lg border border-slate-200 object-cover ${aspectClass} bg-slate-50`} />
+          <img src={value} alt={label} className={`rounded-lg border border-outline-variant object-cover ${aspectClass} bg-surface-container-low`} />
           <button
             type="button"
             onClick={() => onChange('')}
-            className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shadow-md hover:bg-red-700"
+            className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-error text-on-error flex items-center justify-center shadow hover:bg-error/90"
             aria-label="Hapus gambar"
           >
             <X className="w-4 h-4" />
@@ -118,30 +113,25 @@ const ImageField: React.FC<ImageFieldProps> = ({ label, hint, value, onChange, m
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className={`flex flex-col items-center justify-center w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors ${aspectClass}`}
+          className={`flex flex-col items-center justify-center w-full rounded-lg border-2 border-dashed border-outline-variant bg-surface-container-low hover:bg-surface-container transition-colors ${aspectClass}`}
         >
           {uploading ? (
-            <div className="w-6 h-6 border-2 border-slate-400/40 border-t-slate-600 rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
           ) : (
             <>
-              <ImagePlus className="w-6 h-6 text-slate-400 mb-1.5" />
-              <span className="text-xs text-slate-500">Klik untuk upload</span>
+              <ImagePlus className="w-6 h-6 text-on-surface-variant mb-1.5" />
+              <span className="text-xs text-on-surface-variant">Klik untuk upload</span>
             </>
           )}
         </button>
       )}
       <div className="flex gap-2 mt-2">
-        <Button
-          type="button" variant="outline" size="sm"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          className="gap-2"
-        >
-          <Upload className="w-3.5 h-3.5" />
+        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+          <Upload className="w-3.5 h-3.5 mr-1.5" />
           {value ? 'Ganti' : 'Pilih file'}
         </Button>
         {value && (
-          <Button type="button" variant="outline" size="sm" onClick={() => onChange('')} className="text-red-600 border-red-200 hover:bg-red-50">
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange('')} className="text-error hover:bg-error-container">
             Hapus
           </Button>
         )}
@@ -180,7 +170,6 @@ export default function SiteSettings() {
     if (!config) return;
     try {
       setIsSaving(true);
-      // Strip server-managed fields
       const payload = { ...config };
       delete payload.id;
       delete payload.updatedAt;
@@ -197,17 +186,17 @@ export default function SiteSettings() {
   if (isLoading) {
     return (
       <div className="py-12 flex flex-col items-center">
-        <div className="w-6 h-6 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-2" />
-        <span className="text-sm text-slate-500">Memuat...</span>
+        <div className="w-6 h-6 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-2" />
+        <span className="text-sm text-on-surface-variant">Memuat...</span>
       </div>
     );
   }
   if (errorMsg) {
     return (
       <div className="py-12 flex flex-col items-center text-center">
-        <AlertTriangle className="w-10 h-10 text-red-400 mb-2" />
-        <p className="text-red-600 font-medium mb-1">Gagal memuat konfigurasi</p>
-        <p className="text-sm text-slate-500 mb-4">{errorMsg}</p>
+        <AlertTriangle className="w-10 h-10 text-error mb-2" />
+        <p className="text-error font-medium mb-1">Gagal memuat konfigurasi</p>
+        <p className="text-sm text-on-surface-variant mb-4">{errorMsg}</p>
         <Button onClick={() => window.location.reload()}>Muat Ulang</Button>
       </div>
     );
@@ -217,11 +206,11 @@ export default function SiteSettings() {
     <div className="space-y-6 pb-24">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pengaturan Situs</h1>
-          <p className="text-slate-500 mt-1">Atur konten landing page yang dilihat publik.</p>
+          <h1 className="text-headline-md text-on-surface">Pengaturan Situs</h1>
+          <p className="text-on-surface-variant mt-1">Atur konten landing page yang dilihat publik.</p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 gap-2">
-          {isSaving ? <><Spinner />Menyimpan...</> : <><Save className="w-4 h-4" /> Simpan</>}
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <><Spinner />Menyimpan...</> : <><Save className="w-4 h-4 mr-1.5" /> Simpan</>}
         </Button>
       </div>
 
@@ -229,11 +218,11 @@ export default function SiteSettings() {
         <TextField label="Nama Sekolah" value={get('namaSekolah')} onChange={v => set('namaSekolah', v)} placeholder="Contoh: SMA Negeri 1 Demo" />
         <div className="space-y-1.5">
           <Label>Jenjang Sekolah</Label>
-          <p className="text-xs text-slate-400">Menentukan tingkat kelas yang valid (SD 1-6, SMP 7-9, SMA/SMK 10-12) dan jumlah opsi pilihan ganda saat membuat soal (SD/SMP 4 opsi, SMA/SMK 5 opsi).</p>
+          <p className="text-xs text-on-surface-variant">Menentukan tingkat kelas yang valid (SD 1-6, SMP 7-9, SMA/SMK 10-12) dan jumlah opsi pilihan ganda saat membuat soal (SD/SMP 4 opsi, SMA/SMK 5 opsi).</p>
           <select
             value={get('jenjang') || ''}
             onChange={e => set('jenjang', e.target.value)}
-            className="flex h-9 w-full rounded-md border border-gray-200 bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+            className="flex h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface shadow-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           >
             <option value="">— Pilih jenjang —</option>
             <option value="SD">SD (Sekolah Dasar)</option>
@@ -303,11 +292,11 @@ export default function SiteSettings() {
         </div>
       </Section>
 
-      {/* Sticky save bar di bawah */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white border-t border-slate-200 px-4 py-3 shadow-lg z-30">
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-surface-container-lowest border-t border-outline-variant px-4 py-3 shadow-lg z-30">
         <div className="max-w-7xl mx-auto flex justify-end">
-          <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 gap-2">
-            {isSaving ? <><Spinner />Menyimpan...</> : <><Save className="w-4 h-4" /> Simpan Semua Perubahan</>}
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <><Spinner />Menyimpan...</> : <><Save className="w-4 h-4 mr-1.5" /> Simpan Semua Perubahan</>}
           </Button>
         </div>
       </div>

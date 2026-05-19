@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Trash2, FileText, AlertTriangle, ClipboardList, Plus, PenTool, BarChart3 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Pagination } from '../../components/ui/pagination';
@@ -27,10 +25,6 @@ interface UjianRow {
   _count: { soal: number; sesiUjian: number };
 }
 
-const Spinner = () => (
-  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-2" />
-);
-
 const formatDateRange = (start: string | null, end: string | null) => {
   if (!start || !end) return '-';
   const s = new Date(start);
@@ -39,14 +33,15 @@ const formatDateRange = (start: string | null, end: string | null) => {
   return `${fmt(s)} → ${fmt(e)}`;
 };
 
-const getStatus = (start: string | null, end: string | null): { label: string; color: string } => {
-  if (!start || !end) return { label: 'Draft', color: 'bg-slate-100 text-slate-600' };
+// Status badge dengan accent design system
+const getStatus = (start: string | null, end: string | null): { label: string; cls: string } => {
+  if (!start || !end) return { label: 'Draft', cls: 'bg-surface-container text-on-surface-variant' };
   const now = Date.now();
   const s = new Date(start).getTime();
   const e = new Date(end).getTime();
-  if (now < s) return { label: 'Belum mulai', color: 'bg-amber-50 text-amber-700 border-amber-200' };
-  if (now > e) return { label: 'Selesai', color: 'bg-slate-100 text-slate-600' };
-  return { label: 'Aktif', color: 'bg-green-50 text-green-700 border-green-200' };
+  if (now < s) return { label: 'Belum mulai', cls: 'bg-tertiary-fixed text-on-tertiary-fixed' };
+  if (now > e) return { label: 'Selesai', cls: 'bg-surface-container text-on-surface-variant' };
+  return { label: 'Aktif', cls: 'bg-secondary-container/40 text-on-secondary-container' };
 };
 
 export default function AdminUjianList() {
@@ -119,21 +114,18 @@ export default function AdminUjianList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Kelola Ujian</h1>
-          <p className="text-slate-500 mt-1">Pantau & kelola semua ujian dari semua guru.</p>
+          <h1 className="text-headline-md text-on-surface">Kelola Ujian</h1>
+          <p className="text-on-surface-variant mt-1">Pantau & kelola semua ujian dari semua guru.</p>
         </div>
-        <Button
-          onClick={() => navigate('/dashboard/guru/ujian/baru')}
-          className="gap-2 bg-blue-600 hover:bg-blue-700 shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Buat Ujian Baru
+        <Button onClick={() => navigate('/dashboard/guru/ujian/baru')} className="shrink-0">
+          <Plus className="w-4 h-4 mr-1.5" /> Buat Ujian Baru
         </Button>
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -154,186 +146,175 @@ export default function AdminUjianList() {
         </Select>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="py-12 flex flex-col items-center">
-              <div className="w-6 h-6 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-2" />
-              <span className="text-sm text-slate-500">Memuat...</span>
-            </div>
-          ) : errorMsg ? (
-            <div className="py-12 flex flex-col items-center text-center">
-              <AlertTriangle className="w-10 h-10 text-red-400 mb-2" />
-              <p className="text-red-600 font-medium mb-1">Gagal memuat data</p>
-              <p className="text-sm text-slate-500 mb-4">{errorMsg}</p>
-              <Button onClick={fetchUjian}>Muat Ulang</Button>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="py-12 flex flex-col items-center text-center">
-              <FileText className="w-10 h-10 text-slate-300 mb-2" />
-              <p className="text-slate-500">
-                {ujianList.length === 0 ? 'Belum ada ujian yang dibuat guru.' : 'Tidak ada ujian yang cocok dengan filter.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Judul Ujian</th>
-                      <th className="px-4 py-3 font-medium">Mata Pelajaran</th>
-                      <th className="px-4 py-3 font-medium">Guru</th>
-                      <th className="px-4 py-3 font-medium">Kelas</th>
-                      <th className="px-4 py-3 font-medium text-center">Soal</th>
-                      <th className="px-4 py-3 font-medium text-center">Sesi</th>
-                      <th className="px-4 py-3 font-medium">Jadwal</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 font-medium text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paged.map(u => {
-                      const status = getStatus(u.tanggalMulai, u.tanggalSelesai);
-                      return (
-                        <tr key={u.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                          <td className="px-4 py-3 font-medium text-slate-900">{u.judul}</td>
-                          <td className="px-4 py-3 text-slate-600">{u.mataPelajaran}</td>
-                          <td className="px-4 py-3 text-slate-600">
-                            {u.guru ? (
-                              <div>
-                                <p className="font-medium text-slate-700">{u.guru.nama}</p>
-                                <p className="text-xs text-slate-400 font-mono">{u.guru.nip}</p>
-                              </div>
-                            ) : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">
-                            <div className="flex flex-wrap gap-1">
-                              {u.kelas.length === 0 ? (
-                                <span className="text-slate-400 text-xs">—</span>
-                              ) : (
-                                u.kelas.map(uk => (
-                                  <Badge key={uk.kelas.id} variant="secondary" className="text-xs">
-                                    {uk.kelas.nama}
-                                  </Badge>
-                                ))
-                              )}
+      {/* Tabel */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+        {isLoading ? (
+          <div className="py-12 flex flex-col items-center">
+            <div className="w-6 h-6 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-2" />
+            <span className="text-sm text-on-surface-variant">Memuat...</span>
+          </div>
+        ) : errorMsg ? (
+          <div className="py-12 flex flex-col items-center text-center">
+            <AlertTriangle className="w-10 h-10 text-error mb-2" />
+            <p className="text-error font-medium mb-1">Gagal memuat data</p>
+            <p className="text-sm text-on-surface-variant mb-4">{errorMsg}</p>
+            <Button onClick={fetchUjian}>Muat Ulang</Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 flex flex-col items-center text-center">
+            <FileText className="w-10 h-10 text-outline-variant mb-2" />
+            <p className="text-on-surface-variant">
+              {ujianList.length === 0 ? 'Belum ada ujian yang dibuat guru.' : 'Tidak ada ujian yang cocok dengan filter.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-surface-container border-b border-outline-variant">
+                  <tr>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Judul Ujian</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Mata Pelajaran</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Guru</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Kelas</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant text-center">Soal</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant text-center">Sesi</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Jadwal</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant">Status</th>
+                    <th className="px-4 py-3 text-label-sm uppercase tracking-wider font-bold text-on-surface-variant text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {paged.map(u => {
+                    const status = getStatus(u.tanggalMulai, u.tanggalSelesai);
+                    return (
+                      <tr key={u.id} className="hover:bg-surface-container-low transition-colors">
+                        <td className="px-4 py-3 font-medium text-on-surface">{u.judul}</td>
+                        <td className="px-4 py-3 text-on-surface-variant">{u.mataPelajaran}</td>
+                        <td className="px-4 py-3">
+                          {u.guru ? (
+                            <div>
+                              <p className="font-medium text-on-surface">{u.guru.nama}</p>
+                              <p className="text-xs text-on-surface-variant font-mono">{u.guru.nip}</p>
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-center text-slate-600">
-                            <span className="inline-flex items-center gap-1">
-                              <ClipboardList className="w-3.5 h-3.5 text-slate-400" />
-                              {u._count.soal}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {u._count.sesiUjian > 0 ? (
-                              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {u._count.sesiUjian}
-                              </Badge>
+                          ) : <span className="text-on-surface-variant">-</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {u.kelas.length === 0 ? (
+                              <span className="text-outline-variant text-xs">—</span>
                             ) : (
-                              <span className="text-slate-400 text-xs">0</span>
+                              u.kelas.map(uk => (
+                                <span
+                                  key={uk.kelas.id}
+                                  className="inline-flex items-center rounded-full bg-primary-container/15 text-primary px-2 py-0.5 text-xs font-medium"
+                                >
+                                  {uk.kelas.nama}
+                                </span>
+                              ))
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
-                            {formatDateRange(u.tanggalMulai, u.tanggalSelesai)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge variant="secondary" className={status.color}>
-                              {status.label}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => navigate(`/dashboard/guru/ujian/${u.id}/soal`)}
-                                className="text-slate-600 hover:bg-slate-100 h-8 px-2"
-                                aria-label={`Kelola soal ujian ${u.judul}`}
-                                title="Kelola Soal"
-                              >
-                                <PenTool className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => navigate(`/dashboard/guru/rekap?ujianId=${u.id}`)}
-                                className="text-blue-600 hover:bg-blue-50 h-8 px-2"
-                                aria-label={`Lihat hasil ujian ${u.judul}`}
-                                title="Lihat Hasil / Rekap Nilai"
-                              >
-                                <BarChart3 className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => setDeleteConfirm(u)}
-                                className="text-red-500 hover:bg-red-50 h-8 px-2"
-                                aria-label={`Hapus ujian ${u.judul}`}
-                                disabled={u._count.sesiUjian > 0}
-                                title={u._count.sesiUjian > 0 ? 'Tidak bisa hapus: sudah ada sesi siswa' : 'Hapus ujian'}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination
-                currentPage={page}
-                totalItems={filtered.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setPage}
-                itemLabel="ujian"
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center text-on-surface-variant">
+                          <span className="inline-flex items-center gap-1">
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            {u._count.soal}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {u._count.sesiUjian > 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-secondary-container/40 text-on-secondary-container px-2 py-0.5 text-xs font-bold">
+                              {u._count.sesiUjian}
+                            </span>
+                          ) : (
+                            <span className="text-outline-variant text-xs">0</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-on-surface-variant text-xs whitespace-nowrap">
+                          {formatDateRange(u.tanggalMulai, u.tanggalSelesai)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center rounded-full ${status.cls} px-2.5 py-0.5 text-label-sm uppercase tracking-wider font-bold`}>
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={() => navigate(`/dashboard/guru/ujian/${u.id}/soal`)}
+                              className="h-8 px-2"
+                              aria-label={`Kelola soal ujian ${u.judul}`}
+                              title="Kelola Soal"
+                            >
+                              <PenTool className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={() => navigate(`/dashboard/guru/rekap?ujianId=${u.id}`)}
+                              className="h-8 px-2"
+                              aria-label={`Lihat hasil ujian ${u.judul}`}
+                              title="Lihat Hasil / Rekap Nilai"
+                            >
+                              <BarChart3 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={() => setDeleteConfirm(u)}
+                              className="h-8 px-2 text-error hover:bg-error-container"
+                              aria-label={`Hapus ujian ${u.judul}`}
+                              disabled={u._count.sesiUjian > 0}
+                              title={u._count.sesiUjian > 0 ? 'Tidak bisa hapus: sudah ada sesi siswa' : 'Hapus ujian'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              currentPage={page}
+              totalItems={filtered.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setPage}
+              itemLabel="ujian"
+            />
+          </>
+        )}
+      </div>
 
-      {/* ══ Modal Konfirmasi Hapus ══ */}
+      {/* Modal hapus */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm">
           <div
             ref={deleteModalRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-ujian-title"
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl"
           >
-            <div className="px-6 pt-6 pb-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                <Trash2 className="w-6 h-6 text-red-600" />
+            <div className="px-6 pt-6 pb-4 text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-error-container flex items-center justify-center mb-3">
+                <Trash2 className="w-6 h-6 text-error" />
               </div>
-              <h2 id="delete-ujian-title" className="text-lg font-bold text-slate-900 text-center">
-                Hapus ujian ini?
-              </h2>
-              <p className="text-sm text-slate-500 text-center mt-1">
-                <strong className="text-slate-700">{deleteConfirm.judul}</strong>
+              <h2 id="delete-ujian-title" className="text-headline-sm text-on-surface">Hapus ujian ini?</h2>
+              <p className="text-sm text-on-surface-variant mt-2">
+                <strong className="text-on-surface">{deleteConfirm.judul}</strong>
               </p>
-              <p className="text-xs text-slate-400 text-center mt-2">
+              <p className="text-xs text-on-surface-variant mt-2">
                 Aksi ini tidak bisa dibatalkan. Seluruh soal & relasi kelas akan ikut terhapus.
               </p>
             </div>
             <div className="px-6 pb-6 flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDeleteConfirm(null)}
-                disabled={isDeleting}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeleting} className="flex-1">
                 Batal
               </Button>
-              <Button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="flex-1 bg-red-600 hover:bg-red-700"
-              >
-                {isDeleting ? <><Spinner />Menghapus...</> : 'Ya, Hapus'}
+              <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="flex-1">
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
               </Button>
             </div>
           </div>

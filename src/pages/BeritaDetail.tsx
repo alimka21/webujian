@@ -1,9 +1,8 @@
 import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GraduationCap, ArrowLeft, Calendar, Share2, Link as LinkIcon } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Calendar, Share2, Link as LinkIcon, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import api from '../lib/api';
 
 export default function BeritaDetail() {
@@ -17,13 +16,10 @@ export default function BeritaDetail() {
       try {
         setIsLoading(true);
         window.scrollTo(0, 0);
-
-        // Fetch by slug + ambil 3 berita lain (publik) untuk section "Terkait"
         const [detail, listResp] = await Promise.all([
           api.get(`/api/berita/${slug}`).catch(() => null),
           api.get('/api/berita?limit=4').catch(() => ({ data: [] })),
         ]);
-
         if (detail) {
           setBerita(detail);
           const lain = (listResp.data || []).filter((b: any) => b.id !== detail.id).slice(0, 3);
@@ -37,12 +33,20 @@ export default function BeritaDetail() {
         setIsLoading(false);
       }
     };
-
     if (slug) fetchDetail();
   }, [slug]);
 
-  // ── Share handlers ──────────────────────────────────────
+  // ── Share handlers ────────────────────────────────────────
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link disalin ke clipboard');
+    } catch {
+      toast.error('Gagal menyalin link');
+    }
+  };
 
   const handleNativeShare = async () => {
     if (typeof navigator !== 'undefined' && (navigator as any).share) {
@@ -56,17 +60,7 @@ export default function BeritaDetail() {
         if (e?.name !== 'AbortError') toast.error('Gagal membuka menu berbagi');
       }
     } else {
-      // Fallback: salin link
       handleCopyLink();
-    }
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success('Link disalin ke clipboard');
-    } catch {
-      toast.error('Gagal menyalin link');
     }
   };
 
@@ -84,145 +78,143 @@ export default function BeritaDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center justify-center">
-         <div className="w-8 h-8 rounded-full border-4 border-blue-600/30 border-t-blue-600 animate-spin"></div>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
       </div>
     );
   }
 
   if (!berita) {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center justify-center text-center p-4">
-         <h1 className="text-3xl font-bold text-slate-900 mb-2">Berita Tidak Ditemukan</h1>
-         <p className="text-slate-500 mb-6">Mungkin artikel sudah dihapus atau link tidak valid.</p>
-         <Link to="/">
-           <Button className="bg-blue-600 hover:bg-blue-700">Kembali ke Beranda</Button>
-         </Link>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center p-4">
+        <div className="w-16 h-16 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center mb-4">
+          <FileText className="w-8 h-8" />
+        </div>
+        <h1 className="text-headline-md text-on-surface mb-2">Berita Tidak Ditemukan</h1>
+        <p className="text-on-surface-variant mb-6">Mungkin artikel sudah dihapus atau link tidak valid.</p>
+        <Link to="/"><Button>Kembali ke Beranda</Button></Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-blend-multiply flex flex-col">
-      {/* Navbar Minimalis */}
-      <nav className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 z-50 sticky top-0">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Navbar */}
+      <nav className="h-16 bg-surface/95 backdrop-blur-md border-b border-outline-variant sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 h-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0">
               <GraduationCap className="w-5 h-5" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 hidden sm:block">Sekolah Hebat</span>
+            <span className="font-bold text-xl tracking-tight text-primary hidden sm:block">Beranda</span>
           </Link>
-          
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.history.back()}>
-            <ArrowLeft className="w-4 h-4" /> Kembali
+          <Button variant="outline" size="sm" onClick={() => window.history.back()}>
+            <ArrowLeft className="w-4 h-4 mr-1.5" /> Kembali
           </Button>
         </div>
       </nav>
 
       {/* Konten Utama */}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-8 md:py-12 relative z-10">
-         {/* Meta & Breadcrumb */}
-         <div className="flex items-center gap-2 text-sm text-slate-500 font-medium mb-6 uppercase tracking-wider">
-            <Link to="/" className="hover:text-blue-600 transition-colors">Beranda</Link>
-            <span>/</span>
-            <span className="text-slate-400">Berita</span>
-         </div>
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-10 md:py-14">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-6">
+          <Link to="/" className="hover:text-primary transition-colors">Beranda</Link>
+          <span className="text-outline-variant">/</span>
+          <Link to="/berita" className="hover:text-primary transition-colors">Berita</Link>
+        </div>
 
-         {/* Header Title */}
-         <div className="mb-8">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 leading-tight mb-4 font-serif">
-              {berita.judul}
-            </h1>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 font-medium">
-               <div className="flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  {new Date(berita.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-               </div>
-               <Badge variant="secondary" className="bg-blue-50 text-blue-700">Berita Resmi</Badge>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-headline-lg text-on-surface leading-tight mb-4">{berita.judul}</h1>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-on-surface-variant font-medium">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              {new Date(berita.publishedAt ?? berita.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
-         </div>
+            <span className="inline-flex items-center rounded-full bg-primary-container/20 text-primary px-3 py-1 text-label-sm uppercase tracking-wider font-bold">
+              Berita Resmi
+            </span>
+          </div>
+        </div>
 
-         {/* Hero Image */}
-         {berita.imageUrl && (
-           <div className="w-full overflow-hidden rounded-2xl md:rounded-3xl shadow-xl shadow-slate-200/50 mb-10 border border-slate-100 bg-white">
-             <img src={berita.imageUrl} alt={berita.judul} className="w-full object-cover max-h-[500px]" />
-           </div>
-         )}
+        {/* Hero image */}
+        {berita.imageUrl && (
+          <div className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest mb-10">
+            <img src={berita.imageUrl} alt={berita.judul} className="w-full object-cover max-h-[500px]" />
+          </div>
+        )}
 
-         {/* Konten Artikel */}
-         <div className="bg-white p-6 md:p-12 rounded-3xl shadow-sm border border-slate-100 mb-12">
-            <article className="prose prose-slate md:prose-lg max-w-none text-slate-700 leading-relaxed font-serif whitespace-pre-wrap">
-               {berita.ringkasan && (
-                 <p className="lead text-xl text-slate-500 italic mb-8 border-l-4 border-blue-500 pl-4 py-2 bg-blue-50/50 rounded-r-lg">
-                   {berita.ringkasan}
-                 </p>
-               )}
-               {berita.konten}
-            </article>
+        {/* Konten */}
+        <article className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 md:p-10 mb-12">
+          {berita.ringkasan && (
+            <p className="text-lg text-on-surface-variant italic mb-6 border-l-4 border-primary pl-4 py-2 bg-primary-container/10 rounded-r-lg leading-relaxed">
+              {berita.ringkasan}
+            </p>
+          )}
+          <div className="prose prose-slate md:prose-lg max-w-none text-on-surface leading-relaxed whitespace-pre-wrap">
+            {berita.konten}
+          </div>
 
-            {/* Share action */}
-            <div className="mt-12 pt-8 border-t border-slate-100">
-               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Bagikan artikel ini:</span>
-                  <div className="flex gap-2 flex-wrap">
-                     <Button variant="outline" size="sm" className="gap-2" onClick={handleNativeShare} title="Bagikan">
-                        <Share2 className="w-4 h-4" /> Bagikan
-                     </Button>
-                     <Button
-                        variant="outline" size="sm"
-                        className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                        onClick={shareWhatsApp}
-                        aria-label="Bagikan ke WhatsApp"
-                     >
-                        WhatsApp
-                     </Button>
-                     <Button
-                        variant="outline" size="sm"
-                        className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                        onClick={shareFacebook}
-                        aria-label="Bagikan ke Facebook"
-                     >
-                        Facebook
-                     </Button>
-                     <Button
-                        variant="outline" size="sm"
-                        className="gap-2 bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100"
-                        onClick={shareTwitter}
-                        aria-label="Bagikan ke X / Twitter"
-                     >
-                        X / Twitter
-                     </Button>
-                     <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyLink} aria-label="Salin tautan">
-                        <LinkIcon className="w-4 h-4" /> Salin Link
-                     </Button>
-                  </div>
-               </div>
-            </div>
-         </div>
-         
-         {/* Berita Lainnya */}
-         {beritaLain.length > 0 && (
-           <div className="mt-20 border-t border-slate-200 pt-16">
-              <h3 className="text-2xl font-bold text-slate-900 mb-8">Berita Terkait Lainnya</h3>
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {beritaLain.map(b => (
-                  <Link to={`/berita/${b.slug}`} key={b.id} className="group flex flex-col h-full bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-xl transition-all">
-                     <div className="h-40 bg-slate-100 rounded-xl mb-4 overflow-hidden">
-                       {b.imageUrl ? <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : null}
-                     </div>
-                     <h4 className="font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">{b.judul}</h4>
-                     <p className="text-xs text-slate-500 mt-auto">{new Date(b.createdAt).toLocaleDateString('id-ID')}</p>
-                  </Link>
-                ))}
+          {/* Share */}
+          <div className="mt-10 pt-6 border-t border-outline-variant">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span className="text-label-md uppercase tracking-wider font-bold text-on-surface">Bagikan artikel:</span>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={handleNativeShare} title="Bagikan">
+                  <Share2 className="w-4 h-4 mr-1.5" /> Bagikan
+                </Button>
+                <Button variant="outline" size="sm" onClick={shareWhatsApp} aria-label="WhatsApp">
+                  WhatsApp
+                </Button>
+                <Button variant="outline" size="sm" onClick={shareFacebook} aria-label="Facebook">
+                  Facebook
+                </Button>
+                <Button variant="outline" size="sm" onClick={shareTwitter} aria-label="X / Twitter">
+                  X / Twitter
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCopyLink} aria-label="Salin link">
+                  <LinkIcon className="w-4 h-4 mr-1.5" /> Salin
+                </Button>
               </div>
-           </div>
-         )}
+            </div>
+          </div>
+        </article>
+
+        {/* Berita Terkait */}
+        {beritaLain.length > 0 && (
+          <div className="mt-12 pt-12 border-t border-outline-variant">
+            <h3 className="text-headline-sm text-on-surface mb-6">Berita Terkait Lainnya</h3>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-5">
+              {beritaLain.map((b: any) => (
+                <Link
+                  to={`/berita/${b.slug}`}
+                  key={b.id}
+                  className="group flex flex-col h-full bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
+                >
+                  <div className="aspect-video bg-surface-container overflow-hidden">
+                    {b.imageUrl ? (
+                      <img src={b.imageUrl} alt={b.judul} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-outline-variant">
+                        <FileText className="w-10 h-10" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 flex flex-col flex-1">
+                    <h4 className="font-bold text-on-surface line-clamp-2 group-hover:text-primary transition-colors mb-2">{b.judul}</h4>
+                    <p className="text-label-sm text-on-surface-variant uppercase tracking-wider mt-auto">
+                      {new Date(b.publishedAt ?? b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Footer minimalis */}
-      <footer className="bg-slate-900 py-6 text-center text-sm text-slate-400 shrink-0">
-         &copy; {new Date().getFullYear()} Sekolah Hebat.
+      <footer className="bg-inverse-surface text-inverse-on-surface/70 py-5 text-center text-sm shrink-0">
+        &copy; {new Date().getFullYear()} Berita Sekolah.
       </footer>
     </div>
   );
