@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  LogOut, Menu, X, LayoutDashboard, Users, FileText, Settings,
+  LogOut, Menu, X, LayoutDashboard, Users, FileText, Settings, Home,
   GraduationCap, ClipboardList, PenTool, BarChart3, Newspaper, CalendarCheck
 } from 'lucide-react';
 import { useAuthStore, Role } from '../../store/authStore';
@@ -10,6 +10,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import api from '../../lib/api';
 
 interface NavItem {
   label: string;
@@ -46,11 +47,27 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [siteBrand, setSiteBrand] = useState<{ nama: string; logo: string }>({
+    nama: 'Sekolah',
+    logo: '',
+  });
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   const logoutModalRef = useModalA11y<HTMLDivElement>(showLogoutConfirm, () => setShowLogoutConfirm(false));
+
+  // Fetch nama + logo sekolah dari SiteConfig (sekali per mount)
+  useEffect(() => {
+    api.get('/api/site-config')
+      .then((cfg) => {
+        setSiteBrand({
+          nama: cfg?.namaSekolah?.trim() || 'Sekolah',
+          logo: cfg?.logoUrl || '',
+        });
+      })
+      .catch(() => { /* biarkan default */ });
+  }, []);
 
   const confirmLogout = async () => {
     setIsLoggingOut(true);
@@ -93,9 +110,17 @@ export default function DashboardLayout() {
         )}
       >
         <div className="flex items-center justify-between h-16 px-6 bg-slate-950/50">
-          <div className="flex items-center gap-2 text-white font-bold text-lg">
-            <GraduationCap className="w-6 h-6 text-blue-500" />
-            <span>EduGenZ</span>
+          <div className="flex items-center gap-2 text-white font-bold text-lg min-w-0">
+            {siteBrand.logo ? (
+              <img
+                src={siteBrand.logo}
+                alt={siteBrand.nama}
+                className="w-7 h-7 rounded-md object-contain bg-white p-0.5 shrink-0"
+              />
+            ) : (
+              <GraduationCap className="w-6 h-6 text-blue-500 shrink-0" />
+            )}
+            <span className="truncate" title={siteBrand.nama}>{siteBrand.nama}</span>
           </div>
           <button
             className="lg:hidden"
@@ -164,7 +189,17 @@ export default function DashboardLayout() {
           </button>
 
           <div className="flex-1 flex justify-end">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Link
+                to="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                title="Buka beranda web sekolah di tab baru"
+              >
+                <Home className="w-4 h-4" />
+                <span className="hidden sm:inline">Beranda Web</span>
+              </Link>
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-slate-700">{user?.profile?.nama || user?.email}</p>
                 <p className="text-xs text-slate-500">{user?.role}</p>
