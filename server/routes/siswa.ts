@@ -228,6 +228,7 @@ router.post('/sesi/:sessionId/submit', async (req, res, next) => {
 
     let totalPoin = 0;
     let poinBenar = 0;
+    const soalBenarIds: string[] = [];
 
     for (const soal of sesi.ujian.soal) {
       totalPoin += soal.poin;
@@ -244,11 +245,25 @@ router.post('/sesi/:sessionId/submit', async (req, res, next) => {
         isBenar = setBenar.size === setJawab.size && [...setBenar].every(id => setJawab.has(id));
       }
 
-      if (isBenar) poinBenar += soal.poin;
+      if (isBenar) {
+        poinBenar += soal.poin;
+        soalBenarIds.push(soal.id);
+      }
     }
 
     const nilaiAkhir = totalPoin > 0 ? (poinBenar / totalPoin) * 100 : 0;
     const finalStatus = reason === "auto_cheat" ? "AUTO_SUBMIT" : "SELESAI";
+
+    // Update flag isBenar di Jawaban supaya endpoint /hasil bisa kasih
+    // jumlahBenar yang konsisten dengan nilaiAkhir. Sebelumnya tabel ini
+    // tidak pernah diupdate dari false → frontend tampil "0 benar" tapi
+    // nilai > 0 (yang membingungkan user).
+    if (soalBenarIds.length > 0) {
+      await prisma.jawaban.updateMany({
+        where: { sesiId: sesi.id, soalId: { in: soalBenarIds } },
+        data: { isBenar: true },
+      });
+    }
 
     await prisma.sesiUjian.update({
       where: { id: sesi.id },
