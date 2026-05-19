@@ -55,21 +55,9 @@ import publicRoutes from './routes/public';
 // ── Bootstrap DB in-process (no child process spawning) ──────────
 // LiteSpeed FastCGI spawn beberapa worker; spawning `prisma db push` lewat
 // execSync sering hit EAGAIN. Solusinya: pakai Prisma client langsung untuk
-// cek tabel & eksekusi migration.sql kalau tabel belum ada.
-
-async function tablesExist(prisma: any): Promise<boolean> {
-  try {
-    await prisma.user.count();
-    return true;
-  } catch (err: any) {
-    // P2021 = table doesn't exist; error message biasanya ada "does not exist"
-    if (err?.code === "P2021" || /does not exist/i.test(err?.message ?? "")) {
-      return false;
-    }
-    // Error lain (koneksi gagal, auth gagal, dll) — lempar ke caller
-    throw err;
-  }
-}
+// eksekusi migration.sql. Bersifat idempotent — per-statement "already
+// exists" error di-swallow, jadi aman dijalankan setiap startup dan
+// migration baru otomatis ter-apply tanpa perlu drop table.
 
 function splitSqlStatements(sql: string): string[] {
   // Buang line comments & blok komentar, lalu split by ;
@@ -127,14 +115,13 @@ async function bootstrapDatabase() {
   try {
     const { prisma } = await import("./lib/prisma");
 
-    // Step 1: kalau tabel belum ada → apply migration.sql
-    const ready = await tablesExist(prisma);
-    if (!ready) {
-      console.log("[startup] Tables missing — applying init migration...");
-      await runInitMigration(prisma);
-    }
+    // Step 1: ALWAYS apply migrations. Per-statement "already exists" errors
+    // di runInitMigration di-swallow, jadi aman walau sudah pernah jalan.
+    // Pakai pendekatan ini supaya migration baru (mis. SiteConfig) ter-apply
+    // tanpa harus drop User table dulu.
+    await runInitMigration(prisma);
 
-    // Step 2: cek user count — kalau kosong, seed (terlepas dari step 1)
+    // Step 2: cek user count — kalau kosong, seed.
     // Idempotent: seed pakai upsert, aman dijalankan ulang.
     const userCount = await prisma.user.count();
     if (userCount === 0) {
