@@ -347,13 +347,13 @@ export default function TakeExam() {
         <header className="bg-white h-16 border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-10">
           <div className="flex items-center gap-3 min-w-0 mr-4">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
-               {sessionData.siswa.nama.charAt(0)}
+               {(sessionData.siswa?.nama || '?').charAt(0)}
             </div>
             <div className="min-w-0">
               <h1 className="font-bold text-slate-900 truncate text-sm sm:text-base leading-tight">
                 {sessionData.ujian.judul}
               </h1>
-              <p className="text-xs text-slate-500 truncate">{sessionData.siswa.nama}</p>
+              <p className="text-xs text-slate-500 truncate">{sessionData.siswa?.nama || ''}</p>
             </div>
           </div>
           

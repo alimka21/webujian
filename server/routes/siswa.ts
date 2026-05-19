@@ -173,9 +173,15 @@ router.get('/sesi/:sessionId', async (req, res, next) => {
       },
       ujian: {
         judul: sesi.ujian.judul,
+        mataPelajaran: sesi.ujian.mataPelajaran,
         durasi: sesi.ujian.durasi,
         soal: sesi.ujian.soal
-      }
+      },
+      siswa: {
+        id: siswa.id,
+        nama: siswa.nama,
+        nis: siswa.nis,
+      },
     });
   } catch(error) { next(error); }
 });
