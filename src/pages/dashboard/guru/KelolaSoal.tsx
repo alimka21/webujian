@@ -7,6 +7,7 @@ import { Input, Label } from '../../../components/ui/input';
 import { Badge } from '../../../components/ui/badge';
 import { ArrowLeft, Plus, Save, Trash2, Edit, CheckCircle2, Copy, XCircle, RefreshCw, FileText } from 'lucide-react';
 import api from '../../../lib/api';
+import { useSiteConfig, defaultPgOpsiCount } from '../../../hooks/useSiteConfig';
 
 interface OpsiInput {
   teks: string;
@@ -22,16 +23,16 @@ interface SoalForm {
   opsi: OpsiInput[];
 }
 
-const DEFAULT_OPSI: OpsiInput[] = [
-  { teks: '', benar: false },
-  { teks: '', benar: false },
-  { teks: '', benar: false },
-  { teks: '', benar: false },
-];
+// Default 4 opsi PG — bisa di-override jadi 5 untuk SMA/SMK via SiteConfig.jenjang.
+const makeDefaultOpsi = (count: number): OpsiInput[] =>
+  Array.from({ length: count }, () => ({ teks: '', benar: false }));
 
 export default function KelolaSoal() {
   const { id: ujianId } = useParams();
   const navigate = useNavigate();
+
+  const siteConfig = useSiteConfig();
+  const pgOpsiCount = defaultPgOpsiCount(siteConfig.jenjang); // 4 atau 5
 
   const [ujian, setUjian] = useState<any>(null);
   const [soalList, setSoalList] = useState<any[]>([]);
@@ -46,7 +47,7 @@ export default function KelolaSoal() {
     imageUrl: '',
     tipe: 'PILIHAN_GANDA',
     poin: 1,
-    opsi: DEFAULT_OPSI.map(o => ({ ...o }))
+    opsi: makeDefaultOpsi(pgOpsiCount)
   });
 
   // Action states
@@ -80,7 +81,7 @@ export default function KelolaSoal() {
       imageUrl: '',
       tipe: 'PILIHAN_GANDA',
       poin: 1,
-      opsi: DEFAULT_OPSI.map(o => ({ ...o }))
+      opsi: makeDefaultOpsi(pgOpsiCount)
     });
     setIsEditing(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -142,7 +143,7 @@ export default function KelolaSoal() {
       if (newTipe === 'BENAR_SALAH') {
         newOpsi = [{ teks: 'Benar', benar: true }, { teks: 'Salah', benar: false }];
       } else if (prev.tipe === 'BENAR_SALAH') {
-        newOpsi = DEFAULT_OPSI.map(o => ({ ...o }));
+        newOpsi = makeDefaultOpsi(pgOpsiCount);
       } else if (newTipe === 'PILIHAN_GANDA') {
         let found = false;
         newOpsi = newOpsi.map(o => {
@@ -173,8 +174,11 @@ export default function KelolaSoal() {
     });
   };
 
+  // Cap atas: default per jenjang +1 toleransi (misal SD/SMP biasanya 4 opsi tapi
+  // boleh sampai 5; SMA/SMK 5 boleh sampai 6).
+  const maxOpsi = pgOpsiCount + 1;
   const addOpsi = () => {
-    if (formData.opsi.length >= 6) return;
+    if (formData.opsi.length >= maxOpsi) return;
     setFormData(prev => ({ ...prev, opsi: [...prev.opsi, { teks: '', benar: false }] }));
   };
 

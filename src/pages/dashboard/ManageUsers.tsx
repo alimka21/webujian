@@ -8,6 +8,7 @@ import { Input, Label } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Pagination } from '../../components/ui/pagination';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import { useSiteConfig, tingkatOptions } from '../../hooks/useSiteConfig';
 import { toast } from 'sonner';
 import api from '../../lib/api';
 
@@ -51,6 +52,8 @@ function Spinner() {
 
 export default function ManageUsers() {
   const [activeTab, setActiveTab] = useState<'SISWA' | 'GURU' | 'KELAS'>('SISWA');
+  const siteConfig = useSiteConfig();
+  const tingkatList = tingkatOptions(siteConfig.jenjang);
 
   // ── Data ──
   const [siswaList, setSiswaList] = useState<SiswaUser[]>([]);
@@ -83,7 +86,7 @@ export default function ManageUsers() {
   // ── Kelas Modal ──
   const [showKelasModal, setShowKelasModal] = useState(false);
   const [editingKelasId, setEditingKelasId] = useState<string | null>(null);
-  const [kelasForm, setKelasForm] = useState({ nama: '', tingkat: 'X', tahunAjaran: '2025/2026', guruId: '' });
+  const [kelasForm, setKelasForm] = useState({ nama: '', tingkat: String(tingkatList[0] ?? 1), tahunAjaran: '2025/2026', guruId: '' });
   const [kelasErrors, setKelasErrors] = useState<Record<string, string>>({});
   const [isSubmittingKelas, setIsSubmittingKelas] = useState(false);
 
@@ -273,7 +276,7 @@ export default function ManageUsers() {
       setKelasForm({ nama: k.nama, tingkat: k.tingkat, tahunAjaran: k.tahunAjaran, guruId: k.guruId });
     } else {
       setEditingKelasId(null);
-      setKelasForm({ nama: '', tingkat: 'X', tahunAjaran: '2025/2026', guruId: guruList[0]?.guru?.id || '' });
+      setKelasForm({ nama: '', tingkat: String(tingkatList[0] ?? 1), tahunAjaran: '2025/2026', guruId: guruList[0]?.guru?.id || '' });
     }
     setShowKelasModal(true);
   };
@@ -834,10 +837,13 @@ export default function ManageUsers() {
                   <div className="space-y-1.5">
                     <Label htmlFor="k-tingkat">Tingkat <span className="text-red-500">*</span></Label>
                     <Select id="k-tingkat" value={kelasForm.tingkat} onChange={e => setKelasForm(f => ({ ...f, tingkat: e.target.value }))}>
-                      <option value="X">Kelas X</option>
-                      <option value="XI">Kelas XI</option>
-                      <option value="XII">Kelas XII</option>
+                      {tingkatList.map(t => (
+                        <option key={t} value={String(t)}>Kelas {t}</option>
+                      ))}
                     </Select>
+                    {siteConfig.jenjang && (
+                      <p className="text-[10px] text-slate-400 mt-1">Sesuai jenjang {siteConfig.jenjang}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="k-tahun">Tahun Ajaran <span className="text-red-500">*</span></Label>

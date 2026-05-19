@@ -225,8 +225,23 @@ export default function SiteSettings() {
         </Button>
       </div>
 
-      <Section icon={Building2} title="Identitas Sekolah" description="Nama, tagline, dan deskripsi singkat sekolah.">
+      <Section icon={Building2} title="Identitas Sekolah" description="Nama, tagline, jenjang, dan deskripsi singkat sekolah.">
         <TextField label="Nama Sekolah" value={get('namaSekolah')} onChange={v => set('namaSekolah', v)} placeholder="Contoh: SMA Negeri 1 Demo" />
+        <div className="space-y-1.5">
+          <Label>Jenjang Sekolah</Label>
+          <p className="text-xs text-slate-400">Menentukan tingkat kelas yang valid (SD 1-6, SMP 7-9, SMA/SMK 10-12) dan jumlah opsi pilihan ganda saat membuat soal (SD/SMP 4 opsi, SMA/SMK 5 opsi).</p>
+          <select
+            value={get('jenjang') || ''}
+            onChange={e => set('jenjang', e.target.value)}
+            className="flex h-9 w-full rounded-md border border-gray-200 bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+          >
+            <option value="">— Pilih jenjang —</option>
+            <option value="SD">SD (Sekolah Dasar)</option>
+            <option value="SMP">SMP (Sekolah Menengah Pertama)</option>
+            <option value="SMA">SMA (Sekolah Menengah Atas)</option>
+            <option value="SMK">SMK (Sekolah Menengah Kejuruan)</option>
+          </select>
+        </div>
         <TextField label="Tagline" value={get('tagline')} onChange={v => set('tagline', v)} placeholder="Slogan singkat sekolah" />
         <TextAreaField label="Deskripsi Singkat" value={get('deskripsi')} onChange={v => set('deskripsi', v)} placeholder="Penjelasan ringkas, tampil di hero subtitle dan footer" rows={3} />
       </Section>

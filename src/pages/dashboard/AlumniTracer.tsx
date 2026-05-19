@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input, Label } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Download, Edit, Trash2, Building, GraduationCap, Briefcase, Users, HelpCircle, Search, X, Upload, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Download, Edit, Trash2, Building, GraduationCap, Briefcase, Users, HelpCircle, Search, X, Upload, CheckCircle2, XCircle, ShieldCheck, Clock } from 'lucide-react';
 import api from '../../lib/api';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { Pagination } from '../../components/ui/pagination';
@@ -53,7 +53,11 @@ export default function AlumniTracer() {
   const [filterTahun, setFilterTahun] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterJurusan, setFilterJurusan] = useState('ALL');
+  const [filterVerify, setFilterVerify] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
   const [search, setSearch] = useState('');
+  // Set of alumni IDs yang di-select untuk batch verify
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,7 +76,10 @@ export default function AlumniTracer() {
   const importResultModalRef = useModalA11y<HTMLDivElement>(importResult !== null, () => setImportResult(null));
 
   // Reset ke halaman 1 saat search/filter berubah
-  useEffect(() => { setCurrentPage(1); }, [search, filterTahun, filterStatus, filterJurusan]);
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [search, filterTahun, filterStatus, filterJurusan, filterVerify]);
 
   const fetchAlumni = async () => {
     try {
@@ -277,9 +284,49 @@ export default function AlumniTracer() {
     if (filterTahun !== 'ALL' && String(al.tahunLulus) !== filterTahun) return false;
     if (filterStatus !== 'ALL' && al.status !== filterStatus) return false;
     if (filterJurusan !== 'ALL' && al.jurusan !== filterJurusan) return false;
+    if (filterVerify === 'VERIFIED' && !al.isVerified) return false;
+    if (filterVerify === 'PENDING' && al.isVerified) return false;
     if (search && !al.nama.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  // Hitung pending untuk badge tab
+  const pendingCount = alumniList.filter(a => !a.isVerified).length;
+
+  // Selection helpers
+  const allOnPageSelected = displayAlumni.length > 0 && displayAlumni.every(a => selectedIds.has(a.id));
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(displayAlumni.map(a => a.id)));
+    }
+  };
+  const toggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleBatchVerify = async (isVerified: boolean) => {
+    if (selectedIds.size === 0) return;
+    try {
+      setIsVerifying(true);
+      const res = await api.post('/api/admin/alumni/verify', {
+        ids: Array.from(selectedIds),
+        isVerified,
+      });
+      toast.success(
+        `${res.updated} alumni ${isVerified ? 'diverifikasi' : 'di-unverify'} berhasil`
+      );
+      setSelectedIds(new Set());
+      fetchAlumni();
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal update status verifikasi');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // Paginated slice
   const paginatedAlumni = displayAlumni.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -422,8 +469,49 @@ export default function AlumniTracer() {
                   {existingJurusan.map(j => <option key={j} value={j}>{j}</option>)}
                 </Select>
               )}
+              <Select
+                value={filterVerify}
+                onChange={e => setFilterVerify(e.target.value as any)}
+                className="h-9 w-44"
+              >
+                <option value="ALL">Semua Verifikasi</option>
+                <option value="PENDING">Belum Diverifikasi{pendingCount > 0 ? ` (${pendingCount})` : ''}</option>
+                <option value="VERIFIED">Sudah Diverifikasi</option>
+              </Select>
             </div>
           </div>
+
+          {/* Batch action bar — muncul kalau ada selection */}
+          {selectedIds.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+              <p className="text-sm font-medium text-amber-800">
+                <strong>{selectedIds.size}</strong> alumni terpilih
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 gap-1.5"
+                  onClick={() => handleBatchVerify(true)}
+                  disabled={isVerifying}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {isVerifying ? 'Memproses...' : 'Verifikasi'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBatchVerify(false)}
+                  disabled={isVerifying}
+                  className="text-amber-700 border-amber-300"
+                >
+                  Un-verify
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  Batal
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -438,18 +526,37 @@ export default function AlumniTracer() {
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
                   <tr>
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allOnPageSelected}
+                        onChange={toggleSelectAll}
+                        aria-label="Pilih semua alumni di halaman"
+                        className="w-4 h-4 cursor-pointer accent-blue-600"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold w-10"></th>
                     <th className="px-4 py-3 font-semibold">Nama Alumni</th>
                     <th className="px-4 py-3 font-semibold text-center">Lulus</th>
                     <th className="px-4 py-3 font-semibold">Jurusan</th>
                     <th className="px-4 py-3 font-semibold">Status & Tempat</th>
+                    <th className="px-4 py-3 font-semibold text-center">Verifikasi</th>
                     <th className="px-4 py-3 font-semibold text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedAlumni.map(al => (
                     <React.Fragment key={al.id}>
-                      <tr className="hover:bg-slate-50/60 transition-colors">
+                      <tr className={`hover:bg-slate-50/60 transition-colors ${selectedIds.has(al.id) ? 'bg-blue-50/40' : ''}`}>
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(al.id)}
+                            onChange={() => toggleSelectOne(al.id)}
+                            aria-label={`Pilih ${al.nama}`}
+                            className="w-4 h-4 cursor-pointer accent-blue-600"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <Inisial nama={al.nama} fotoUrl={al.fotoUrl} />
                         </td>
@@ -467,6 +574,17 @@ export default function AlumniTracer() {
                             {al.posisi && <span className="text-xs text-slate-500">{al.posisi}</span>}
                           </div>
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          {al.isVerified ? (
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                              <ShieldCheck className="w-3 h-3" /> Terverifikasi
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                              <Clock className="w-3 h-3" /> Pending
+                            </Badge>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-center gap-1.5">
                             <Button variant="ghost" size="sm" onClick={() => handleOpenModal(al)} className="text-blue-600 hover:bg-blue-50 h-8 px-2" title="Edit">
@@ -480,7 +598,7 @@ export default function AlumniTracer() {
                       </tr>
                       {deleteConfirmId === al.id && (
                         <tr className="bg-red-50">
-                          <td colSpan={6} className="px-4 py-3">
+                          <td colSpan={8} className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <span className="text-sm text-red-700 font-medium flex-1">
                                 Hapus data alumni "<span className="font-semibold">{al.nama}</span>"?
