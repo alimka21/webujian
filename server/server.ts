@@ -83,9 +83,30 @@ async function runInitMigration(prisma: any): Promise<void> {
   if (subdirs.length === 0) {
     throw new Error(`Tidak ada migration di ${migrationDir}`);
   }
-  console.log(`[startup] Found ${subdirs.length} migration(s): ${subdirs.join(", ")}`);
 
-  for (const sub of subdirs) {
+  // Pastikan tabel tracking ada — small, idempotent.
+  await prisma.$executeRawUnsafe(
+    "CREATE TABLE IF NOT EXISTS `_app_migrations` (" +
+    "  `name` VARCHAR(255) NOT NULL," +
+    "  `applied_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)," +
+    "  PRIMARY KEY (`name`)" +
+    ") DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+  );
+
+  // Cek migration mana yg sudah ter-apply
+  const appliedRows = (await prisma.$queryRawUnsafe(
+    "SELECT `name` FROM `_app_migrations`"
+  )) as { name: string }[];
+  const applied = new Set(appliedRows.map((r: { name: string }) => r.name));
+
+  const pending = subdirs.filter(s => !applied.has(s));
+  if (pending.length === 0) {
+    console.log(`[startup] ✅ All ${subdirs.length} migrations already applied — nothing to do.`);
+    return;
+  }
+  console.log(`[startup] ${applied.size} applied, ${pending.length} pending: ${pending.join(", ")}`);
+
+  for (const sub of pending) {
     const sqlFile = path.join(migrationDir, sub, "migration.sql");
     if (!fs.existsSync(sqlFile)) {
       console.warn(`[startup]   Skip ${sub}: migration.sql tidak ada`);
@@ -94,15 +115,14 @@ async function runInitMigration(prisma: any): Promise<void> {
     const sql = fs.readFileSync(sqlFile, "utf8");
     const stmts = splitSqlStatements(sql);
     console.log(`[startup]   Applying ${sub}: ${stmts.length} statement(s)`);
+    let migrationFailed = false;
     for (let i = 0; i < stmts.length; i++) {
       try {
         await prisma.$executeRawUnsafe(stmts[i]);
       } catch (err: any) {
         const msg = err?.message ?? "";
-        // Idempotent: swallow no-op error untuk statement yang sudah pernah jalan.
-        // - CREATE TABLE/INDEX yang sudah ada → "already exists"
-        // - DROP INDEX yang sudah di-drop → "check that ... exists" / "1091" /
-        //   "no such index" / "doesn't exist"
+        // Idempotent: swallow no-op error untuk statement yang mungkin sudah
+        // jalan parsial dari attempt sebelumnya yg ke-kill di tengah.
         if (
           /already exists/i.test(msg) ||
           /check that .* exists/i.test(msg) ||
@@ -112,23 +132,43 @@ async function runInitMigration(prisma: any): Promise<void> {
         ) {
           continue;
         }
-        console.error(`[startup]   ❌ Statement #${i + 1} gagal:\n${stmts[i].slice(0, 200)}...`);
-        throw err;
+        console.error(`[startup]   ❌ ${sub} statement #${i + 1} gagal:\n${stmts[i].slice(0, 200)}...`);
+        migrationFailed = true;
+        break;
       }
     }
+    if (!migrationFailed) {
+      // Tandai migration sebagai applied — supaya worker berikutnya skip.
+      await prisma.$executeRawUnsafe(
+        "INSERT IGNORE INTO `_app_migrations` (`name`) VALUES (?)",
+        sub
+      );
+      console.log(`[startup]   ✅ ${sub} applied`);
+    }
   }
-  console.log("[startup] ✅ Schema sync complete (via raw SQL).");
 }
+
+// Module-level guard supaya bootstrap maksimal 1x per worker process.
+// Beberapa LiteSpeed worker bisa spawn di waktu yang sangat dekat — tanpa
+// guard ini, semua attempt jalan paralel & saling tabrakan dengan request
+// pertama yang masuk, memicu Prisma engine panic "timer has gone away".
+let bootstrapStarted = false;
 
 async function bootstrapDatabase() {
   if (process.env.NODE_ENV !== "production") return;
+  if (bootstrapStarted) {
+    console.log("[startup] Bootstrap sudah berjalan di proses ini — skip.");
+    return;
+  }
+  bootstrapStarted = true;
   try {
     const { prisma } = await import("./lib/prisma");
 
-    // Step 1: ALWAYS apply migrations. Per-statement "already exists" errors
-    // di runInitMigration di-swallow, jadi aman walau sudah pernah jalan.
-    // Pakai pendekatan ini supaya migration baru (mis. SiteConfig) ter-apply
-    // tanpa harus drop User table dulu.
+    // Step 1: Apply migration baru saja (tracked via _app_migrations).
+    // Setelah commit fix ini, runInitMigration cek tabel _app_migrations dan
+    // langsung return kalau semua migration sudah pernah jalan — jadi worker
+    // berikutnya cuma butuh 1 round-trip ke DB, bukan eksekusi ulang ratusan
+    // CREATE TABLE statement.
     await runInitMigration(prisma);
 
     // Step 2: cek user count — kalau kosong, seed.
