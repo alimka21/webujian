@@ -200,7 +200,7 @@ model Presensi {
 }
 
 model Alumni {
-  id         String  @id @default(uuid())
+  id         String   @id @default(uuid())
   nama       String
   nis        String?
   tahunLulus Int
@@ -210,6 +210,11 @@ model Alumni {
   posisi     String?
   kontak     String?
   fotoUrl    String?
+  // isVerified false untuk alumni yg daftar via form publik — admin
+  // moderate sebelum tampil di tracer publik. Alumni yg di-create admin
+  // langsung true.
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }
 
 model Berita {
@@ -230,6 +235,9 @@ model Berita {
 model SiteConfig {
   id             String   @id @default(uuid())
   namaSekolah    String   @default("Sekolah Hebat")
+  // Jenjang: SD | SMP | SMA | SMK — menentukan tingkat kelas yg valid
+  // (SD 1-6, SMP 7-9, SMA/SMK 10-12) dan jumlah opsi PG (4 utk SD/SMP, 5 utk SMA/SMK).
+  jenjang        String?
   tagline        String?  @db.Text
   deskripsi      String?  @db.Text
 

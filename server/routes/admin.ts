@@ -53,9 +53,28 @@ router.get('/users', async (req, res, next) => {
 router.post('/users', async (req, res, next) => {
   try {
     const { email, password, role, nama, nip, mataPelajaran, nis, kelasId } = req.body;
-    
+
     if (!email || !password || !role || !nama) {
       return res.status(400).json({ error: 'Data wajib tidak lengkap' });
+    }
+
+    // Cek dupe natural key sebelum insert supaya pesan error jelas
+    // ("NIS sudah dipakai siswa X") daripada P2002 dari Prisma yang generic.
+    const emailExist = await prisma.user.findUnique({ where: { email } });
+    if (emailExist) {
+      return res.status(409).json({ error: `Email "${email}" sudah dipakai akun lain` });
+    }
+    if (role === 'SISWA' && nis) {
+      const nisExist = await prisma.siswa.findUnique({ where: { nis: String(nis) } });
+      if (nisExist) {
+        return res.status(409).json({ error: `NIS "${nis}" sudah dipakai siswa lain — NIS harus unik` });
+      }
+    }
+    if (role === 'GURU' && nip) {
+      const nipExist = await prisma.guru.findUnique({ where: { nip: String(nip) } });
+      if (nipExist) {
+        return res.status(409).json({ error: `NIP "${nip}" sudah dipakai guru lain — NIP harus unik` });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -433,11 +452,30 @@ router.get('/alumni', async (req, res, next) => {
 
 router.post('/alumni', async (req, res, next) => {
   try {
-    const result = await prisma.alumni.create({ data: req.body });
+    // Admin-created alumni langsung verified (tidak perlu moderate diri sendiri).
+    const result = await prisma.alumni.create({
+      data: { ...req.body, isVerified: req.body.isVerified ?? true },
+    });
     res.status(201).json(result);
   } catch(error) {
     next(error);
   }
+});
+
+// Batch verify / unverify alumni — dipakai admin di tracer untuk approve
+// banyak alumni yang daftar via form publik sekaligus.
+router.post('/alumni/verify', async (req, res, next) => {
+  try {
+    const { ids, isVerified } = req.body as { ids?: string[]; isVerified?: boolean };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids kosong' });
+    }
+    const result = await prisma.alumni.updateMany({
+      where: { id: { in: ids } },
+      data: { isVerified: isVerified !== false },
+    });
+    res.json({ success: true, updated: result.count });
+  } catch (error) { next(error); }
 });
 
 router.patch('/alumni/:id', async (req, res, next) => {

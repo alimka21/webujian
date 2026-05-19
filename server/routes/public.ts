@@ -98,7 +98,8 @@ router.post('/alumni/register', async (req, res, next) => {
 
 router.get('/alumni/stats', async (req, res, next) => {
   try {
-    const alumniList = await prisma.alumni.findMany();
+    // Hanya hitung alumni yang sudah diverifikasi admin
+    const alumniList = await prisma.alumni.findMany({ where: { isVerified: true } });
 
     const perTahun: Record<number, number> = {};
     const perStatus: Record<string, number> = {};
