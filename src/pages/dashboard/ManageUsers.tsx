@@ -43,7 +43,7 @@ interface ResetConfirm { userId: string; nama: string; resetTo: string }
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-red-500 mt-1">{msg}</p>;
+  return <p className="text-xs text-error mt-1">{msg}</p>;
 }
 
 function Spinner() {
@@ -444,19 +444,19 @@ export default function ManageUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Manajemen Pengguna</h1>
-        <p className="text-slate-500 mt-1">Kelola data siswa, guru, dan kelas sekolah.</p>
+        <h1 className="text-2xl font-bold text-on-surface tracking-tight">Manajemen Pengguna</h1>
+        <p className="text-on-surface-variant mt-1">Kelola data siswa, guru, dan kelas sekolah.</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-outline-variant">
         {tabs.map(({ id, label, Icon, count }) => (
           <button key={id} onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === id ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           >
             <Icon className="w-4 h-4" />
             {label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === id ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === id ? 'bg-primary-container/30 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>{count}</span>
           </button>
         ))}
       </div>
@@ -467,7 +467,7 @@ export default function ManageUsers() {
           <div className="flex flex-col sm:flex-row justify-between gap-3">
             <div className="flex flex-1 gap-3 min-w-0">
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline-variant" />
                 <Input value={siswaSearch} onChange={e => setSiswaSearch(e.target.value)} placeholder="Cari nama atau NIS..." className="pl-9" />
               </div>
               <Select value={siswaFilterKelas} onChange={e => setSiswaFilterKelas(e.target.value)} className="w-52 shrink-0">
@@ -487,13 +487,13 @@ export default function ManageUsers() {
               <Button
                 onClick={() => handleImportClick('siswa')}
                 variant="outline"
-                className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+                className="gap-2 border-secondary text-on-secondary-container hover:bg-secondary-container/30"
                 disabled={importing !== null}
               >
                 {importing === 'siswa' ? <Spinner /> : <Upload className="w-4 h-4" />}
                 {importing === 'siswa' ? 'Memproses...' : 'Import'}
               </Button>
-              <Button onClick={() => openSiswaModal()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => openSiswaModal()} className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="w-4 h-4" /> Tambah Siswa
               </Button>
             </div>
@@ -502,13 +502,13 @@ export default function ManageUsers() {
           <Card>
             <CardContent className="p-0">
               {isLoadingSiswa ? (
-                <div className="py-12 text-center text-slate-500">Memuat data siswa...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat data siswa...</div>
               ) : filteredSiswa.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">Tidak ada siswa ditemukan.</div>
+                <div className="py-12 text-center text-on-surface-variant">Tidak ada siswa ditemukan.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
+                    <thead className="bg-surface-container-low border-b border-outline-variant text-on-surface-variant uppercase text-xs">
                       <tr>
                         <th className="px-4 py-3 font-semibold">NIS</th>
                         <th className="px-4 py-3 font-semibold">Nama Siswa</th>
@@ -518,15 +518,15 @@ export default function ManageUsers() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedSiswa.map(u => (
-                        <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-mono font-medium text-slate-700">{u.siswa?.nis}</td>
-                          <td className="px-4 py-3 font-medium text-slate-900">{u.siswa?.nama}</td>
-                          <td className="px-4 py-3 text-slate-600">{u.siswa?.kelas?.nama || '-'}</td>
+                        <tr key={u.id} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="px-4 py-3 font-mono font-medium text-on-surface">{u.siswa?.nis}</td>
+                          <td className="px-4 py-3 font-medium text-on-surface">{u.siswa?.nama}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">{u.siswa?.kelas?.nama || '-'}</td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => openSiswaModal(u)} className="h-8 px-2 text-blue-600 hover:bg-blue-50" aria-label={`Edit ${u.siswa?.nama}`}><Pencil className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => setResetConfirm({ userId: u.id, nama: u.siswa?.nama, resetTo: u.siswa?.nis })} className="h-8 px-2 text-amber-600 hover:bg-amber-50" aria-label={`Reset password ${u.siswa?.nama}`}><KeyRound className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: u.id, nama: u.siswa?.nama, type: 'SISWA' })} className="h-8 px-2 text-red-500 hover:bg-red-50" aria-label={`Hapus ${u.siswa?.nama}`}><Trash2 className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => openSiswaModal(u)} className="h-8 px-2 text-primary hover:bg-primary-container/15" aria-label={`Edit ${u.siswa?.nama}`}><Pencil className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setResetConfirm({ userId: u.id, nama: u.siswa?.nama, resetTo: u.siswa?.nis })} className="h-8 px-2 text-on-tertiary-fixed hover:bg-tertiary-fixed/50" aria-label={`Reset password ${u.siswa?.nama}`}><KeyRound className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: u.id, nama: u.siswa?.nama, type: 'SISWA' })} className="h-8 px-2 text-error hover:bg-error-container" aria-label={`Hapus ${u.siswa?.nama}`}><Trash2 className="w-4 h-4" /></Button>
                             </div>
                           </td>
                         </tr>
@@ -552,7 +552,7 @@ export default function ManageUsers() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between gap-3">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline-variant" />
               <Input value={guruSearch} onChange={e => setGuruSearch(e.target.value)} placeholder="Cari nama atau email..." className="pl-9" />
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
@@ -567,13 +567,13 @@ export default function ManageUsers() {
               <Button
                 onClick={() => handleImportClick('guru')}
                 variant="outline"
-                className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+                className="gap-2 border-secondary text-on-secondary-container hover:bg-secondary-container/30"
                 disabled={importing !== null}
               >
                 {importing === 'guru' ? <Spinner /> : <Upload className="w-4 h-4" />}
                 {importing === 'guru' ? 'Memproses...' : 'Import'}
               </Button>
-              <Button onClick={() => openGuruModal()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => openGuruModal()} className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="w-4 h-4" /> Tambah Guru
               </Button>
             </div>
@@ -582,13 +582,13 @@ export default function ManageUsers() {
           <Card>
             <CardContent className="p-0">
               {isLoadingGuru ? (
-                <div className="py-12 text-center text-slate-500">Memuat data guru...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat data guru...</div>
               ) : filteredGuru.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">Tidak ada guru ditemukan.</div>
+                <div className="py-12 text-center text-on-surface-variant">Tidak ada guru ditemukan.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
+                    <thead className="bg-surface-container-low border-b border-outline-variant text-on-surface-variant uppercase text-xs">
                       <tr>
                         <th className="px-4 py-3 font-semibold">NIP</th>
                         <th className="px-4 py-3 font-semibold">Nama Guru</th>
@@ -599,15 +599,15 @@ export default function ManageUsers() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedGuru.map(u => (
-                        <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs text-slate-500">{u.guru?.nip || '-'}</td>
-                          <td className="px-4 py-3 font-medium text-slate-900">{u.guru?.nama}</td>
-                          <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                          <td className="px-4 py-3 text-slate-600">{u.guru?.mataPelajaran}</td>
+                        <tr key={u.id} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{u.guru?.nip || '-'}</td>
+                          <td className="px-4 py-3 font-medium text-on-surface">{u.guru?.nama}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">{u.email}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">{u.guru?.mataPelajaran}</td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => openGuruModal(u)} className="h-8 px-2 text-blue-600 hover:bg-blue-50" aria-label={`Edit ${u.guru?.nama}`}><Pencil className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: u.id, nama: u.guru?.nama, type: 'GURU' })} className="h-8 px-2 text-red-500 hover:bg-red-50" aria-label={`Hapus ${u.guru?.nama}`}><Trash2 className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => openGuruModal(u)} className="h-8 px-2 text-primary hover:bg-primary-container/15" aria-label={`Edit ${u.guru?.nama}`}><Pencil className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: u.id, nama: u.guru?.nama, type: 'GURU' })} className="h-8 px-2 text-error hover:bg-error-container" aria-label={`Hapus ${u.guru?.nama}`}><Trash2 className="w-4 h-4" /></Button>
                             </div>
                           </td>
                         </tr>
@@ -632,7 +632,7 @@ export default function ManageUsers() {
       {activeTab === 'KELAS' && (
         <div className="space-y-4">
           {guruList.length === 0 && !isLoadingGuru && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+            <div className="flex items-center gap-2 p-3 bg-tertiary-fixed/50 border border-tertiary-fixed rounded-lg text-sm text-on-tertiary-fixed">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               Tambahkan guru terlebih dahulu sebelum membuat kelas.
             </div>
@@ -640,14 +640,14 @@ export default function ManageUsers() {
 
           <div className="flex flex-col sm:flex-row justify-between gap-3">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline-variant" />
               <Input value={kelasSearch} onChange={e => setKelasSearch(e.target.value)} placeholder="Cari nama kelas..." className="pl-9" />
             </div>
             <Button
               onClick={() => openKelasModal()}
               disabled={guruList.length === 0}
               title={guruList.length === 0 ? 'Tambahkan guru terlebih dahulu sebelum membuat kelas' : undefined}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 shrink-0"
+              className="gap-2 bg-primary hover:bg-primary/90 shrink-0"
             >
               <Plus className="w-4 h-4" /> Tambah Kelas
             </Button>
@@ -656,13 +656,13 @@ export default function ManageUsers() {
           <Card>
             <CardContent className="p-0">
               {isLoadingKelas ? (
-                <div className="py-12 text-center text-slate-500">Memuat data kelas...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat data kelas...</div>
               ) : filteredKelas.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">Belum ada kelas. Klik "Tambah Kelas" untuk membuat.</div>
+                <div className="py-12 text-center text-on-surface-variant">Belum ada kelas. Klik "Tambah Kelas" untuk membuat.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-xs">
+                    <thead className="bg-surface-container-low border-b border-outline-variant text-on-surface-variant uppercase text-xs">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Nama Kelas</th>
                         <th className="px-4 py-3 font-semibold">Tingkat</th>
@@ -674,18 +674,18 @@ export default function ManageUsers() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedKelas.map(k => (
-                        <tr key={k.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-slate-900">{k.nama}</td>
+                        <tr key={k.id} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-on-surface">{k.nama}</td>
                           <td className="px-4 py-3"><Badge variant="outline">{k.tingkat}</Badge></td>
-                          <td className="px-4 py-3 text-slate-600">{k.tahunAjaran}</td>
-                          <td className="px-4 py-3 text-slate-600">{k.guru?.nama || '-'}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">{k.tahunAjaran}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">{k.guru?.nama || '-'}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 font-semibold text-slate-700 text-sm">{k._count.siswa}</span>
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface-container font-semibold text-on-surface text-sm">{k._count.siswa}</span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => openKelasModal(k)} className="h-8 px-2 text-blue-600 hover:bg-blue-50" aria-label={`Edit kelas ${k.nama}`}><Pencil className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: k.id, nama: k.nama, type: 'KELAS' })} className="h-8 px-2 text-red-500 hover:bg-red-50" aria-label={`Hapus kelas ${k.nama}`}><Trash2 className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => openKelasModal(k)} className="h-8 px-2 text-primary hover:bg-primary-container/15" aria-label={`Edit kelas ${k.nama}`}><Pencil className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: k.id, nama: k.nama, type: 'KELAS' })} className="h-8 px-2 text-error hover:bg-error-container" aria-label={`Hapus kelas ${k.nama}`}><Trash2 className="w-4 h-4" /></Button>
                             </div>
                           </td>
                         </tr>
@@ -708,7 +708,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL SISWA ════ */}
       {showSiswaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={siswaModalRef}
             role="dialog"
@@ -716,24 +716,24 @@ export default function ManageUsers() {
             aria-labelledby="siswa-modal-title"
             className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 id="siswa-modal-title" className="text-lg font-bold text-slate-900">{editingSiswaId ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</h2>
+            <div className="px-6 pt-6 pb-4 border-b border-outline-variant">
+              <h2 id="siswa-modal-title" className="text-lg font-bold text-on-surface">{editingSiswaId ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</h2>
             </div>
             <form onSubmit={handleSaveSiswa}>
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="s-nis">NIS <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="s-nis">NIS <span className="text-error">*</span></Label>
                   <Input id="s-nis" value={siswaForm.nis} onChange={e => setSiswaForm(f => ({ ...f, nis: e.target.value }))} placeholder="Contoh: 12345" />
                   <FieldError msg={siswaErrors.nis} />
-                  {!editingSiswaId && <p className="text-xs text-slate-400">Email & password default dibuat otomatis dari NIS.</p>}
+                  {!editingSiswaId && <p className="text-xs text-outline-variant">Email & password default dibuat otomatis dari NIS.</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="s-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="s-nama">Nama Lengkap <span className="text-error">*</span></Label>
                   <Input id="s-nama" value={siswaForm.nama} onChange={e => setSiswaForm(f => ({ ...f, nama: e.target.value }))} placeholder="Nama Lengkap Siswa" />
                   <FieldError msg={siswaErrors.nama} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="s-kelas">Kelas <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="s-kelas">Kelas <span className="text-error">*</span></Label>
                   <Select id="s-kelas" value={siswaForm.kelasId} onChange={e => setSiswaForm(f => ({ ...f, kelasId: e.target.value }))}>
                     <option value="">-- Pilih Kelas --</option>
                     {kelasList.map(k => <option key={k.id} value={k.id}>{k.nama} ({k.tingkat}) — {k.tahunAjaran}</option>)}
@@ -741,7 +741,7 @@ export default function ManageUsers() {
                   <FieldError msg={siswaErrors.kelasId} />
                 </div>
                 {!editingSiswaId && siswaForm.nis && (
-                  <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 border border-slate-200 space-y-1">
+                  <div className="p-3 bg-surface-container-low rounded-lg text-xs text-on-surface-variant border border-outline-variant space-y-1">
                     <p>Email login: <span className="font-mono font-semibold">{siswaForm.nis}@siswa.sch.id</span></p>
                     <p>Password default: <span className="font-mono font-semibold">{siswaForm.nis}</span></p>
                   </div>
@@ -749,7 +749,7 @@ export default function ManageUsers() {
               </div>
               <div className="px-6 pb-6 flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowSiswaModal(false)} disabled={isSubmittingSiswa}>Batal</Button>
-                <Button type="submit" disabled={isSubmittingSiswa} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmittingSiswa} className="bg-primary hover:bg-primary/90">
                   {isSubmittingSiswa ? <><Spinner />Menyimpan...</> : 'Simpan'}
                 </Button>
               </div>
@@ -760,7 +760,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL GURU ════ */}
       {showGuruModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={guruModalRef}
             role="dialog"
@@ -768,35 +768,35 @@ export default function ManageUsers() {
             aria-labelledby="guru-modal-title"
             className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 id="guru-modal-title" className="text-lg font-bold text-slate-900">{editingGuruId ? 'Edit Data Guru' : 'Tambah Guru Baru'}</h2>
+            <div className="px-6 pt-6 pb-4 border-b border-outline-variant">
+              <h2 id="guru-modal-title" className="text-lg font-bold text-on-surface">{editingGuruId ? 'Edit Data Guru' : 'Tambah Guru Baru'}</h2>
             </div>
             <form onSubmit={handleSaveGuru}>
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="g-nama">Nama Lengkap <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="g-nama">Nama Lengkap <span className="text-error">*</span></Label>
                   <Input id="g-nama" value={guruForm.nama} onChange={e => setGuruForm(f => ({ ...f, nama: e.target.value }))} placeholder="Nama Lengkap Guru" />
                   <FieldError msg={guruErrors.nama} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="g-email">Email <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="g-email">Email <span className="text-error">*</span></Label>
                   <Input id="g-email" type="email" value={guruForm.email} onChange={e => setGuruForm(f => ({ ...f, email: e.target.value }))} placeholder="guru@sekolah.sch.id" />
                   <FieldError msg={guruErrors.email} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="g-nip">NIP <span className="text-slate-400 font-normal">(opsional)</span></Label>
+                    <Label htmlFor="g-nip">NIP <span className="text-outline-variant font-normal">(opsional)</span></Label>
                     <Input id="g-nip" value={guruForm.nip} onChange={e => setGuruForm(f => ({ ...f, nip: e.target.value }))} placeholder="NIP" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="g-mapel">Mata Pelajaran <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="g-mapel">Mata Pelajaran <span className="text-error">*</span></Label>
                     <Input id="g-mapel" value={guruForm.mataPelajaran} onChange={e => setGuruForm(f => ({ ...f, mataPelajaran: e.target.value }))} placeholder="Matematika" />
                     <FieldError msg={guruErrors.mataPelajaran} />
                   </div>
                 </div>
                 {!editingGuruId && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="g-pass">Password <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="g-pass">Password <span className="text-error">*</span></Label>
                     <Input id="g-pass" type="password" value={guruForm.password} onChange={e => setGuruForm(f => ({ ...f, password: e.target.value }))} placeholder="Password awal" />
                     <FieldError msg={guruErrors.password} />
                   </div>
@@ -804,7 +804,7 @@ export default function ManageUsers() {
               </div>
               <div className="px-6 pb-6 flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowGuruModal(false)} disabled={isSubmittingGuru}>Batal</Button>
-                <Button type="submit" disabled={isSubmittingGuru} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmittingGuru} className="bg-primary hover:bg-primary/90">
                   {isSubmittingGuru ? <><Spinner />Menyimpan...</> : 'Simpan'}
                 </Button>
               </div>
@@ -815,7 +815,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL KELAS ════ */}
       {showKelasModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={kelasModalRef}
             role="dialog"
@@ -823,36 +823,36 @@ export default function ManageUsers() {
             aria-labelledby="kelas-modal-title"
             className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 id="kelas-modal-title" className="text-lg font-bold text-slate-900">{editingKelasId ? 'Edit Kelas' : 'Tambah Kelas Baru'}</h2>
+            <div className="px-6 pt-6 pb-4 border-b border-outline-variant">
+              <h2 id="kelas-modal-title" className="text-lg font-bold text-on-surface">{editingKelasId ? 'Edit Kelas' : 'Tambah Kelas Baru'}</h2>
             </div>
             <form onSubmit={handleSaveKelas}>
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="k-nama">Nama Kelas <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="k-nama">Nama Kelas <span className="text-error">*</span></Label>
                   <Input id="k-nama" value={kelasForm.nama} onChange={e => setKelasForm(f => ({ ...f, nama: e.target.value }))} placeholder="Contoh: XII IPA 1" />
                   <FieldError msg={kelasErrors.nama} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="k-tingkat">Tingkat <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="k-tingkat">Tingkat <span className="text-error">*</span></Label>
                     <Select id="k-tingkat" value={kelasForm.tingkat} onChange={e => setKelasForm(f => ({ ...f, tingkat: e.target.value }))}>
                       {tingkatList.map(t => (
                         <option key={t} value={String(t)}>Kelas {t}</option>
                       ))}
                     </Select>
                     {siteConfig.jenjang && (
-                      <p className="text-[10px] text-slate-400 mt-1">Sesuai jenjang {siteConfig.jenjang}</p>
+                      <p className="text-[10px] text-outline-variant mt-1">Sesuai jenjang {siteConfig.jenjang}</p>
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="k-tahun">Tahun Ajaran <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="k-tahun">Tahun Ajaran <span className="text-error">*</span></Label>
                     <Input id="k-tahun" value={kelasForm.tahunAjaran} onChange={e => setKelasForm(f => ({ ...f, tahunAjaran: e.target.value }))} placeholder="2025/2026" />
                     <FieldError msg={kelasErrors.tahunAjaran} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="k-guru">Wali Kelas <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="k-guru">Wali Kelas <span className="text-error">*</span></Label>
                   <Select id="k-guru" value={kelasForm.guruId} onChange={e => setKelasForm(f => ({ ...f, guruId: e.target.value }))}>
                     <option value="">-- Pilih Guru --</option>
                     {guruList.map(u => <option key={u.guru.id} value={u.guru.id}>{u.guru.nama} — {u.guru.mataPelajaran}</option>)}
@@ -862,7 +862,7 @@ export default function ManageUsers() {
               </div>
               <div className="px-6 pb-6 flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowKelasModal(false)} disabled={isSubmittingKelas}>Batal</Button>
-                <Button type="submit" disabled={isSubmittingKelas} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmittingKelas} className="bg-primary hover:bg-primary/90">
                   {isSubmittingKelas ? <><Spinner />Menyimpan...</> : 'Simpan'}
                 </Button>
               </div>
@@ -873,7 +873,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL KONFIRMASI HAPUS ════ */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={deleteModalRef}
             role="dialog"
@@ -881,15 +881,15 @@ export default function ManageUsers() {
             aria-labelledby="delete-modal-title"
             className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 text-center space-y-4"
           >
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6 text-red-500" />
+            <div className="w-12 h-12 bg-error-container rounded-full flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6 text-error" />
             </div>
             <div>
-              <h3 id="delete-modal-title" className="font-bold text-slate-900 text-lg">
+              <h3 id="delete-modal-title" className="font-bold text-on-surface text-lg">
                 Hapus {deleteConfirm.type === 'KELAS' ? 'Kelas' : deleteConfirm.type === 'GURU' ? 'Guru' : 'Siswa'}?
               </h3>
-              <p className="text-slate-500 text-sm mt-1.5">
-                Anda akan menghapus <span className="font-semibold text-slate-700">"{deleteConfirm.nama}"</span>.
+              <p className="text-on-surface-variant text-sm mt-1.5">
+                Anda akan menghapus <span className="font-semibold text-on-surface">"{deleteConfirm.nama}"</span>.
                 {deleteConfirm.type === 'SISWA' && ' Semua data ujian siswa ini juga akan terhapus.'}
                 {deleteConfirm.type === 'KELAS' && ' Kelas tidak dapat dihapus jika masih ada siswa di dalamnya.'}
                 {' Tindakan ini tidak dapat dibatalkan.'}
@@ -897,7 +897,7 @@ export default function ManageUsers() {
             </div>
             <div className="flex gap-3 justify-center">
               <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeletingId !== null}>Batal</Button>
-              <Button onClick={handleDelete} disabled={isDeletingId !== null} className="bg-red-600 hover:bg-red-700 text-white">
+              <Button onClick={handleDelete} disabled={isDeletingId !== null} className="bg-error hover:bg-error/90 text-white">
                 {isDeletingId !== null ? <><Spinner />Menghapus...</> : 'Ya, Hapus'}
               </Button>
             </div>
@@ -907,7 +907,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL RESET PASSWORD ════ */}
       {resetConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={resetModalRef}
             role="dialog"
@@ -915,21 +915,21 @@ export default function ManageUsers() {
             aria-labelledby="reset-modal-title"
             className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 text-center space-y-4"
           >
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-              <KeyRound className="w-6 h-6 text-amber-600" />
+            <div className="w-12 h-12 bg-tertiary-fixed/70 rounded-full flex items-center justify-center mx-auto">
+              <KeyRound className="w-6 h-6 text-on-tertiary-fixed" />
             </div>
             <div>
-              <h3 id="reset-modal-title" className="font-bold text-slate-900 text-lg">Reset Password?</h3>
-              <p className="text-slate-500 text-sm mt-1.5">
-                Password <span className="font-semibold text-slate-700">{resetConfirm.nama}</span> akan direset ke:
+              <h3 id="reset-modal-title" className="font-bold text-on-surface text-lg">Reset Password?</h3>
+              <p className="text-on-surface-variant text-sm mt-1.5">
+                Password <span className="font-semibold text-on-surface">{resetConfirm.nama}</span> akan direset ke:
               </p>
-              <p className="mt-2 font-mono text-base font-bold text-slate-800 bg-slate-100 px-3 py-2 rounded-lg inline-block">
+              <p className="mt-2 font-mono text-base font-bold text-on-surface bg-surface-container px-3 py-2 rounded-lg inline-block">
                 {resetConfirm.resetTo}
               </p>
             </div>
             <div className="flex gap-3 justify-center">
               <Button variant="outline" onClick={() => setResetConfirm(null)} disabled={isResetting}>Batal</Button>
-              <Button onClick={handleResetPassword} disabled={isResetting} className="bg-amber-600 hover:bg-amber-700 text-white">
+              <Button onClick={handleResetPassword} disabled={isResetting} className="bg-tertiary hover:bg-tertiary/90 text-white">
                 {isResetting ? <><Spinner />Mereset...</> : 'Ya, Reset'}
               </Button>
             </div>
@@ -949,7 +949,7 @@ export default function ManageUsers() {
 
       {/* ════ MODAL HASIL IMPORT ════ */}
       {importResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={importResultModalRef}
             role="dialog"
@@ -957,33 +957,33 @@ export default function ManageUsers() {
             aria-labelledby="import-result-title"
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 id="import-result-title" className="text-lg font-bold text-slate-900">
+            <div className="px-6 pt-6 pb-4 border-b border-outline-variant">
+              <h2 id="import-result-title" className="text-lg font-bold text-on-surface">
                 Hasil Import {importResultType === 'siswa' ? 'Siswa' : 'Guru'}
               </h2>
             </div>
             <div className="px-6 py-5 space-y-3">
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
-                  <p className="text-xs text-green-600 mt-0.5">Berhasil</p>
+                <div className="rounded-lg bg-secondary-container/30 border border-secondary/20 p-3 text-center">
+                  <CheckCircle2 className="w-5 h-5 text-secondary mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-on-secondary-container">{importResult.created}</p>
+                  <p className="text-xs text-secondary mt-0.5">Berhasil</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
-                  <p className="text-2xl font-bold text-slate-700">{importResult.skipped}</p>
-                  <p className="text-xs text-slate-600 mt-0.5">Sudah ada (skip)</p>
+                <div className="rounded-lg bg-surface-container-low border border-outline-variant p-3 text-center">
+                  <p className="text-2xl font-bold text-on-surface">{importResult.skipped}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Sudah ada (skip)</p>
                 </div>
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-center">
-                  <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-red-700">{importResult.failed.length}</p>
-                  <p className="text-xs text-red-600 mt-0.5">Gagal</p>
+                <div className="rounded-lg bg-error-container border border-error/20 p-3 text-center">
+                  <XCircle className="w-5 h-5 text-error mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-error">{importResult.failed.length}</p>
+                  <p className="text-xs text-error mt-0.5">Gagal</p>
                 </div>
               </div>
 
               {importResult.failed.length > 0 && (
-                <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 max-h-60 overflow-y-auto">
-                  <p className="text-sm font-semibold text-red-700 mb-2">Detail kegagalan:</p>
-                  <ul className="space-y-1 text-xs text-red-600">
+                <div className="rounded-lg border border-error/20 bg-error-container/50 p-3 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-semibold text-error mb-2">Detail kegagalan:</p>
+                  <ul className="space-y-1 text-xs text-error">
                     {importResult.failed.map((f, i) => (
                       <li key={i}>
                         <span className="font-mono font-semibold">Baris {f.row}:</span> {f.message}
@@ -994,7 +994,7 @@ export default function ManageUsers() {
               )}
             </div>
             <div className="px-6 pb-6 flex justify-end">
-              <Button onClick={() => setImportResult(null)} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => setImportResult(null)} className="bg-primary hover:bg-primary/90">
                 Tutup
               </Button>
             </div>

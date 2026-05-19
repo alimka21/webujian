@@ -36,9 +36,9 @@ const STATUS_COLOR: Record<string, string> = {
 function Inisial({ nama, fotoUrl }: { nama: string; fotoUrl?: string }) {
   const initials = nama.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   if (fotoUrl) {
-    return <img src={fotoUrl} alt={nama} className="w-9 h-9 rounded-full object-cover border border-slate-200" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+    return <img src={fotoUrl} alt={nama} className="w-9 h-9 rounded-full object-cover border border-outline-variant" onError={e => { e.currentTarget.style.display = 'none'; }} />;
   }
-  const colors = ['bg-blue-100 text-blue-700', 'bg-green-100 text-green-700', 'bg-amber-100 text-amber-700', 'bg-purple-100 text-purple-700'];
+  const colors = ['bg-primary-container/30 text-primary', 'bg-secondary-container/60 text-on-secondary-container', 'bg-tertiary-fixed/70 text-on-tertiary-fixed', 'bg-primary-container/40 text-on-primary-container'];
   const idx = nama.charCodeAt(0) % colors.length;
   return (
     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${colors[idx]}`}>
@@ -332,22 +332,22 @@ export default function AlumniTracer() {
   const paginatedAlumni = displayAlumni.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const statCards = [
-    { label: 'Total Terdata', value: total, icon: Users, bg: 'bg-slate-50 border-slate-100', iconBg: 'bg-slate-200 text-slate-700', text: 'text-slate-900' },
-    { label: 'Bekerja', value: stats.BEKERJA || 0, icon: Briefcase, bg: 'bg-blue-50 border-blue-100', iconBg: 'bg-blue-200 text-blue-700', text: 'text-blue-900' },
-    { label: 'Kuliah', value: stats.KULIAH || 0, icon: GraduationCap, bg: 'bg-green-50 border-green-100', iconBg: 'bg-green-200 text-green-700', text: 'text-green-900' },
-    { label: 'Wirausaha', value: stats.WIRAUSAHA || 0, icon: Building, bg: 'bg-amber-50 border-amber-100', iconBg: 'bg-amber-200 text-amber-700', text: 'text-amber-900' },
-    { label: 'Tidak Diketahui', value: stats.TIDAK_DIKETAHUI || 0, icon: HelpCircle, bg: 'bg-slate-50 border-slate-200', iconBg: 'bg-slate-200 text-slate-500', text: 'text-slate-700' },
+    { label: 'Total Terdata', value: total, icon: Users, bg: 'bg-surface-container-low border-outline-variant', iconBg: 'bg-surface-container-high text-on-surface', text: 'text-on-surface' },
+    { label: 'Bekerja', value: stats.BEKERJA || 0, icon: Briefcase, bg: 'bg-primary-container/15 border-primary/20', iconBg: 'bg-primary-container/50 text-primary', text: 'text-primary' },
+    { label: 'Kuliah', value: stats.KULIAH || 0, icon: GraduationCap, bg: 'bg-secondary-container/30 border-secondary/20', iconBg: 'bg-secondary-container text-on-secondary-container', text: 'text-on-secondary-container' },
+    { label: 'Wirausaha', value: stats.WIRAUSAHA || 0, icon: Building, bg: 'bg-tertiary-fixed/50 border-tertiary-fixed/50', iconBg: 'bg-tertiary-fixed text-on-tertiary-fixed', text: 'text-on-tertiary-fixed' },
+    { label: 'Tidak Diketahui', value: stats.TIDAK_DIKETAHUI || 0, icon: HelpCircle, bg: 'bg-surface-container-low border-outline-variant', iconBg: 'bg-surface-container-high text-on-surface-variant', text: 'text-on-surface' },
   ];
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
-      BEKERJA: 'bg-blue-100 text-blue-700',
-      KULIAH: 'bg-green-100 text-green-700',
-      WIRAUSAHA: 'bg-amber-100 text-amber-700',
-      TIDAK_DIKETAHUI: 'bg-slate-100 text-slate-600',
+      BEKERJA: 'bg-primary-container/30 text-primary',
+      KULIAH: 'bg-secondary-container/60 text-on-secondary-container',
+      WIRAUSAHA: 'bg-tertiary-fixed/70 text-on-tertiary-fixed',
+      TIDAK_DIKETAHUI: 'bg-surface-container text-on-surface-variant',
     };
     const label = STATUS_OPTIONS.find(s => s.value === status)?.label ?? status;
-    return <Badge className={`${map[status] || 'bg-slate-100 text-slate-600'} border-0 hover:opacity-100`}>{label}</Badge>;
+    return <Badge className={`${map[status] || 'bg-surface-container text-on-surface-variant'} border-0 hover:opacity-100`}>{label}</Badge>;
   };
 
   return (
@@ -355,8 +355,8 @@ export default function AlumniTracer() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tracer Study Alumni</h1>
-          <p className="text-slate-500 mt-1">Pantau jejak karir dan pendidikan lanjutan lulusan.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Tracer Study Alumni</h1>
+          <p className="text-on-surface-variant mt-1">Pantau jejak karir dan pendidikan lanjutan lulusan.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" className="gap-2" onClick={handleDownloadTemplate} disabled={importing}>
@@ -364,18 +364,18 @@ export default function AlumniTracer() {
           </Button>
           <Button
             variant="outline"
-            className="gap-2 border-green-600 text-green-700 hover:bg-green-50"
+            className="gap-2 border-secondary text-on-secondary-container hover:bg-secondary-container/30"
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
           >
-            {importing ? <div className="w-4 h-4 border-2 border-green-400/40 border-t-green-700 rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+            {importing ? <div className="w-4 h-4 border-2 border-secondary/60/40 border-t-green-700 rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
             {importing ? 'Memproses...' : 'Import'}
           </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={isExporting}>
-            {isExporting ? <div className="w-4 h-4 border-2 border-slate-400/40 border-t-slate-600 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            {isExporting ? <div className="w-4 h-4 border-2 border-outline/40 border-t-slate-600 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             Export Excel
           </Button>
-          <Button onClick={() => handleOpenModal()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => handleOpenModal()} className="gap-2 bg-primary hover:bg-primary/90">
             <Plus className="w-4 h-4" /> Tambah Alumni
           </Button>
         </div>
@@ -389,7 +389,7 @@ export default function AlumniTracer() {
               <card.icon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-medium leading-tight">{card.label}</p>
+              <p className="text-xs text-on-surface-variant font-medium leading-tight">{card.label}</p>
               <p className={`text-xl font-bold ${card.text}`}>{card.value}</p>
             </div>
           </div>
@@ -419,8 +419,8 @@ export default function AlumniTracer() {
                   {pieData.map(d => (
                     <div key={d.name} className="flex items-center gap-2 text-sm">
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-slate-600">{d.name}</span>
-                      <span className="font-bold text-slate-800 ml-auto pl-3">{d.value}</span>
+                      <span className="text-on-surface-variant">{d.name}</span>
+                      <span className="font-bold text-on-surface ml-auto pl-3">{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -447,12 +447,12 @@ export default function AlumniTracer() {
 
       {/* Tabel */}
       <Card>
-        <CardHeader className="pb-4 border-b border-slate-100">
+        <CardHeader className="pb-4 border-b border-outline-variant">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <CardTitle>Data Lulusan</CardTitle>
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline-variant pointer-events-none" />
                 <Input placeholder="Cari nama..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 w-44" />
               </div>
               <Select value={filterTahun} onChange={e => setFilterTahun(e.target.value)} className="h-9 w-36">
@@ -483,14 +483,14 @@ export default function AlumniTracer() {
 
           {/* Batch action bar — muncul kalau ada selection */}
           {selectedIds.size > 0 && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-              <p className="text-sm font-medium text-amber-800">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-tertiary-fixed/50 border border-tertiary-fixed rounded-lg px-4 py-2">
+              <p className="text-sm font-medium text-on-tertiary-fixed">
                 <strong>{selectedIds.size}</strong> alumni terpilih
               </p>
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700 gap-1.5"
+                  className="bg-secondary hover:bg-secondary/90 gap-1.5"
                   onClick={() => handleBatchVerify(true)}
                   disabled={isVerifying}
                 >
@@ -502,7 +502,7 @@ export default function AlumniTracer() {
                   variant="outline"
                   onClick={() => handleBatchVerify(false)}
                   disabled={isVerifying}
-                  className="text-amber-700 border-amber-300"
+                  className="text-on-tertiary-fixed border-tertiary"
                 >
                   Un-verify
                 </Button>
@@ -515,16 +515,16 @@ export default function AlumniTracer() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-slate-500">Memuat data alumni...</div>
+            <div className="py-12 text-center text-on-surface-variant">Memuat data alumni...</div>
           ) : displayAlumni.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-200 rounded-xl m-6">
-              <p className="text-lg font-medium text-slate-700">Belum ada data</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border border-dashed border-outline-variant rounded-xl m-6">
+              <p className="text-lg font-medium text-on-surface">Belum ada data</p>
               <p className="text-sm">{search ? 'Coba kata kunci lain.' : 'Data alumni kosong untuk filter ini.'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant uppercase text-xs">
                   <tr>
                     <th className="px-3 py-3 w-10">
                       <input
@@ -547,7 +547,7 @@ export default function AlumniTracer() {
                 <tbody className="divide-y divide-slate-100">
                   {paginatedAlumni.map(al => (
                     <React.Fragment key={al.id}>
-                      <tr className={`hover:bg-slate-50/60 transition-colors ${selectedIds.has(al.id) ? 'bg-blue-50/40' : ''}`}>
+                      <tr className={`hover:bg-surface-container-low/60 transition-colors ${selectedIds.has(al.id) ? 'bg-primary-container/15/40' : ''}`}>
                         <td className="px-3 py-3">
                           <input
                             type="checkbox"
@@ -561,49 +561,49 @@ export default function AlumniTracer() {
                           <Inisial nama={al.nama} fotoUrl={al.fotoUrl} />
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-slate-900">{al.nama}</p>
-                          <p className="text-xs text-slate-500">NIS: {al.nis || '—'}</p>
-                          {al.kontak && <p className="text-xs text-blue-600 mt-0.5 truncate max-w-[180px]">{al.kontak}</p>}
+                          <p className="font-semibold text-on-surface">{al.nama}</p>
+                          <p className="text-xs text-on-surface-variant">NIS: {al.nis || '—'}</p>
+                          {al.kontak && <p className="text-xs text-primary mt-0.5 truncate max-w-[180px]">{al.kontak}</p>}
                         </td>
-                        <td className="px-4 py-3 text-center font-bold text-slate-700">{al.tahunLulus}</td>
-                        <td className="px-4 py-3 text-slate-600 text-xs">{al.jurusan || '—'}</td>
+                        <td className="px-4 py-3 text-center font-bold text-on-surface">{al.tahunLulus}</td>
+                        <td className="px-4 py-3 text-on-surface-variant text-xs">{al.jurusan || '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1">
                             {statusBadge(al.status)}
-                            {al.instansi && <span className="text-xs font-medium text-slate-700">{al.instansi}</span>}
-                            {al.posisi && <span className="text-xs text-slate-500">{al.posisi}</span>}
+                            {al.instansi && <span className="text-xs font-medium text-on-surface">{al.instansi}</span>}
+                            {al.posisi && <span className="text-xs text-on-surface-variant">{al.posisi}</span>}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {al.isVerified ? (
-                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                            <Badge variant="secondary" className="bg-secondary-container/30 text-on-secondary-container border-secondary/20 gap-1">
                               <ShieldCheck className="w-3 h-3" /> Terverifikasi
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                            <Badge variant="secondary" className="bg-tertiary-fixed/50 text-on-tertiary-fixed border-tertiary-fixed gap-1">
                               <Clock className="w-3 h-3" /> Pending
                             </Badge>
                           )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-center gap-1.5">
-                            <Button variant="ghost" size="sm" onClick={() => handleOpenModal(al)} className="text-blue-600 hover:bg-blue-50 h-8 px-2" title="Edit">
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenModal(al)} className="text-primary hover:bg-primary-container/15 h-8 px-2" title="Edit">
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(al.id)} className="text-red-500 hover:bg-red-50 h-8 px-2" title="Hapus">
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(al.id)} className="text-error hover:bg-error-container h-8 px-2" title="Hapus">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </td>
                       </tr>
                       {deleteConfirmId === al.id && (
-                        <tr className="bg-red-50">
+                        <tr className="bg-error-container">
                           <td colSpan={8} className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <span className="text-sm text-red-700 font-medium flex-1">
+                              <span className="text-sm text-error font-medium flex-1">
                                 Hapus data alumni "<span className="font-semibold">{al.nama}</span>"?
                               </span>
-                              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 px-3 text-xs" onClick={() => handleDelete(al.id)}>
+                              <Button size="sm" className="bg-error hover:bg-error/90 text-white h-7 px-3 text-xs" onClick={() => handleDelete(al.id)}>
                                 Ya, Hapus
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 px-3 text-xs" onClick={() => setDeleteConfirmId(null)}>
@@ -631,7 +631,7 @@ export default function AlumniTracer() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm overflow-y-auto">
           <div
             ref={modalRef}
             role="dialog"
@@ -640,9 +640,9 @@ export default function AlumniTracer() {
             className="bg-white w-full max-w-lg rounded-2xl shadow-xl my-auto flex flex-col max-h-[90vh]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-              <h2 id="alumni-modal-title" className="text-lg font-bold text-slate-900">{editingId ? 'Edit Data Alumni' : 'Tambah Alumni'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400" aria-label="Tutup modal">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant shrink-0">
+              <h2 id="alumni-modal-title" className="text-lg font-bold text-on-surface">{editingId ? 'Edit Data Alumni' : 'Tambah Alumni'}</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-surface-container text-outline-variant" aria-label="Tutup modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -652,12 +652,12 @@ export default function AlumniTracer() {
                   <Label>URL Foto (Opsional)</Label>
                   <Input value={formData.fotoUrl} onChange={e => setFormData({ ...formData, fotoUrl: e.target.value })} placeholder="https://..." />
                   {formData.fotoUrl && (
-                    <img src={formData.fotoUrl} alt="preview" className="w-14 h-14 rounded-full object-cover border border-slate-200 mt-1" onError={e => (e.currentTarget.style.display = 'none')} />
+                    <img src={formData.fotoUrl} alt="preview" className="w-14 h-14 rounded-full object-cover border border-outline-variant mt-1" onError={e => (e.currentTarget.style.display = 'none')} />
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Nama Lengkap <span className="text-red-500">*</span></Label>
+                  <Label>Nama Lengkap <span className="text-error">*</span></Label>
                   <Input required value={formData.nama} onChange={e => setFormData({ ...formData, nama: e.target.value })} placeholder="Nama Alumni" />
                 </div>
 
@@ -667,7 +667,7 @@ export default function AlumniTracer() {
                     <Input value={formData.nis} onChange={e => setFormData({ ...formData, nis: e.target.value })} placeholder="NIS" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Tahun Lulus <span className="text-red-500">*</span></Label>
+                    <Label>Tahun Lulus <span className="text-error">*</span></Label>
                     <Input type="number" required value={formData.tahunLulus} onChange={e => setFormData({ ...formData, tahunLulus: parseInt(e.target.value) || new Date().getFullYear() })} />
                   </div>
                 </div>
@@ -678,7 +678,7 @@ export default function AlumniTracer() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Status Saat Ini <span className="text-red-500">*</span></Label>
+                  <Label>Status Saat Ini <span className="text-error">*</span></Label>
                   <Select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
                     {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </Select>
@@ -700,9 +700,9 @@ export default function AlumniTracer() {
                 </div>
               </div>
 
-              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 shrink-0 bg-slate-50 rounded-b-2xl">
+              <div className="px-6 py-4 border-t border-outline-variant flex justify-end gap-2 shrink-0 bg-surface-container-low rounded-b-2xl">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={isSubmitting}>Batal</Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 gap-2">
+                <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 gap-2">
                   {isSubmitting && <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
                   {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
                 </Button>
@@ -724,7 +724,7 @@ export default function AlumniTracer() {
 
       {/* Modal Hasil Import */}
       {importResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={importResultModalRef}
             role="dialog"
@@ -732,30 +732,30 @@ export default function AlumniTracer() {
             aria-labelledby="alumni-import-result-title"
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 id="alumni-import-result-title" className="text-lg font-bold text-slate-900">Hasil Import Alumni</h2>
+            <div className="px-6 pt-6 pb-4 border-b border-outline-variant">
+              <h2 id="alumni-import-result-title" className="text-lg font-bold text-on-surface">Hasil Import Alumni</h2>
             </div>
             <div className="px-6 py-5 space-y-3">
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
-                  <p className="text-xs text-green-600 mt-0.5">Berhasil</p>
+                <div className="rounded-lg bg-secondary-container/30 border border-secondary/20 p-3 text-center">
+                  <CheckCircle2 className="w-5 h-5 text-secondary mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-on-secondary-container">{importResult.created}</p>
+                  <p className="text-xs text-secondary mt-0.5">Berhasil</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
-                  <p className="text-2xl font-bold text-slate-700">{importResult.skipped}</p>
-                  <p className="text-xs text-slate-600 mt-0.5">Sudah ada (skip)</p>
+                <div className="rounded-lg bg-surface-container-low border border-outline-variant p-3 text-center">
+                  <p className="text-2xl font-bold text-on-surface">{importResult.skipped}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Sudah ada (skip)</p>
                 </div>
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-center">
-                  <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-red-700">{importResult.failed.length}</p>
-                  <p className="text-xs text-red-600 mt-0.5">Gagal</p>
+                <div className="rounded-lg bg-error-container border border-error/20 p-3 text-center">
+                  <XCircle className="w-5 h-5 text-error mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-error">{importResult.failed.length}</p>
+                  <p className="text-xs text-error mt-0.5">Gagal</p>
                 </div>
               </div>
               {importResult.failed.length > 0 && (
-                <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 max-h-60 overflow-y-auto">
-                  <p className="text-sm font-semibold text-red-700 mb-2">Detail kegagalan:</p>
-                  <ul className="space-y-1 text-xs text-red-600">
+                <div className="rounded-lg border border-error/20 bg-error-container/50 p-3 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-semibold text-error mb-2">Detail kegagalan:</p>
+                  <ul className="space-y-1 text-xs text-error">
                     {importResult.failed.map((f, i) => (
                       <li key={i}>
                         <span className="font-mono font-semibold">Baris {f.row}:</span> {f.message}
@@ -766,7 +766,7 @@ export default function AlumniTracer() {
               )}
             </div>
             <div className="px-6 pb-6 flex justify-end">
-              <Button onClick={() => setImportResult(null)} className="bg-blue-600 hover:bg-blue-700">Tutup</Button>
+              <Button onClick={() => setImportResult(null)} className="bg-primary hover:bg-primary/90">Tutup</Button>
             </div>
           </div>
         </div>
