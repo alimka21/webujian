@@ -300,18 +300,27 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
     if (!siswa) return res.status(404).json({ error: 'Tidak ditemukan' });
 
+    // Single query — soal+opsi ditarik via nested include di sesi.ujian,
+    // jawaban hanya butuh opsi (mapping ke soal pakai soalId, bukan relasi).
     const sesi = await prisma.sesiUjian.findUnique({
       where: { id: req.params.sessionId },
       include: {
         siswa: { select: { nama: true } },
-        ujian: { select: { judul: true, mataPelajaran: true, durasi: true, tampilkanPembahasan: true, tampilkanNilai: true } },
+        ujian: {
+          select: {
+            judul: true,
+            mataPelajaran: true,
+            durasi: true,
+            tampilkanPembahasan: true,
+            tampilkanNilai: true,
+            soal: {
+              orderBy: { nomor: 'asc' },
+              include: { opsi: { orderBy: { urutan: 'asc' } } },
+            },
+          },
+        },
         pelanggaran: { orderBy: { timestamp: 'asc' } },
-        jawaban: {
-          include: {
-            soal: { include: { opsi: { orderBy: { urutan: 'asc' } } } },
-            opsi: true
-          }
-        }
+        jawaban: { include: { opsi: true } },
       }
     });
 
@@ -319,11 +328,7 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
       return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
     }
 
-    const soalList = await prisma.soal.findMany({
-      where: { ujianId: sesi.ujianId },
-      include: { opsi: { orderBy: { urutan: 'asc' } } },
-      orderBy: { nomor: 'asc' }
-    });
+    const soalList = sesi.ujian.soal;
 
     const jawabanMap = new Map(sesi.jawaban.map(j => [j.soalId, j]));
 

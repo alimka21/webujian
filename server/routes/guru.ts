@@ -119,7 +119,13 @@ router.get('/siswa', async (req, res, next) => {
   try {
     const { kelasId } = req.query;
     if (!kelasId) return res.status(400).json({ error: 'kelasId diperlukan' });
-    const siswa = await prisma.siswa.findMany({ where: { kelasId: String(kelasId) }, include: { user: true } });
+    // Select user eksplisit — JANGAN return password hash (security).
+    const siswa = await prisma.siswa.findMany({
+      where: { kelasId: String(kelasId) },
+      include: {
+        user: { select: { id: true, email: true, isActive: true } }
+      }
+    });
     res.json(siswa);
   } catch(error) { next(error); }
 });
