@@ -142,25 +142,29 @@ router.post('/ujian/:ujianId/mulai', async (req, res, next) => {
 
 router.get('/sesi/:sessionId', async (req, res, next) => {
   try {
-    const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
-    if (!siswa) return res.status(404).json({ error: 'Not found' });
-
-    const sesi = await prisma.sesiUjian.findUnique({
-      where: { id: req.params.sessionId },
-      include: {
-        ujian: {
-          include: {
-            soal: {
-              orderBy: { nomor: 'asc' },
-              include: { 
-                opsi: { orderBy: { urutan: 'asc' }, select: { id: true, teks: true, imageUrl: true, urutan: true } }
+    // Paralelkan kedua lookup — penghematan latency ~5-20ms di hot-path
+    // ujian aktif. Validasi siswa.id === sesi.siswaId tetap di app code.
+    const [siswa, sesi] = await Promise.all([
+      prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } }),
+      prisma.sesiUjian.findUnique({
+        where: { id: req.params.sessionId },
+        include: {
+          ujian: {
+            include: {
+              soal: {
+                orderBy: { nomor: 'asc' },
+                include: {
+                  opsi: { orderBy: { urutan: 'asc' }, select: { id: true, teks: true, imageUrl: true, urutan: true } }
+                }
               }
             }
-          }
-        },
-        jawaban: true
-      }
-    });
+          },
+          jawaban: true
+        }
+      }),
+    ]);
+
+    if (!siswa) return res.status(404).json({ error: 'Not found' });
 
     if (!sesi || sesi.siswaId !== siswa.id) {
       return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
