@@ -266,13 +266,16 @@ router.post('/users/import', async (req, res, next) => {
     const failed: { row: number; message: string }[] = [];
 
     if (type === 'siswa') {
-      // Pre-load semua kelas untuk match by nama (case-insensitive)
+      // ── Pass 1: validasi in-memory, kumpulkan row valid ──
       const kelasList = await prisma.kelas.findMany();
       const kelasByNama = new Map(kelasList.map(k => [k.nama.toLowerCase().trim(), k.id]));
 
+      type SiswaRow = { rowNumber: number; nis: string; nama: string; kelasId: string; email: string };
+      const valid: SiswaRow[] = [];
+
       for (let i = 0; i < items.length; i++) {
         const row = items[i];
-        const rowNumber = i + 2; // +2 karena header di row 1, data mulai row 2
+        const rowNumber = i + 2;
         const nis = String(row.nis ?? '').trim();
         const nama = String(row.nama ?? '').trim();
         const kelasNama = String(row.kelas ?? '').trim();
@@ -286,29 +289,71 @@ router.post('/users/import', async (req, res, next) => {
           failed.push({ row: rowNumber, message: `Kelas "${kelasNama}" tidak ditemukan` });
           continue;
         }
+        valid.push({ rowNumber, nis, nama, kelasId, email: `${nis}@siswa.sch.id` });
+      }
 
-        const email = `${nis}@siswa.sch.id`;
-        const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
-        try {
-          const hashed = await bcrypt.hash(nis, 10);
-          await prisma.user.create({
-            data: {
-              email, password: hashed, role: 'SISWA',
-              siswa: { create: { nis, nama, kelasId } },
-            },
+      // ── Pass 2: filter yang sudah ada di DB (1 query, bukan N findUnique) ──
+      const emails = valid.map(v => v.email);
+      const existingUsers = emails.length === 0
+        ? []
+        : await prisma.user.findMany({
+            where: { email: { in: emails } },
+            select: { email: true },
           });
-          created++;
+      const existingEmailSet = new Set(existingUsers.map(u => u.email));
+      const toInsert = valid.filter(v => !existingEmailSet.has(v.email));
+      skipped = valid.length - toInsert.length;
+
+      if (toInsert.length > 0) {
+        // ── Pass 3: bcrypt parallel (CPU-bound, ~10x faster vs serial) ──
+        const hashes = await Promise.all(toInsert.map(v => bcrypt.hash(v.nis, 10)));
+
+        // ── Pass 4: createMany User (1 query) ──
+        try {
+          await prisma.user.createMany({
+            data: toInsert.map((v, idx) => ({
+              email: v.email,
+              password: hashes[idx],
+              role: 'SISWA',
+            })),
+            skipDuplicates: true,
+          });
+
+          // ── Pass 5: ambil userId yg baru terbuat (1 query) ──
+          const newUsers = await prisma.user.findMany({
+            where: { email: { in: toInsert.map(v => v.email) } },
+            select: { id: true, email: true },
+          });
+          const userIdByEmail = new Map(newUsers.map(u => [u.email, u.id]));
+
+          // ── Pass 6: createMany Siswa (1 query) ──
+          const siswaRows = toInsert
+            .map(v => ({
+              userId: userIdByEmail.get(v.email),
+              nis: v.nis,
+              nama: v.nama,
+              kelasId: v.kelasId,
+            }))
+            .filter((s): s is { userId: string; nis: string; nama: string; kelasId: string } =>
+              typeof s.userId === 'string'
+            );
+          const result = await prisma.siswa.createMany({
+            data: siswaRows,
+            skipDuplicates: true,
+          });
+          created = result.count;
         } catch (err: any) {
-          failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+          // Kalau bulk gagal sepenuhnya, semua row dianggap failed.
+          for (const v of toInsert) {
+            failed.push({ row: v.rowNumber, message: err.message ?? 'Gagal insert (bulk)' });
+          }
         }
       }
     } else {
-      // type === 'guru'
+      // ── type === 'guru' ──
+      type GuruRow = { rowNumber: number; nip: string; nama: string; email: string; mapel: string; password: string };
+      const valid: GuruRow[] = [];
+
       for (let i = 0; i < items.length; i++) {
         const row = items[i];
         const rowNumber = i + 2;
@@ -326,24 +371,59 @@ router.post('/users/import', async (req, res, next) => {
           failed.push({ row: rowNumber, message: 'Format email tidak valid' });
           continue;
         }
+        valid.push({ rowNumber, nip, nama, email, mapel, password });
+      }
 
-        const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing) {
-          skipped++;
-          continue;
-        }
+      // Filter duplikat email (1 query)
+      const emails = valid.map(v => v.email);
+      const existingUsers = emails.length === 0
+        ? []
+        : await prisma.user.findMany({
+            where: { email: { in: emails } },
+            select: { email: true },
+          });
+      const existingEmailSet = new Set(existingUsers.map(u => u.email));
+      const toInsert = valid.filter(v => !existingEmailSet.has(v.email));
+      skipped = valid.length - toInsert.length;
+
+      if (toInsert.length > 0) {
+        const hashes = await Promise.all(toInsert.map(v => bcrypt.hash(v.password || v.nip, 10)));
 
         try {
-          const hashed = await bcrypt.hash(password || nip, 10);
-          await prisma.user.create({
-            data: {
-              email, password: hashed, role: 'GURU',
-              guru: { create: { nip, nama, mataPelajaran: mapel } },
-            },
+          await prisma.user.createMany({
+            data: toInsert.map((v, idx) => ({
+              email: v.email,
+              password: hashes[idx],
+              role: 'GURU',
+            })),
+            skipDuplicates: true,
           });
-          created++;
+
+          const newUsers = await prisma.user.findMany({
+            where: { email: { in: toInsert.map(v => v.email) } },
+            select: { id: true, email: true },
+          });
+          const userIdByEmail = new Map(newUsers.map(u => [u.email, u.id]));
+
+          const guruRows = toInsert
+            .map(v => ({
+              userId: userIdByEmail.get(v.email),
+              nip: v.nip,
+              nama: v.nama,
+              mataPelajaran: v.mapel,
+            }))
+            .filter((g): g is { userId: string; nip: string; nama: string; mataPelajaran: string } =>
+              typeof g.userId === 'string'
+            );
+          const result = await prisma.guru.createMany({
+            data: guruRows,
+            skipDuplicates: true,
+          });
+          created = result.count;
         } catch (err: any) {
-          failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+          for (const v of toInsert) {
+            failed.push({ row: v.rowNumber, message: err.message ?? 'Gagal insert (bulk)' });
+          }
         }
       }
     }
@@ -676,6 +756,20 @@ router.post('/alumni/import', async (req, res, next) => {
     let skipped = 0;
     const failed: { row: number; message: string }[] = [];
 
+    // ── Pass 1: validasi in-memory ──
+    type AlumniRow = {
+      rowNumber: number;
+      nama: string;
+      nis: string | null;
+      tahunLulus: number;
+      jurusan: string | null;
+      status: string;
+      instansi: string | null;
+      posisi: string | null;
+      kontak: string | null;
+    };
+    const valid: AlumniRow[] = [];
+
     for (let i = 0; i < items.length; i++) {
       const row = items[i];
       const rowNumber = i + 2;
@@ -701,21 +795,33 @@ router.post('/alumni/import', async (req, res, next) => {
         failed.push({ row: rowNumber, message: `Status "${status}" tidak valid (BEKERJA/KULIAH/WIRAUSAHA/TIDAK_DIKETAHUI)` });
         continue;
       }
+      valid.push({ rowNumber, nama, nis, tahunLulus, jurusan, status, instansi, posisi, kontak });
+    }
 
-      // Idempotent: kalau ada NIS yang sama, skip (NIS bukan unique di schema tapi
-      // di-treat sebagai natural key untuk import)
-      if (nis) {
-        const existing = await prisma.alumni.findFirst({ where: { nis } });
-        if (existing) { skipped++; continue; }
-      }
-
-      try {
-        await prisma.alumni.create({
-          data: { nama, nis, tahunLulus, jurusan, status, instansi, posisi, kontak },
+    // ── Pass 2: filter duplikat NIS (1 query, bukan N findFirst) ──
+    const nisList = valid.map(v => v.nis).filter((n): n is string => !!n);
+    const existingAlumni = nisList.length === 0
+      ? []
+      : await prisma.alumni.findMany({
+          where: { nis: { in: nisList } },
+          select: { nis: true },
         });
-        created++;
+    const existingNisSet = new Set(existingAlumni.map(a => a.nis).filter((n): n is string => !!n));
+    const toInsert = valid.filter(v => !v.nis || !existingNisSet.has(v.nis));
+    skipped = valid.length - toInsert.length;
+
+    // ── Pass 3: createMany (1 query) ──
+    if (toInsert.length > 0) {
+      try {
+        const result = await prisma.alumni.createMany({
+          data: toInsert.map(({ rowNumber, ...rest }) => rest),
+          skipDuplicates: true,
+        });
+        created = result.count;
       } catch (err: any) {
-        failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+        for (const v of toInsert) {
+          failed.push({ row: v.rowNumber, message: err.message ?? 'Gagal insert (bulk)' });
+        }
       }
     }
 
