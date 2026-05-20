@@ -4,7 +4,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import {
   Users, FileText, CheckCircle2, Clock, PlusCircle, AlertTriangle,
-  ListChecks, Activity, ArrowRight,
+  ListChecks, Activity, ArrowRight, RefreshCw,
 } from 'lucide-react';
 import api from '../../../lib/api';
 import { formatDate } from '../../../lib/utils';
@@ -40,33 +40,33 @@ export default function GuruDashboard() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [statsRes, ujianRes] = await Promise.all([
-          api.get('/api/guru/stats'),
-          // Endpoint paginated — widget "ujian mendatang" cukup 100 terbaru utk filter waktu.
-          api.get('/api/guru/ujian?limit=100'),
-        ]);
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const [statsRes, ujianRes] = await Promise.all([
+        api.get('/api/guru/stats'),
+        // Endpoint paginated — widget "ujian mendatang" cukup 100 terbaru utk filter waktu.
+        api.get('/api/guru/ujian?limit=100'),
+      ]);
 
-        setStats(statsRes);
+      setStats(statsRes);
 
-        const now = new Date();
-        const ujianList = ujianRes?.data ?? [];
-        const mendatang = ujianList
-          .filter((u: any) => new Date(u.tanggalMulai) > now)
-          .sort((a: any, b: any) => new Date(a.tanggalMulai).getTime() - new Date(b.tanggalMulai).getTime())
-          .slice(0, 3);
-        setUjianMendatang(mendatang);
-      } catch (err: any) {
-        setError(err.message || 'Gagal memuat data dashboard');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+      const now = new Date();
+      const ujianList = ujianRes?.data ?? [];
+      const mendatang = ujianList
+        .filter((u: any) => new Date(u.tanggalMulai) > now)
+        .sort((a: any, b: any) => new Date(a.tanggalMulai).getTime() - new Date(b.tanggalMulai).getTime())
+        .slice(0, 3);
+      setUjianMendatang(mendatang);
+    } catch (err: any) {
+      setError(err.message || 'Gagal memuat data dashboard');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   if (isLoading) {
     return (
@@ -83,9 +83,12 @@ export default function GuruDashboard() {
     return (
       <div className="bg-error-container border border-error/20 text-error rounded-xl p-5 flex items-start gap-3">
         <AlertTriangle className="w-6 h-6 shrink-0" />
-        <div>
+        <div className="flex-1">
           <h3 className="font-bold text-base">Gagal memuat data</h3>
           <p className="text-sm text-on-surface">{error}</p>
+          <Button onClick={fetchData} variant="outline" size="sm" className="mt-3 gap-2">
+            <RefreshCw className="w-3.5 h-3.5" /> Muat Ulang
+          </Button>
         </div>
       </div>
     );

@@ -8,6 +8,7 @@ import { Select } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { Plus, Download, Edit, Trash2, Building, GraduationCap, Briefcase, Users, HelpCircle, Search, X, Upload, CheckCircle2, XCircle, ShieldCheck, Clock } from 'lucide-react';
 import api from '../../lib/api';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { Pagination } from '../../components/ui/pagination';
 
@@ -50,6 +51,7 @@ function Inisial({ nama, fotoUrl }: { nama: string; fotoUrl?: string }) {
 export default function AlumniTracer() {
   const [alumniList, setAlumniList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [filterTahun, setFilterTahun] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterJurusan, setFilterJurusan] = useState('ALL');
@@ -88,10 +90,12 @@ export default function AlumniTracer() {
       // halaman ini punya banyak filter client-side: tahun/status/jurusan/verify).
       const res = await api.get('/api/admin/alumni?limit=100');
       setAlumniList(res?.data ?? []);
+      setErrorMsg(null);
       if (res?.pagination?.total > 100) {
         toast.info(`Total ${res.pagination.total} alumni — hanya 100 terbaru ditampilkan.`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Gagal memuat data alumni');
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -521,6 +525,8 @@ export default function AlumniTracer() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="py-12 text-center text-on-surface-variant">Memuat data alumni...</div>
+          ) : errorMsg ? (
+            <ErrorState message={errorMsg} onRetry={fetchAlumni} />
           ) : displayAlumni.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border border-dashed border-outline-variant rounded-xl m-6">
               <p className="text-lg font-medium text-on-surface">Belum ada data</p>

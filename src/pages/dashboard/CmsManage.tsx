@@ -6,6 +6,7 @@ import { Select } from '../../components/ui/select';
 import { Plus, Edit, Trash2, Eye, ExternalLink, Search, Globe, FileEdit, X } from 'lucide-react';
 import api from '../../lib/api';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import { ErrorState } from '../../components/ui/ErrorState';
 
 const EMPTY_FORM = { judul: '', ringkasan: '', konten: '', imageUrl: '', status: 'DRAFT', slug: '' };
 
@@ -19,6 +20,7 @@ const statusBadge = (status: string) => {
 export default function CmsManage() {
   const [beritaList, setBeritaList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [search, setSearch] = useState('');
 
@@ -37,10 +39,12 @@ export default function CmsManage() {
       // Filter status + search masih client-side; kalau dataset > 100 refactor jadi server-search.
       const res = await api.get('/api/admin/berita?limit=100');
       setBeritaList(res?.data ?? []);
+      setErrorMsg(null);
       if (res?.pagination?.total > 100) {
         toast.info(`Total ${res.pagination.total} berita — hanya 100 terbaru ditampilkan.`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Gagal memuat daftar berita');
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -156,6 +160,8 @@ export default function CmsManage() {
 
         {isLoading ? (
           <div className="py-12 text-center text-on-surface-variant">Memuat konten...</div>
+        ) : errorMsg ? (
+          <ErrorState message={errorMsg} onRetry={fetchBerita} />
         ) : displayList.length === 0 ? (
           <div className="py-12 m-6 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
             <p className="text-base font-medium text-on-surface">Tidak ada berita</p>

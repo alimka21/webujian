@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { Input, Label } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Pagination } from '../../components/ui/pagination';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { useSiteConfig, tingkatOptions } from '../../hooks/useSiteConfig';
 import { toast } from 'sonner';
@@ -62,6 +63,7 @@ export default function ManageUsers() {
   const [isLoadingSiswa, setIsLoadingSiswa] = useState(true);
   const [isLoadingGuru, setIsLoadingGuru] = useState(true);
   const [isLoadingKelas, setIsLoadingKelas] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // ── Search / Filter ──
   const [siswaSearch, setSiswaSearch] = useState('');
@@ -132,10 +134,14 @@ export default function ManageUsers() {
       setIsLoadingSiswa(true);
       const res = await api.get('/api/admin/users?role=SISWA&limit=100');
       setSiswaList(res.data ?? []);
+      setErrorMsg(null);
       if (res.pagination?.total > 100) {
         toast.info(`Total ${res.pagination.total} siswa — hanya 100 pertama yang ditampilkan. Refactor server-search akan datang.`);
       }
-    } catch (e: any) { toast.error(e.message || 'Gagal memuat data siswa'); }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Gagal memuat data siswa');
+      toast.error(e.message || 'Gagal memuat data siswa');
+    }
     finally { setIsLoadingSiswa(false); }
   };
 
@@ -144,10 +150,14 @@ export default function ManageUsers() {
       setIsLoadingGuru(true);
       const res = await api.get('/api/admin/users?role=GURU&limit=100');
       setGuruList(res.data ?? []);
+      setErrorMsg(null);
       if (res.pagination?.total > 100) {
         toast.info(`Total ${res.pagination.total} guru — hanya 100 pertama ditampilkan.`);
       }
-    } catch (e: any) { toast.error(e.message || 'Gagal memuat data guru'); }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Gagal memuat data guru');
+      toast.error(e.message || 'Gagal memuat data guru');
+    }
     finally { setIsLoadingGuru(false); }
   };
 
@@ -156,15 +166,21 @@ export default function ManageUsers() {
       setIsLoadingKelas(true);
       const res = await api.get('/api/admin/kelas');
       setKelasList(res);
-    } catch (e: any) { toast.error(e.message || 'Gagal memuat data kelas'); }
+      setErrorMsg(null);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Gagal memuat data kelas');
+      toast.error(e.message || 'Gagal memuat data kelas');
+    }
     finally { setIsLoadingKelas(false); }
   };
 
-  useEffect(() => {
+  const retryAll = () => {
     fetchSiswa();
     fetchGuru();
     fetchKelas();
-  }, []);
+  };
+
+  useEffect(() => { retryAll(); }, []);
 
   // ── Filtered Lists ──
   const filteredSiswa = siswaList.filter(u => {
@@ -449,6 +465,18 @@ export default function ManageUsers() {
     { id: 'GURU' as const, label: 'Guru', Icon: GraduationCap, count: guruList.length },
     { id: 'KELAS' as const, label: 'Kelas', Icon: BookOpen, count: kelasList.length },
   ];
+
+  // Tampilkan ErrorState global kalau semua list kosong + ada errorMsg
+  // (initial load gagal total). Subsequent error tetap pakai toast.
+  const allEmpty = siswaList.length === 0 && guruList.length === 0 && kelasList.length === 0;
+  const allLoaded = !isLoadingSiswa && !isLoadingGuru && !isLoadingKelas;
+  if (errorMsg && allEmpty && allLoaded) {
+    return (
+      <div className="py-12">
+        <ErrorState message={errorMsg} onRetry={retryAll} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
