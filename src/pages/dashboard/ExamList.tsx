@@ -38,8 +38,10 @@ export default function ExamList() {
         const res = await api.get('/api/siswa/ujian-aktif');
         setUjianAktif(res);
       } else {
-        const res = await api.get('/api/siswa/hasil');
-        setRiwayat(res);
+        // Endpoint paginated — tab riwayat di ExamList lebih cocok "ringkasan",
+        // halaman dedicated /riwayat punya pagination penuh.
+        const res = await api.get('/api/siswa/hasil?limit=100');
+        setRiwayat(res?.data ?? []);
       }
     } catch (error) {
       console.error(error);

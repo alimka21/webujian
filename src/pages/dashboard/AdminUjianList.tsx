@@ -63,8 +63,13 @@ export default function AdminUjianList() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      const res = await api.get('/api/admin/ujian');
-      setUjianList(res);
+      // Endpoint paginated — halaman ini punya search + filter guru + filter status client-side,
+      // jadi ambil 100 ujian terbaru. Refactor jadi server-search kalau dataset > 100.
+      const res = await api.get('/api/admin/ujian?limit=100');
+      setUjianList(res?.data ?? []);
+      if (res?.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} ujian — hanya 100 terbaru ditampilkan.`);
+      }
     } catch (e: any) {
       setErrorMsg(e.message || 'Gagal memuat data ujian');
       toast.error(e.message || 'Gagal memuat data ujian');

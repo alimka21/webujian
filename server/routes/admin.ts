@@ -417,8 +417,15 @@ router.delete('/kelas/:id', async (req, res, next) => {
 // Berita CMS
 router.get('/berita', async (req, res, next) => {
   try {
-    const berita = await prisma.berita.findMany({ orderBy: { createdAt: 'desc' } });
-    res.json(berita);
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const [berita, total] = await prisma.$transaction([
+      prisma.berita.findMany({
+        skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.berita.count(),
+    ]);
+    res.json(buildPaginatedResult(berita, total, page, limit));
   } catch(error) {
     next(error);
   }
@@ -457,8 +464,15 @@ router.delete('/berita/:id', async (req, res, next) => {
 // Alumni
 router.get('/alumni', async (req, res, next) => {
   try {
-    const alumni = await prisma.alumni.findMany({ orderBy: { tahunLulus: 'desc' } });
-    res.json(alumni);
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const [alumni, total] = await prisma.$transaction([
+      prisma.alumni.findMany({
+        skip, take: limit,
+        orderBy: { tahunLulus: 'desc' },
+      }),
+      prisma.alumni.count(),
+    ]);
+    res.json(buildPaginatedResult(alumni, total, page, limit));
   } catch(error) {
     next(error);
   }
@@ -519,15 +533,20 @@ router.delete('/alumni/:id', async (req, res, next) => {
 // tangan guru pemilik via /api/guru/ujian/*.
 router.get('/ujian', async (req, res, next) => {
   try {
-    const ujianList = await prisma.ujian.findMany({
-      include: {
-        guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
-        kelas: { include: { kelas: { select: { id: true, nama: true, tingkat: true } } } },
-        _count: { select: { soal: true, sesiUjian: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(ujianList);
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const [ujianList, total] = await prisma.$transaction([
+      prisma.ujian.findMany({
+        skip, take: limit,
+        include: {
+          guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
+          kelas: { include: { kelas: { select: { id: true, nama: true, tingkat: true } } } },
+          _count: { select: { soal: true, sesiUjian: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.ujian.count(),
+    ]);
+    res.json(buildPaginatedResult(ujianList, total, page, limit));
   } catch (error) { next(error); }
 });
 

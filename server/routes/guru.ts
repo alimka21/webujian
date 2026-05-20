@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
+import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
 
 const router = Router();
 // SUPER_ADMIN dibolehkan agar bisa mengelola ujian/soal/hasil milik
@@ -167,16 +168,21 @@ router.get('/ujian', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);
     const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
-    const ujianList = await prisma.ujian.findMany({
-      where,
-      include: {
-        guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
-        kelas: { include: { kelas: true } },
-        _count: { select: { soal: true, sesiUjian: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(ujianList);
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const [ujianList, total] = await prisma.$transaction([
+      prisma.ujian.findMany({
+        where,
+        skip, take: limit,
+        include: {
+          guru: { select: { id: true, nama: true, nip: true, mataPelajaran: true } },
+          kelas: { include: { kelas: true } },
+          _count: { select: { soal: true, sesiUjian: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.ujian.count({ where }),
+    ]);
+    res.json(buildPaginatedResult(ujianList, total, page, limit));
   } catch(error) { next(error); }
 });
 

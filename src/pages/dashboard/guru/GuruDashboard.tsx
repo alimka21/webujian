@@ -46,13 +46,15 @@ export default function GuruDashboard() {
         setIsLoading(true);
         const [statsRes, ujianRes] = await Promise.all([
           api.get('/api/guru/stats'),
-          api.get('/api/guru/ujian'),
+          // Endpoint paginated — widget "ujian mendatang" cukup 100 terbaru utk filter waktu.
+          api.get('/api/guru/ujian?limit=100'),
         ]);
 
         setStats(statsRes);
 
         const now = new Date();
-        const mendatang = ujianRes
+        const ujianList = ujianRes?.data ?? [];
+        const mendatang = ujianList
           .filter((u: any) => new Date(u.tanggalMulai) > now)
           .sort((a: any, b: any) => new Date(a.tanggalMulai).getTime() - new Date(b.tanggalMulai).getTime())
           .slice(0, 3);

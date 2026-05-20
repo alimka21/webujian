@@ -33,8 +33,13 @@ export default function CmsManage() {
   const fetchBerita = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/api/admin/berita');
-      setBeritaList(res);
+      // Endpoint paginated — ambil 100 (cukup utk CMS berita sekolah typical).
+      // Filter status + search masih client-side; kalau dataset > 100 refactor jadi server-search.
+      const res = await api.get('/api/admin/berita?limit=100');
+      setBeritaList(res?.data ?? []);
+      if (res?.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} berita — hanya 100 terbaru ditampilkan.`);
+      }
     } catch (error) {
       console.error(error);
     } finally {

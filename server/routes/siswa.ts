@@ -1,6 +1,7 @@
 // server/routes/siswa.ts
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
 import { requireAuth, requireRole } from '../middleware';
 
 const router = Router();
@@ -366,14 +367,18 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
 router.get('/hasil', async (req, res, next) => {
   try {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
-    const sesi = await prisma.sesiUjian.findMany({
-      where: { siswaId: siswa?.id, status: { in: ['SELESAI', 'AUTO_SUBMIT'] } },
-      include: {
-        ujian: { select: { judul: true, mataPelajaran: true, durasi: true } }
-      },
-      orderBy: { selesaiAt: 'desc' }
-    });
-    res.json(sesi);
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const where = { siswaId: siswa?.id, status: { in: ['SELESAI', 'AUTO_SUBMIT'] } };
+    const [sesi, total] = await prisma.$transaction([
+      prisma.sesiUjian.findMany({
+        where,
+        skip, take: limit,
+        include: { ujian: { select: { judul: true, mataPelajaran: true, durasi: true } } },
+        orderBy: { selesaiAt: 'desc' },
+      }),
+      prisma.sesiUjian.count({ where }),
+    ]);
+    res.json(buildPaginatedResult(sesi, total, page, limit));
   } catch(error) { next(error); }
 });
 

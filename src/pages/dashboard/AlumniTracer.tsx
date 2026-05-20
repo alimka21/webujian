@@ -84,8 +84,13 @@ export default function AlumniTracer() {
   const fetchAlumni = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/api/admin/alumni');
-      setAlumniList(res);
+      // Endpoint paginated — ambil 100 (cukup utk tracer sekolah typical;
+      // halaman ini punya banyak filter client-side: tahun/status/jurusan/verify).
+      const res = await api.get('/api/admin/alumni?limit=100');
+      setAlumniList(res?.data ?? []);
+      if (res?.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} alumni — hanya 100 terbaru ditampilkan.`);
+      }
     } catch (error) {
       console.error(error);
     } finally {

@@ -65,8 +65,12 @@ export default function DaftarUjian() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      const res = await api.get('/api/guru/ujian');
-      setUjianList(res);
+      // Endpoint paginated — halaman ini punya filter/search client-side, ambil 100.
+      const res = await api.get('/api/guru/ujian?limit=100');
+      setUjianList(res?.data ?? []);
+      if (res?.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} ujian — hanya 100 terbaru ditampilkan.`);
+      }
     } catch (error: any) {
       const msg = error?.message || 'Gagal memuat daftar ujian. Periksa koneksi Anda.';
       setErrorMsg(msg);

@@ -54,8 +54,10 @@ export default function RekapNilai() {
 
   const fetchUjian = async () => {
     try {
-      const res = await api.get('/api/guru/ujian');
-      const filtered = res.filter((u: any) => new Date() >= new Date(u.tanggalMulai));
+      // Endpoint paginated — dropdown ujian ambil 100 terbaru.
+      const res = await api.get('/api/guru/ujian?limit=100');
+      const list = res?.data ?? [];
+      const filtered = list.filter((u: any) => new Date() >= new Date(u.tanggalMulai));
       setUjianList(filtered);
       if (filtered.length > 0) {
         const targetId = preselectedId && filtered.some((u: any) => u.id === preselectedId)
