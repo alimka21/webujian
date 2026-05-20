@@ -40,10 +40,10 @@ export function Pagination({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 text-sm">
-      <p className="text-slate-500">
-        Menampilkan <span className="font-medium text-slate-700">{from}-{to}</span> dari{' '}
-        <span className="font-medium text-slate-700">{totalItems}</span> {itemLabel}
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-outline-variant text-sm">
+      <p className="text-on-surface-variant">
+        Menampilkan <span className="font-medium text-on-surface">{from}-{to}</span> dari{' '}
+        <span className="font-medium text-on-surface">{totalItems}</span> {itemLabel}
       </p>
       <div className="flex items-center gap-1">
         <Button
@@ -58,7 +58,7 @@ export function Pagination({
         </Button>
         {pageNumbers.map((p, idx) =>
           p === '...' ? (
-            <span key={`dot-${idx}`} className="px-2 text-slate-400">…</span>
+            <span key={`dot-${idx}`} className="px-2 text-outline">…</span>
           ) : (
             <button
               key={p}
@@ -67,8 +67,8 @@ export function Pagination({
               aria-current={p === currentPage ? 'page' : undefined}
               className={`h-8 min-w-[2rem] px-2 rounded-md text-sm font-medium transition-colors ${
                 p === currentPage
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-primary text-on-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container'
               }`}
             >
               {p}

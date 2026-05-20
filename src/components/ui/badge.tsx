@@ -11,12 +11,12 @@ function Badge({ className, variant = "default", ...props }: BadgeProps) {
       className={cn(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
         {
-          "border-transparent bg-blue-600 text-white hover:bg-blue-700": variant === "default",
-          "border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200": variant === "secondary",
-          "border-transparent bg-red-500 text-white hover:bg-red-600": variant === "destructive",
-          "border-transparent bg-green-500 text-white hover:bg-green-600": variant === "success",
-          "border-transparent bg-yellow-500 text-white hover:bg-yellow-600": variant === "warning",
-          "text-slate-950": variant === "outline",
+          "border-transparent bg-primary text-on-primary hover:bg-primary-container": variant === "default",
+          "border-transparent bg-surface-container text-on-surface hover:bg-outline-variant/40": variant === "secondary",
+          "border-transparent bg-error text-white hover:bg-error/90": variant === "destructive",
+          "border-transparent bg-secondary text-white hover:bg-secondary/90": variant === "success",
+          "border-transparent bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed/80": variant === "warning",
+          "text-on-surface": variant === "outline",
         },
         className
       )}
