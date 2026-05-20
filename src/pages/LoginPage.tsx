@@ -186,7 +186,7 @@ export default function LoginPage() {
               type="submit"
               disabled={isLoading}
               size="lg"
-              className="w-full"
+              className="w-full text-white"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

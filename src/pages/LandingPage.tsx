@@ -145,7 +145,7 @@ export default function LandingPage() {
             <button onClick={() => scrollTo('kontak')} className="hover:text-primary transition-colors">Kontak</button>
           </div>
 
-          <Button onClick={() => navigate('/login')} size="sm">
+          <Button onClick={() => navigate('/login')} size="sm" className="text-white">
             Login Portal
           </Button>
         </div>
