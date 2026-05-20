@@ -176,6 +176,38 @@ export default function TakeExam() {
     if (!sessionId || isSubmitting) return;
     try {
       setIsSubmitting(true);
+
+      // ── Flush localStorage → server sebelum submit ──
+      // Auto-save di-debounce 500ms + silent-fail saat network error
+      // (cuma console.error). Sebelum scoring, kirim ulang semua
+      // jawaban dari localStorage supaya server punya state terkini.
+      // Berlaku untuk semua reason (manual/timeout/auto_cheat) — siswa
+      // berhak nilai dari yang sudah dikerjakan.
+      // Cap 5 detik supaya tidak menahan siswa kalau network lambat.
+      try {
+        const stored = localStorage.getItem(`exam_ans_${sessionId}`);
+        if (stored) {
+          const ansMap: Record<string, string[]> = JSON.parse(stored);
+          const entries = Object.entries(ansMap).filter(
+            ([, ids]) => Array.isArray(ids) && ids.length > 0
+          );
+          if (entries.length > 0) {
+            const flushPromise = Promise.allSettled(
+              entries.map(([soalId, opsiIds]) =>
+                api.post(`/api/siswa/sesi/${sessionId}/jawab`, { soalId, opsiIds })
+              )
+            );
+            await Promise.race([
+              flushPromise,
+              new Promise(resolve => setTimeout(resolve, 5000)),
+            ]);
+          }
+        }
+      } catch (flushErr) {
+        // Best-effort — backend tetap submit dgn state DB apa adanya.
+        console.error('[submit] Flush localStorage gagal:', flushErr);
+      }
+
       await api.post(`/api/siswa/sesi/${sessionId}/submit?reason=${reason}`);
 
       localStorage.removeItem(`exam_timer_${sessionId}`);
