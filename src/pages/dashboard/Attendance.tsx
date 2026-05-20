@@ -198,19 +198,19 @@ export default function Attendance() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Presensi Sesi Saya</h1>
-          <p className="text-slate-500 mt-1">Catatan kehadiran siswa untuk sesi pelajaran yang Anda ampu. Guru lain punya catatan terpisah.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Presensi Sesi Saya</h1>
+          <p className="text-on-surface-variant mt-1">Catatan kehadiran siswa untuk sesi pelajaran yang Anda ampu. Guru lain punya catatan terpisah.</p>
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-lg">
+        <div className="flex bg-surface-container p-1 rounded-lg">
           <button
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'INPUT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'INPUT' ? 'bg-white text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
             onClick={() => setActiveTab('INPUT')}
           >
             Input Presensi
           </button>
           <button
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'REKAP' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'REKAP' ? 'bg-white text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
             onClick={() => setActiveTab('REKAP')}
           >
             Rekap Bulanan
@@ -256,32 +256,32 @@ export default function Attendance() {
         </CardHeader>
         <CardContent>
           {kelasList.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-              <p className="text-lg font-medium text-slate-700">Tidak ada kelas</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+              <p className="text-lg font-medium text-on-surface">Tidak ada kelas</p>
               <p className="text-sm">Buat kelas terlebih dahulu di menu Siswa & Kelas.</p>
             </div>
           ) : activeTab === 'INPUT' ? (
             <div className="space-y-4">
               {isLoadingSiswa ? (
-                <div className="py-12 text-center text-slate-500">Memuat data siswa...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat data siswa...</div>
               ) : presensiSiswa.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-                   <p className="text-lg font-medium text-slate-700">Belum ada siswa di kelas ini</p>
+                <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+                   <p className="text-lg font-medium text-on-surface">Belum ada siswa di kelas ini</p>
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <div className="flex justify-between items-center bg-surface-container-low p-3 rounded-lg border border-outline-variant">
                     <div className="flex items-center gap-2 text-sm">
-                      <CalendarIcon className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium text-slate-700">{formatDate(tanggalPilih)}</span>
+                      <CalendarIcon className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-on-surface">{formatDate(tanggalPilih)}</span>
                       {hasExistingPresensi && (
-                         <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">Sudah Disimpan</Badge>
+                         <Badge variant="outline" className="ml-2 bg-secondary-container/30 text-on-secondary-container border-secondary/30">Sudah Disimpan</Badge>
                       )}
                     </div>
                     <Button
                       size="sm"
                       onClick={handleMarkAllHadir}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-secondary hover:bg-secondary/90 text-white"
                       title="Set semua siswa jadi HADIR"
                     >
                       <CheckSquare className="w-4 h-4 mr-1.5" /> Hadir Semua
@@ -290,7 +290,7 @@ export default function Attendance() {
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                      <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant uppercase text-xs">
                         <tr>
                           <th className="px-4 py-3 font-semibold w-16">No</th>
                           <th className="px-4 py-3 font-semibold">Nama Siswa</th>
@@ -300,21 +300,21 @@ export default function Attendance() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {presensiSiswa.map((siswa, idx) => (
-                          <tr key={siswa.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-4 text-slate-500">{idx + 1}</td>
-                            <td className="px-4 py-4 font-medium text-slate-900">
+                          <tr key={siswa.id} className="hover:bg-surface-container-low/50 transition-colors">
+                            <td className="px-4 py-4 text-on-surface-variant">{idx + 1}</td>
+                            <td className="px-4 py-4 font-medium text-on-surface">
                               {siswa.nama}
-                              <div className="text-xs text-slate-400 font-normal mt-0.5">{siswa.nis}</div>
+                              <div className="text-xs text-outline-variant font-normal mt-0.5">{siswa.nis}</div>
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex flex-wrap gap-3">
                                 {[
-                                  {val: 'HADIR', label: 'Hadir', col: 'text-green-700 bg-green-50 border-green-200'}, 
-                                  {val: 'IZIN', label: 'Izin', col: 'text-yellow-700 bg-yellow-50 border-yellow-200'}, 
-                                  {val: 'SAKIT', label: 'Sakit', col: 'text-orange-700 bg-orange-50 border-orange-200'}, 
-                                  {val: 'ALPHA', label: 'Alpha', col: 'text-red-700 bg-red-50 border-red-200'}
+                                  {val: 'HADIR', label: 'Hadir', col: 'text-on-secondary-container bg-secondary-container/30 border-secondary/30'}, 
+                                  {val: 'IZIN', label: 'Izin', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'}, 
+                                  {val: 'SAKIT', label: 'Sakit', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'}, 
+                                  {val: 'ALPHA', label: 'Alpha', col: 'text-error bg-error-container border-error/20'}
                                 ].map(st => (
-                                  <label key={st.val} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition-colors ${siswa.status === st.val ? st.col : 'text-slate-600 border-transparent hover:bg-slate-100'}`}>
+                                  <label key={st.val} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition-colors ${siswa.status === st.val ? st.col : 'text-on-surface-variant border-transparent hover:bg-surface-container'}`}>
                                     <input 
                                       type="radio" 
                                       name={`status-${siswa.id}`} 
@@ -323,7 +323,7 @@ export default function Attendance() {
                                       onChange={() => handleChangeStatus(siswa.id, st.val)}
                                       className="sr-only"
                                     />
-                                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${siswa.status === st.val ? 'border-current bg-current' : 'border-slate-300 bg-white'}`}>
+                                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${siswa.status === st.val ? 'border-current bg-current' : 'border-outline-variant bg-white'}`}>
                                        {siswa.status === st.val && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                     </div>
                                     <span className="text-xs font-medium">{st.label}</span>
@@ -345,8 +345,8 @@ export default function Attendance() {
                     </table>
                   </div>
 
-                  <div className="flex justify-end pt-4 mt-2 border-t border-slate-100">
-                    <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 gap-2 px-8">
+                  <div className="flex justify-end pt-4 mt-2 border-t border-outline-variant">
+                    <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 gap-2 px-8">
                       {isSubmitting ? (
                         <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       ) : <Save className="w-4 h-4" />}
@@ -360,10 +360,10 @@ export default function Attendance() {
             // TAB REKAP
             <div className="space-y-6">
               {isLoadingRekap ? (
-                <div className="py-12 text-center text-slate-500">Memuat rekapitulasi...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat rekapitulasi...</div>
               ) : rekapData.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-                   <p className="text-lg font-medium text-slate-700">Belum ada data</p>
+                <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+                   <p className="text-lg font-medium text-on-surface">Belum ada data</p>
                    <p className="text-sm">Tidak ada data presensi pada bulan ini.</p>
                 </div>
               ) : (
@@ -384,25 +384,25 @@ export default function Attendance() {
                   </div>
 
                   <div className="flex justify-end mb-3">
-                    <Button variant="outline" size="sm" className="gap-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={handleExport} disabled={isExporting}>
-                      {isExporting ? <div className="w-4 h-4 border-2 border-green-700/40 border-t-green-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+                    <Button variant="outline" size="sm" className="gap-2 bg-secondary-container/30 text-on-secondary-container border-secondary/30 hover:bg-secondary-container/60" onClick={handleExport} disabled={isExporting}>
+                      {isExporting ? <div className="w-4 h-4 border-2 border-secondary/40 border-t-green-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
                       Export Excel
                     </Button>
                   </div>
 
                   <div className="overflow-x-auto border rounded-lg">
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                      <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
                         <tr>
                           {[
                             { field: 'nama', label: 'Nama Siswa', cls: '' },
-                            { field: 'hadir', label: 'Hadir', cls: 'text-center text-green-700' },
-                            { field: 'izin', label: 'Izin', cls: 'text-center text-yellow-700' },
-                            { field: 'sakit', label: 'Sakit', cls: 'text-center text-orange-700' },
-                            { field: 'alpha', label: 'Alpha', cls: 'text-center text-red-700' },
+                            { field: 'hadir', label: 'Hadir', cls: 'text-center text-on-secondary-container' },
+                            { field: 'izin', label: 'Izin', cls: 'text-center text-on-tertiary-fixed' },
+                            { field: 'sakit', label: 'Sakit', cls: 'text-center text-on-tertiary-fixed' },
+                            { field: 'alpha', label: 'Alpha', cls: 'text-center text-error' },
                             { field: 'persentase', label: '% Kehadiran', cls: 'text-center' },
                           ].map(col => (
-                            <th key={col.field} className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-slate-100 ${col.cls}`} onClick={() => handleSort(col.field)}>
+                            <th key={col.field} className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-surface-container ${col.cls}`} onClick={() => handleSort(col.field)}>
                               <span className="inline-flex items-center gap-1">
                                 {col.label}
                                 {sortField === col.field
@@ -416,15 +416,15 @@ export default function Attendance() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {sortedRekap.map((siswa, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 font-medium text-slate-900">
+                          <tr key={idx} className="hover:bg-surface-container-low/50">
+                            <td className="px-4 py-3 font-medium text-on-surface">
                               {siswa.nama}
-                              <div className="text-xs text-slate-400 font-normal">{siswa.nis}</div>
+                              <div className="text-xs text-outline-variant font-normal">{siswa.nis}</div>
                             </td>
-                            <td className="px-4 py-3 text-center font-medium bg-green-50/30">{siswa.hadir}</td>
-                            <td className="px-4 py-3 text-center bg-yellow-50/30">{siswa.izin}</td>
-                            <td className="px-4 py-3 text-center bg-orange-50/30">{siswa.sakit}</td>
-                            <td className="px-4 py-3 text-center bg-red-50/30 text-red-600 font-medium">{siswa.alpha}</td>
+                            <td className="px-4 py-3 text-center font-medium bg-secondary-container/30/30">{siswa.hadir}</td>
+                            <td className="px-4 py-3 text-center bg-tertiary-fixed/50/30">{siswa.izin}</td>
+                            <td className="px-4 py-3 text-center bg-tertiary-fixed/50/30">{siswa.sakit}</td>
+                            <td className="px-4 py-3 text-center bg-error-container/30 text-error font-medium">{siswa.alpha}</td>
                             <td className="px-4 py-3 text-center font-bold" style={{ color: getPercentageColor(siswa.persentase) }}>
                               {siswa.persentase}%
                             </td>

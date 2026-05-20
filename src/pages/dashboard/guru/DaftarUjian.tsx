@@ -17,7 +17,7 @@ import { useModalA11y } from '../../../hooks/useModalA11y';
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-red-500 mt-1">{msg}</p>;
+  return <p className="text-xs text-error mt-1">{msg}</p>;
 }
 
 interface EditForm {
@@ -225,8 +225,8 @@ export default function DaftarUjian() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Manajemen Ujian</h1>
-          <p className="text-slate-500 mt-1">Daftar semua ujian yang telah Anda buat.</p>
+          <h1 className="text-2xl font-bold text-on-surface tracking-tight">Manajemen Ujian</h1>
+          <p className="text-on-surface-variant mt-1">Daftar semua ujian yang telah Anda buat.</p>
         </div>
         <Button onClick={() => navigate('/dashboard/guru/ujian/baru')} className="gap-2">
           <Plus className="w-4 h-4" /> Buat Ujian Baru
@@ -242,7 +242,7 @@ export default function DaftarUjian() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline-variant" />
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -265,21 +265,21 @@ export default function DaftarUjian() {
         <CardContent>
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
-              <div className="w-6 h-6 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-              <p className="text-sm text-slate-500">Memuat data ujian...</p>
+              <div className="w-6 h-6 border-4 border-primary/30 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-sm text-on-surface-variant">Memuat data ujian...</p>
             </div>
           ) : errorMsg ? (
             <ErrorState message={errorMsg} onRetry={fetchData} />
           ) : filteredList.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-              <FileText className="w-12 h-12 text-slate-300 mb-3" />
-              <p className="text-lg font-medium text-slate-700">Tidak ada ujian</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+              <FileText className="w-12 h-12 text-outline-variant mb-3" />
+              <p className="text-lg font-medium text-on-surface">Tidak ada ujian</p>
               <p className="text-sm">Belum ada ujian yang sesuai dengan filter.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Informasi Ujian</th>
                     <th className="px-4 py-3 font-semibold">Waktu Pelaksanaan</th>
@@ -292,41 +292,41 @@ export default function DaftarUjian() {
                   {filteredList.map((ujian) => {
                     const status = getStatus(ujian);
                     return (
-                      <tr key={ujian.id} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={ujian.id} className="hover:bg-surface-container-low/50 transition-colors">
                         <td className="px-4 py-4">
-                          <div className="font-semibold text-slate-900 mb-1">{ujian.judul}</div>
+                          <div className="font-semibold text-on-surface mb-1">{ujian.judul}</div>
                           <div className="flex items-center gap-1 mb-1">
                             <Badge variant="outline" className="text-[10px] uppercase font-medium">{ujian.tipeUjian}</Badge>
-                            <span className="text-xs text-slate-500">&bull; {ujian.mataPelajaran}</span>
+                            <span className="text-xs text-on-surface-variant">&bull; {ujian.mataPelajaran}</span>
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-on-surface-variant">
                             Kelas: {ujian.kelas.map((k: any) => k.kelas.nama).join(', ') || '-'}
                           </div>
                           {hasParticipants(ujian) && (
-                            <div className="flex items-center gap-1 mt-1.5 text-xs text-slate-400">
+                            <div className="flex items-center gap-1 mt-1.5 text-xs text-outline-variant">
                               <Users className="w-3 h-3" />
                               {ujian._count.sesiUjian} peserta
                             </div>
                           )}
                         </td>
                         <td className="px-4 py-4 align-top">
-                          <div className="flex flex-col gap-1.5 text-xs text-slate-600">
+                          <div className="flex flex-col gap-1.5 text-xs text-on-surface-variant">
                             <span className="flex items-center gap-1.5 font-medium">
-                              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                              <Calendar className="w-3.5 h-3.5 text-primary" />
                               {formatDate(ujian.tanggalMulai, 'datetime')}
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <Calendar className="w-3.5 h-3.5 text-outline-variant" />
                               {formatDate(ujian.tanggalSelesai, 'datetime')}
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <Clock className="w-3.5 h-3.5 text-outline-variant" />
                               {ujian.durasi} Menit
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-4 text-center align-top">
-                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold text-sm border border-slate-200">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface-container text-on-surface font-semibold text-sm border border-outline-variant">
                             {ujian._count?.soal || 0}
                           </span>
                         </td>
@@ -342,7 +342,7 @@ export default function DaftarUjian() {
                                 className="bg-white h-8 px-2.5 gap-1 text-xs"
                                 title="Kelola Soal"
                               >
-                                <BookOpen className="w-3.5 h-3.5 text-blue-600" /> Soal
+                                <BookOpen className="w-3.5 h-3.5 text-primary" /> Soal
                               </Button>
                               <Button
                                 variant="outline" size="sm"
@@ -350,7 +350,7 @@ export default function DaftarUjian() {
                                 className="bg-white h-8 px-2.5 gap-1 text-xs"
                                 title="Edit Info Ujian"
                               >
-                                <Edit className="w-3.5 h-3.5 text-slate-600" /> Edit
+                                <Edit className="w-3.5 h-3.5 text-on-surface-variant" /> Edit
                               </Button>
                             </div>
                             <div className="flex gap-1.5">
@@ -361,7 +361,7 @@ export default function DaftarUjian() {
                                   className="bg-white h-8 px-2.5 gap-1 text-xs"
                                   title="Lihat Hasil"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-emerald-600" /> Hasil
+                                  <Eye className="w-3.5 h-3.5 text-secondary" /> Hasil
                                 </Button>
                               )}
                               <Button
@@ -372,17 +372,17 @@ export default function DaftarUjian() {
                                 title="Duplikat Ujian"
                               >
                                 {isDuplicating === ujian.id
-                                  ? <div className="w-3.5 h-3.5 border-2 border-slate-400/40 border-t-slate-500 rounded-full animate-spin" />
-                                  : <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                  ? <div className="w-3.5 h-3.5 border-2 border-outline/40 border-t-slate-500 rounded-full animate-spin" />
+                                  : <Copy className="w-3.5 h-3.5 text-on-surface-variant" />
                                 }
                               </Button>
                               <Button
                                 variant="outline" size="sm"
                                 onClick={() => handleOpenDelete(ujian)}
-                                className="bg-white hover:bg-red-50 hover:border-red-200 h-8 px-2"
+                                className="bg-white hover:bg-error-container hover:border-error/20 h-8 px-2"
                                 title="Hapus Ujian"
                               >
-                                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                <Trash2 className="w-3.5 h-3.5 text-error" />
                               </Button>
                             </div>
                           </div>
@@ -399,7 +399,7 @@ export default function DaftarUjian() {
 
       {/* ── Modal Edit Info Ujian ─────────────────────────────── */}
       {editModalOpen && editingUjian && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm overflow-y-auto">
           <Card
             ref={editModalRef as React.RefObject<HTMLDivElement>}
             role="dialog"
@@ -407,7 +407,7 @@ export default function DaftarUjian() {
             aria-labelledby="edit-ujian-title"
             className="w-full max-w-2xl border-0 shadow-xl my-auto"
           >
-            <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
+            <CardHeader className="bg-surface-container-low border-b border-outline-variant pb-4">
               <div className="flex justify-between items-center">
                 <CardTitle id="edit-ujian-title">Edit Info Ujian</CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => setEditModalOpen(false)} aria-label="Tutup modal">Tutup</Button>
@@ -416,35 +416,35 @@ export default function DaftarUjian() {
             <form onSubmit={handleSaveEdit}>
               <CardContent className="pt-6 space-y-5 max-h-[65vh] overflow-y-auto">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-judul">Judul Ujian <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="edit-judul">Judul Ujian <span className="text-error">*</span></Label>
                   <Input
                     id="edit-judul"
                     value={editForm.judul}
                     onChange={e => setEditForm({ ...editForm, judul: e.target.value })}
-                    className={editErrors.judul ? 'border-red-500' : ''}
+                    className={editErrors.judul ? 'border-error' : ''}
                   />
                   <FieldError msg={editErrors.judul} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-mapel">Mata Pelajaran <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="edit-mapel">Mata Pelajaran <span className="text-error">*</span></Label>
                     <Input
                       id="edit-mapel"
                       value={editForm.mataPelajaran}
                       onChange={e => setEditForm({ ...editForm, mataPelajaran: e.target.value })}
-                      className={editErrors.mataPelajaran ? 'border-red-500' : ''}
+                      className={editErrors.mataPelajaran ? 'border-error' : ''}
                     />
                     <FieldError msg={editErrors.mataPelajaran} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-durasi">Durasi (Menit) <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="edit-durasi">Durasi (Menit) <span className="text-error">*</span></Label>
                     <Input
                       id="edit-durasi"
                       type="number"
                       min="5"
                       value={editForm.durasi}
                       onChange={e => setEditForm({ ...editForm, durasi: e.target.value })}
-                      className={editErrors.durasi ? 'border-red-500' : ''}
+                      className={editErrors.durasi ? 'border-error' : ''}
                     />
                     <FieldError msg={editErrors.durasi} />
                   </div>
@@ -459,8 +459,8 @@ export default function DaftarUjian() {
                         onClick={() => setEditForm({ ...editForm, tipeUjian: t })}
                         className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
                           editForm.tipeUjian === t
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                            ? 'border-primary bg-primary-container/15 text-primary'
+                            : 'border-outline-variant text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low'
                         }`}
                       >
                         {t.replace('_', ' ')}
@@ -470,36 +470,36 @@ export default function DaftarUjian() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-mulai">Waktu Dibuka <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="edit-mulai">Waktu Dibuka <span className="text-error">*</span></Label>
                     <Input
                       id="edit-mulai"
                       type="datetime-local"
                       value={editForm.tanggalMulai}
                       onChange={e => setEditForm({ ...editForm, tanggalMulai: e.target.value })}
-                      className={editErrors.tanggalMulai ? 'border-red-500' : ''}
+                      className={editErrors.tanggalMulai ? 'border-error' : ''}
                     />
                     <FieldError msg={editErrors.tanggalMulai} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-selesai">Waktu Ditutup <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="edit-selesai">Waktu Ditutup <span className="text-error">*</span></Label>
                     <Input
                       id="edit-selesai"
                       type="datetime-local"
                       value={editForm.tanggalSelesai}
                       onChange={e => setEditForm({ ...editForm, tanggalSelesai: e.target.value })}
-                      className={editErrors.tanggalSelesai ? 'border-red-500' : ''}
+                      className={editErrors.tanggalSelesai ? 'border-error' : ''}
                     />
                     <FieldError msg={editErrors.tanggalSelesai} />
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <Label>Kelas Peserta <span className="text-red-500">*</span></Label>
+                  <Label>Kelas Peserta <span className="text-error">*</span></Label>
                   {kelasList.length === 0 ? (
-                    <p className="text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg p-3 text-center">
+                    <p className="text-sm text-on-surface-variant border border-dashed border-outline-variant rounded-lg p-3 text-center">
                       Tidak ada kelas tersedia.
                     </p>
                   ) : (
-                    <div className={`flex flex-wrap gap-2 ${editErrors.kelasIds ? 'p-2 border border-red-300 rounded-lg bg-red-50/30' : ''}`}>
+                    <div className={`flex flex-wrap gap-2 ${editErrors.kelasIds ? 'p-2 border border-error/40 rounded-lg bg-error-container/30' : ''}`}>
                       {kelasList.map(k => {
                         const selected = editForm.kelasIds.includes(k.id);
                         return (
@@ -509,8 +509,8 @@ export default function DaftarUjian() {
                             onClick={() => toggleEditKelas(k.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all ${
                               selected
-                                ? 'bg-blue-600 border-blue-600 text-white'
-                                : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                ? 'bg-primary border-primary text-white'
+                                : 'border-outline-variant text-on-surface hover:border-outline-variant hover:bg-surface-container-low'
                             }`}
                           >
                             {selected && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -523,11 +523,11 @@ export default function DaftarUjian() {
                   <FieldError msg={editErrors.kelasIds} />
                 </div>
               </CardContent>
-              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3">
+              <div className="bg-surface-container-low p-4 border-t border-outline-variant flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)} disabled={isSubmitting}>
                   Batal
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
                   {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </Button>
               </div>
@@ -538,7 +538,7 @@ export default function DaftarUjian() {
 
       {/* ── Modal Konfirmasi Hapus ────────────────────────────── */}
       {deleteModalOpen && deletingUjian && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <Card
             ref={deleteModalRef as React.RefObject<HTMLDivElement>}
             role="dialog"
@@ -550,20 +550,20 @@ export default function DaftarUjian() {
               <CardTitle id="delete-ujian-title" className="text-xl">Hapus Ujian?</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-slate-600">Anda akan menghapus ujian:</p>
-              <p className="font-semibold text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <p className="text-on-surface-variant">Anda akan menghapus ujian:</p>
+              <p className="font-semibold text-on-surface bg-surface-container-low p-3 rounded-lg border border-outline-variant">
                 {deletingUjian.judul}
               </p>
 
               {hasParticipants(deletingUjian) ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex gap-2">
+                <div className="bg-error-container border border-error/20 rounded-lg p-3 text-sm text-error flex gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
                     Ujian ini sudah dikerjakan oleh <strong>{deletingUjian._count.sesiUjian} siswa</strong> dan tidak dapat dihapus. Hubungi Administrator jika perlu menghapus paksa.
                   </span>
                 </div>
               ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex gap-2">
+                <div className="bg-tertiary-fixed/50 border border-tertiary-fixed rounded-lg p-3 text-sm text-on-tertiary-fixed flex gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
                     Semua soal ({deletingUjian._count?.soal || 0} soal) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.
@@ -571,7 +571,7 @@ export default function DaftarUjian() {
                 </div>
               )}
             </CardContent>
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+            <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
               <Button
                 variant="outline"
                 onClick={() => { setDeleteModalOpen(false); setDeletingUjian(null); }}
@@ -582,7 +582,7 @@ export default function DaftarUjian() {
               <Button
                 onClick={handleConfirmDelete}
                 disabled={isDeleting || hasParticipants(deletingUjian)}
-                className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                className="bg-error hover:bg-error/90 text-white disabled:opacity-50"
               >
                 {isDeleting ? 'Menghapus...' : 'Ya, Hapus Ujian'}
               </Button>

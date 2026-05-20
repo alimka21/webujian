@@ -140,14 +140,14 @@ export default function Students() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Siswa & Kelas</h1>
-          <p className="text-slate-500 mt-1">Kelola data kelas dan siswa yang Anda ajar.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Siswa & Kelas</h1>
+          <p className="text-on-surface-variant mt-1">Kelola data kelas dan siswa yang Anda ajar.</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button variant="outline" onClick={() => setShowKelasModal(true)} className="flex-1 md:flex-none gap-2">
             <Plus className="w-4 h-4" /> Kelas Baru
           </Button>
-          <Button onClick={() => handleOpenSiswaModal()} disabled={kelasList.length === 0} className="flex-1 md:flex-none gap-2 px-6 bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => handleOpenSiswaModal()} disabled={kelasList.length === 0} className="flex-1 md:flex-none gap-2 px-6 bg-primary hover:bg-primary/90">
             <Users className="w-4 h-4" /> Tambah Siswa
           </Button>
         </div>
@@ -172,22 +172,22 @@ export default function Students() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-12 text-center text-slate-500">Memuat data siswa...</div>
+            <div className="py-12 text-center text-on-surface-variant">Memuat data siswa...</div>
           ) : kelasList.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-              <Users className="w-12 h-12 text-slate-300 mb-3" />
-              <p className="text-lg font-medium text-slate-700">Tidak ada kelas</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+              <Users className="w-12 h-12 text-outline-variant mb-3" />
+              <p className="text-lg font-medium text-on-surface">Tidak ada kelas</p>
               <p className="text-sm text-center max-w-sm mt-1">Anda belum memiliki kelas. Silakan buat kelas baru terlebih dahulu untuk menambahkan siswa.</p>
             </div>
           ) : siswaList.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-              <p className="text-lg font-medium text-slate-700">Belum ada siswa</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+              <p className="text-lg font-medium text-on-surface">Belum ada siswa</p>
               <p className="text-sm">Klik "Tambah Siswa" untuk memasukkan data siswa ke kelas ini.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-xs">
+                <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant uppercase text-xs">
                   <tr>
                     <th className="px-4 py-3 font-semibold rounded-tl-lg">NIS</th>
                     <th className="px-4 py-3 font-semibold">Nama Siswa</th>
@@ -197,19 +197,19 @@ export default function Students() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {siswaList.map(siswa => (
-                    <tr key={siswa.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-4 font-medium text-slate-900">{siswa.nis}</td>
+                    <tr key={siswa.id} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="px-4 py-4 font-medium text-on-surface">{siswa.nis}</td>
                       <td className="px-4 py-4 font-medium">{siswa.nama}</td>
-                      <td className="px-4 py-4 text-slate-500">{siswa.user?.email || '-'}</td>
+                      <td className="px-4 py-4 text-on-surface-variant">{siswa.user?.email || '-'}</td>
                       <td className="px-4 py-4">
                         <div className="flex justify-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenSiswaModal(siswa)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2" title="Edit">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenSiswaModal(siswa)} className="text-primary hover:text-primary hover:bg-primary-container/15 h-8 px-2" title="Edit">
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleResetPassword(siswa.id, siswa.nis)} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 px-2" title="Reset Password">
+                          <Button variant="ghost" size="sm" onClick={() => handleResetPassword(siswa.id, siswa.nis)} className="text-on-tertiary-fixed hover:text-on-tertiary-fixed hover:bg-tertiary-fixed/50 h-8 px-2" title="Reset Password">
                             <KeyRound className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteSiswa(siswa.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2" title="Hapus">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteSiswa(siswa.id)} className="text-error hover:text-error hover:bg-error-container h-8 px-2" title="Hapus">
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -225,9 +225,9 @@ export default function Students() {
 
       {/* Modal Tambah/Edit Siswa */}
       {showSiswaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm shadow-2xl">
           <Card className="w-full max-w-md border-0 animate-in fade-in zoom-in-95 duration-200">
-            <CardHeader className="border-b border-slate-100 pb-4">
+            <CardHeader className="border-b border-outline-variant pb-4">
               <CardTitle>{editingSiswa ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</CardTitle>
             </CardHeader>
             <form onSubmit={handleSaveSiswa}>
@@ -243,16 +243,16 @@ export default function Students() {
                 <div className="space-y-2">
                   <Label htmlFor="nis">Nomor Induk Siswa (NIS) *</Label>
                   <Input id="nis" required value={siswaForm.nis} onChange={e => setSiswaForm({ ...siswaForm, nis: e.target.value })} placeholder="Contoh: 12345" />
-                  {!editingSiswa && <p className="text-xs text-slate-500">NIS ini akan digunakan sebagai password default saat login pertama kali.</p>}
+                  {!editingSiswa && <p className="text-xs text-on-surface-variant">NIS ini akan digunakan sebagai password default saat login pertama kali.</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="nama">Nama Lengkap *</Label>
                   <Input id="nama" required value={siswaForm.nama} onChange={e => setSiswaForm({ ...siswaForm, nama: e.target.value })} placeholder="Nama Lengkap Siswa" />
                 </div>
               </CardContent>
-              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+              <div className="bg-surface-container-low p-4 border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
                 <Button type="button" variant="outline" onClick={() => setShowSiswaModal(false)}>Batal</Button>
-                <Button type="submit" disabled={isSubmittingSiswa} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmittingSiswa} className="bg-primary hover:bg-primary/90">
                   {isSubmittingSiswa ? 'Menyimpan...' : 'Simpan Siswa'}
                 </Button>
               </div>
@@ -263,9 +263,9 @@ export default function Students() {
 
       {/* Modal Tambah Kelas */}
       {showKelasModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm shadow-2xl">
           <Card className="w-full max-w-md border-0 animate-in fade-in zoom-in-95 duration-200">
-            <CardHeader className="border-b border-slate-100 pb-4">
+            <CardHeader className="border-b border-outline-variant pb-4">
               <CardTitle>Buat Kelas Baru</CardTitle>
             </CardHeader>
             <form onSubmit={handleSaveKelas}>
@@ -289,9 +289,9 @@ export default function Students() {
                   </div>
                 </div>
               </CardContent>
-              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+              <div className="bg-surface-container-low p-4 border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
                 <Button type="button" variant="outline" onClick={() => setShowKelasModal(false)}>Batal</Button>
-                <Button type="submit" disabled={isSubmittingKelas} className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" disabled={isSubmittingKelas} className="bg-primary hover:bg-primary/90">
                   {isSubmittingKelas ? 'Menyimpan...' : 'Simpan Kelas'}
                 </Button>
               </div>

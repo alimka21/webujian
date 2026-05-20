@@ -227,8 +227,8 @@ export default function KelolaSoal() {
   if (isLoading && !ujian) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
-        <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-sm text-slate-500">Memuat data soal...</p>
+        <div className="w-8 h-8 border-4 border-primary/30 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-sm text-on-surface-variant">Memuat data soal...</p>
       </div>
     );
   }
@@ -236,10 +236,10 @@ export default function KelolaSoal() {
   if (errorMsg) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <XCircle className="w-12 h-12 text-red-500" />
+        <XCircle className="w-12 h-12 text-error" />
         <div>
-          <p className="font-semibold text-slate-700">Terjadi Kesalahan</p>
-          <p className="text-sm text-slate-500 mt-1">{errorMsg}</p>
+          <p className="font-semibold text-on-surface">Terjadi Kesalahan</p>
+          <p className="text-sm text-on-surface-variant mt-1">{errorMsg}</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate('/dashboard/guru/ujian')} className="gap-2">
@@ -260,18 +260,18 @@ export default function KelolaSoal() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <div className="text-sm text-slate-500 font-medium">
-            <span className="hover:text-slate-900 cursor-pointer" onClick={() => navigate('/dashboard/guru/ujian')}>Ujian</span>
+          <div className="text-sm text-on-surface-variant font-medium">
+            <span className="hover:text-on-surface cursor-pointer" onClick={() => navigate('/dashboard/guru/ujian')}>Ujian</span>
             <span className="mx-1.5">/</span>
-            <span className="text-slate-900">{ujian?.judul || 'Loading...'}</span>
+            <span className="text-on-surface">{ujian?.judul || 'Loading...'}</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">Bank Soal</h1>
+          <h1 className="text-2xl font-bold text-on-surface tracking-tight mt-1">Bank Soal</h1>
         </div>
       </div>
 
       {isEditing ? (
-        <Card className="border-blue-200 shadow-md shadow-blue-500/5">
-          <CardHeader className="bg-blue-50/50 border-b border-blue-100 pb-4">
+        <Card className="border-primary/30 shadow-md shadow-blue-500/5">
+          <CardHeader className="bg-primary-container/15/50 border-b border-primary/20 pb-4">
             <CardTitle>{editingId ? 'Edit Soal' : 'Soal Baru'}</CardTitle>
             <CardDescription>Pilih tipe soal dan lengkapi pertanyaan serta opsi jawaban.</CardDescription>
           </CardHeader>
@@ -289,7 +289,7 @@ export default function KelolaSoal() {
                     type="button"
                     variant={formData.tipe === t.value ? 'default' : 'outline'}
                     onClick={() => handleTypeChange(t.value as SoalForm['tipe'])}
-                    className={formData.tipe === t.value ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-white'}
+                    className={formData.tipe === t.value ? 'bg-primary hover:bg-primary/90 text-white' : 'bg-white'}
                   >
                     {t.label}
                   </Button>
@@ -298,13 +298,13 @@ export default function KelolaSoal() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="teks">Pertanyaan <span className="text-red-500">*</span></Label>
+              <Label htmlFor="teks">Pertanyaan <span className="text-error">*</span></Label>
               <textarea
                 id="teks"
                 value={formData.teks}
                 onChange={e => setFormData({ ...formData, teks: e.target.value })}
                 autoFocus
-                className="w-full min-h-[120px] p-3 rounded-md border border-gray-200 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 resize-y"
+                className="w-full min-h-[120px] p-3 rounded-md border border-outline-variant bg-transparent text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 resize-y"
                 placeholder="Tuliskan pertanyaan di sini..."
               />
             </div>
@@ -331,11 +331,11 @@ export default function KelolaSoal() {
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-slate-100">
+            <div className="space-y-4 pt-4 border-t border-outline-variant">
               <div className="flex items-center justify-between">
-                <Label>Opsi Jawaban <span className="text-red-500">*</span></Label>
+                <Label>Opsi Jawaban <span className="text-error">*</span></Label>
                 {formData.tipe !== 'BENAR_SALAH' && formData.opsi.length < 6 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={addOpsi} className="text-blue-600 h-8">
+                  <Button type="button" variant="ghost" size="sm" onClick={addOpsi} className="text-primary h-8">
                     + Tambah Opsi
                   </Button>
                 )}
@@ -345,12 +345,12 @@ export default function KelolaSoal() {
                 {formData.opsi.map((opsi, idx) => {
                   const isBenarSalah = formData.tipe === 'BENAR_SALAH';
                   return (
-                    <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${opsi.benar ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-white'}`}>
+                    <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${opsi.benar ? 'border-secondary/40 bg-secondary-container/30' : 'border-outline-variant bg-white'}`}>
                       <div className="flex items-center h-10 w-10 shrink-0 justify-center">
                         {formData.tipe === 'PG_KOMPLEKS' ? (
                           <input
                             type="checkbox"
-                            className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-600"
+                            className="w-5 h-5 text-secondary rounded border-outline-variant focus:ring-green-600"
                             checked={opsi.benar}
                             onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
                           />
@@ -358,7 +358,7 @@ export default function KelolaSoal() {
                           <input
                             type="radio"
                             name="radio-opsi"
-                            className="w-5 h-5 text-green-600 border-gray-300 focus:ring-green-600"
+                            className="w-5 h-5 text-secondary border-outline-variant focus:ring-green-600"
                             checked={opsi.benar}
                             onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
                           />
@@ -374,7 +374,7 @@ export default function KelolaSoal() {
                         />
                       </div>
                       {!isBenarSalah && formData.opsi.length > 2 && (
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeOpsi(idx)} className="text-slate-400 hover:text-red-500 shrink-0">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeOpsi(idx)} className="text-outline-variant hover:text-error shrink-0">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       )}
@@ -382,14 +382,14 @@ export default function KelolaSoal() {
                   );
                 })}
               </div>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-on-surface-variant mt-2">
                 {formData.tipe === 'PG_KOMPLEKS'
                   ? 'Centang semua opsi yang merupakan jawaban benar.'
                   : 'Pilih radio/centang di kiri untuk menentukan jawaban benar.'}
               </p>
             </div>
           </CardContent>
-          <CardFooter className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+          <CardFooter className="bg-surface-container-low p-4 border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
             <Button variant="outline" onClick={() => { setIsEditing(false); setEditingId(null); }} disabled={isSaving}>
               Batal
             </Button>
@@ -418,18 +418,18 @@ export default function KelolaSoal() {
           </CardHeader>
           <CardContent>
             {soalList.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-                <FileText className="w-12 h-12 text-slate-300 mb-3" />
-                <p className="text-lg font-medium text-slate-700">Belum ada soal</p>
+              <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+                <FileText className="w-12 h-12 text-outline-variant mb-3" />
+                <p className="text-lg font-medium text-on-surface">Belum ada soal</p>
                 <p className="text-sm">Klik "Tambah Soal" untuk mulai membuat bank soal.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {soalList.map((soal) => (
-                  <div key={soal.id} className="p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors shadow-sm">
+                  <div key={soal.id} className="p-5 rounded-xl border border-outline-variant bg-white hover:border-outline-variant transition-colors shadow-sm">
                     <div className="flex justify-between items-start gap-4 mb-3">
                       <div className="flex gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold shrink-0 text-sm">
+                        <div className="w-8 h-8 rounded-full bg-surface-container text-on-surface flex items-center justify-center font-bold shrink-0 text-sm">
                           {soal.nomor}
                         </div>
                         <div className="min-w-0">
@@ -437,36 +437,36 @@ export default function KelolaSoal() {
                             <Badge variant="secondary" className="text-[10px]">{soal.tipe.replace(/_/g, ' ')}</Badge>
                             <Badge variant="outline" className="text-[10px]">{soal.poin} Poin</Badge>
                           </div>
-                          <p className="text-slate-900 font-medium leading-relaxed whitespace-pre-wrap">{soal.teks}</p>
+                          <p className="text-on-surface font-medium leading-relaxed whitespace-pre-wrap">{soal.teks}</p>
                           {soal.imageUrl && (
-                            <img src={soal.imageUrl} alt="Lampiran soal" loading="lazy" className="mt-3 max-h-48 rounded border border-slate-200" />
+                            <img src={soal.imageUrl} alt="Lampiran soal" loading="lazy" className="mt-3 max-h-48 rounded border border-outline-variant" />
                           )}
                         </div>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(soal)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2" title="Edit Soal">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(soal)} className="text-primary hover:text-primary hover:bg-primary-container/15 h-8 px-2" title="Edit Soal">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDuplikat(soal)} disabled={duplicatingId === soal.id} className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2" title="Duplikat Soal">
+                        <Button variant="ghost" size="sm" onClick={() => handleDuplikat(soal)} disabled={duplicatingId === soal.id} className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container h-8 px-2" title="Duplikat Soal">
                           {duplicatingId === soal.id
-                            ? <div className="w-4 h-4 border-2 border-slate-400/40 border-t-slate-500 rounded-full animate-spin" />
+                            ? <div className="w-4 h-4 border-2 border-outline/40 border-t-slate-500 rounded-full animate-spin" />
                             : <Copy className="w-4 h-4" />
                           }
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(soal.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2" title="Hapus Soal">
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(soal.id)} className="text-error hover:text-error hover:bg-error-container h-8 px-2" title="Hapus Soal">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
 
                     {deleteConfirmId === soal.id && (
-                      <div className="mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
-                        <span className="text-red-700 font-medium flex-1">Yakin hapus soal ini?</span>
+                      <div className="mb-4 flex items-center gap-3 p-3 bg-error-container border border-error/20 rounded-lg text-sm">
+                        <span className="text-error font-medium flex-1">Yakin hapus soal ini?</span>
                         <Button
                           size="sm"
                           onClick={() => handleConfirmDelete(soal.id)}
                           disabled={isDeletingId === soal.id}
-                          className="h-7 bg-red-600 hover:bg-red-700 text-white text-xs px-3"
+                          className="h-7 bg-error hover:bg-error/90 text-white text-xs px-3"
                         >
                           {isDeletingId === soal.id ? 'Menghapus...' : 'Ya, Hapus'}
                         </Button>
@@ -478,11 +478,11 @@ export default function KelolaSoal() {
 
                     <div className="pl-11 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {soal.opsi.map((opsi: any) => (
-                        <div key={opsi.id} className={`flex items-start gap-2 p-2 rounded-lg text-sm border ${opsi.benar ? 'bg-green-50/50 border-green-200 text-green-800' : 'bg-slate-50 border-transparent text-slate-600'}`}>
+                        <div key={opsi.id} className={`flex items-start gap-2 p-2 rounded-lg text-sm border ${opsi.benar ? 'bg-secondary-container/30/50 border-secondary/30 text-on-secondary-container' : 'bg-surface-container-low border-transparent text-on-surface-variant'}`}>
                           <div className="mt-0.5 shrink-0">
                             {opsi.benar
-                              ? <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              : <div className="w-4 h-4 rounded-full border border-slate-300" />
+                              ? <CheckCircle2 className="w-4 h-4 text-secondary" />
+                              : <div className="w-4 h-4 rounded-full border border-outline-variant" />
                             }
                           </div>
                           <span>{opsi.teks}</span>

@@ -160,10 +160,10 @@ export default function RekapNilai() {
   };
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-slate-400 bg-slate-100';
-    if (score >= 75) return 'text-green-700 bg-green-50';
-    if (score >= 60) return 'text-yellow-700 bg-yellow-50';
-    return 'text-red-700 bg-red-50';
+    if (score === null) return 'text-outline-variant bg-surface-container';
+    if (score >= 75) return 'text-on-secondary-container bg-secondary-container/30';
+    if (score >= 60) return 'text-on-tertiary-fixed bg-tertiary-fixed/50';
+    return 'text-error bg-error-container';
   };
 
   const statusBadge = (status: string, reason: string | null) => {
@@ -178,8 +178,8 @@ export default function RekapNilai() {
       if (reason === 'timeout') return <Badge variant="warning">Waktu Habis</Badge>;
       return <Badge variant="success">Selesai</Badge>;
     }
-    if (status === 'SEDANG_BERLANGSUNG') return <Badge className="bg-blue-500 text-white border-0">Berlangsung</Badge>;
-    return <Badge variant="outline" className="text-slate-500">Belum Mulai</Badge>;
+    if (status === 'SEDANG_BERLANGSUNG') return <Badge className="bg-primary-container/150 text-white border-0">Berlangsung</Badge>;
+    return <Badge variant="outline" className="text-on-surface-variant">Belum Mulai</Badge>;
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -215,11 +215,11 @@ export default function RekapNilai() {
             className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
               <div>
-                <h2 id="detail-jawaban-title" className="text-lg font-bold text-slate-900">Detail Jawaban</h2>
+                <h2 id="detail-jawaban-title" className="text-lg font-bold text-on-surface">Detail Jawaban</h2>
                 {detailData && (
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <p className="text-sm text-on-surface-variant mt-0.5">
                     {detailData.siswa.nama} — NIS {detailData.siswa.nis}
                     {detailData.sesi.nilaiAkhir !== null && (
                       <span className={`ml-2 font-bold px-2 py-0.5 rounded ${getScoreColor(detailData.sesi.nilaiAkhir)}`}>
@@ -229,46 +229,46 @@ export default function RekapNilai() {
                   </p>
                 )}
               </div>
-              <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" onClick={() => setDetailSesiId(null)}>
+              <button className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant" onClick={() => setDetailSesiId(null)}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="overflow-y-auto flex-1 p-6">
               {isLoadingDetail ? (
-                <div className="py-12 text-center text-slate-500">Memuat jawaban...</div>
+                <div className="py-12 text-center text-on-surface-variant">Memuat jawaban...</div>
               ) : detailData ? (
                 <div className="space-y-3">
                   {detailData.detail.map((item: any) => (
-                    <div key={item.nomor} className={`rounded-xl border p-4 ${item.tidakDijawab ? 'border-slate-200 bg-slate-50' : item.isBenar ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+                    <div key={item.nomor} className={`rounded-xl border p-4 ${item.tidakDijawab ? 'border-outline-variant bg-surface-container-low' : item.isBenar ? 'border-secondary/30 bg-secondary-container/30/50' : 'border-error/20 bg-error-container/50'}`}>
                       <div className="flex items-start gap-3">
-                        <span className="shrink-0 w-7 h-7 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">{item.nomor}</span>
+                        <span className="shrink-0 w-7 h-7 rounded-full bg-surface-container-high text-on-surface text-xs font-bold flex items-center justify-center">{item.nomor}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 leading-snug">{item.teks}</p>
+                          <p className="text-sm font-medium text-on-surface leading-snug">{item.teks}</p>
                           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-500 shrink-0">Jawaban siswa:</span>
+                              <span className="text-on-surface-variant shrink-0">Jawaban siswa:</span>
                               {item.tidakDijawab ? (
-                                <span className="text-slate-400 italic">Tidak dijawab</span>
+                                <span className="text-outline-variant italic">Tidak dijawab</span>
                               ) : (
-                                <span className={`font-medium ${item.isBenar ? 'text-green-700' : 'text-red-700'}`}>
+                                <span className={`font-medium ${item.isBenar ? 'text-on-secondary-container' : 'text-error'}`}>
                                   {item.opsiDipilih?.teks ?? '-'}
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-500 shrink-0">Jawaban benar:</span>
-                              <span className="font-medium text-green-700">{item.opsiBenar?.teks ?? '-'}</span>
+                              <span className="text-on-surface-variant shrink-0">Jawaban benar:</span>
+                              <span className="font-medium text-on-secondary-container">{item.opsiBenar?.teks ?? '-'}</span>
                             </div>
                           </div>
                         </div>
                         <div className="shrink-0">
                           {item.tidakDijawab ? (
-                            <MinusCircle className="w-5 h-5 text-slate-400" />
+                            <MinusCircle className="w-5 h-5 text-outline-variant" />
                           ) : item.isBenar ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <CheckCircle2 className="w-5 h-5 text-secondary" />
                           ) : (
-                            <XCircle className="w-5 h-5 text-red-500" />
+                            <XCircle className="w-5 h-5 text-error" />
                           )}
                         </div>
                       </div>
@@ -278,7 +278,7 @@ export default function RekapNilai() {
               ) : null}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
+            <div className="px-6 py-4 border-t border-outline-variant flex justify-between items-center text-sm text-on-surface-variant">
               {detailData && (
                 <>
                   <span>
@@ -296,33 +296,33 @@ export default function RekapNilai() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Rekapitulasi Nilai</h1>
-          <p className="text-slate-500 mt-1">Pantau hasil ujian dan analisis performa siswa.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Rekapitulasi Nilai</h1>
+          <p className="text-on-surface-variant mt-1">Pantau hasil ujian dan analisis performa siswa.</p>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
             onClick={() => handleExport('xlsx')}
             disabled={isExporting !== null || !selectedUjian}
-            className="gap-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800"
+            className="gap-2 bg-secondary-container/30 text-on-secondary-container border-secondary/30 hover:bg-secondary-container/60 hover:text-on-secondary-container"
           >
-            {isExporting === 'xlsx' ? <div className="w-4 h-4 border-2 border-green-700/40 border-t-green-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            {isExporting === 'xlsx' ? <div className="w-4 h-4 border-2 border-secondary/40 border-t-green-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             Export Excel
           </Button>
           <Button
             variant="outline"
             onClick={() => handleExport('pdf')}
             disabled={isExporting !== null || !selectedUjian}
-            className="gap-2 bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:text-red-800"
+            className="gap-2 bg-error-container text-error border-error/20 hover:bg-error-container hover:text-error"
           >
-            {isExporting === 'pdf' ? <div className="w-4 h-4 border-2 border-red-700/40 border-t-red-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            {isExporting === 'pdf' ? <div className="w-4 h-4 border-2 border-error/40 border-t-red-700 rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             Export PDF
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader className="pb-4 border-b border-slate-100">
+        <CardHeader className="pb-4 border-b border-outline-variant">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle>Filter Ujian</CardTitle>
             <div className="w-full sm:w-96">
@@ -340,37 +340,37 @@ export default function RekapNilai() {
 
         <CardContent className="pt-6">
           {isLoading ? (
-            <div className="py-12 text-center text-slate-500">Memuat analisis data...</div>
+            <div className="py-12 text-center text-on-surface-variant">Memuat analisis data...</div>
           ) : !Array.isArray(rekapData) ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-100 rounded-xl">
-              <p className="text-lg font-medium text-slate-700">Silakan pilih ujian</p>
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+              <p className="text-lg font-medium text-on-surface">Silakan pilih ujian</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Stat Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                  <p className="text-sm text-slate-500 font-medium mb-1">Total Selesai</p>
-                  <p className="text-2xl font-bold text-slate-900">{stats.peserta} <span className="text-sm font-normal text-slate-500">siswa</span></p>
+                <div className="bg-surface-container-low border border-outline-variant p-4 rounded-xl">
+                  <p className="text-sm text-on-surface-variant font-medium mb-1">Total Selesai</p>
+                  <p className="text-2xl font-bold text-on-surface">{stats.peserta} <span className="text-sm font-normal text-on-surface-variant">siswa</span></p>
                 </div>
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
-                  <p className="text-sm text-blue-600 font-medium mb-1">Rata-rata Kelas</p>
-                  <p className="text-2xl font-bold text-blue-900">{stats.rataRata}</p>
+                <div className="bg-primary-container/15 border border-primary/20 p-4 rounded-xl">
+                  <p className="text-sm text-primary font-medium mb-1">Rata-rata Kelas</p>
+                  <p className="text-2xl font-bold text-primary">{stats.rataRata}</p>
                 </div>
-                <div className="bg-green-50 border border-green-100 p-4 rounded-xl">
-                  <p className="text-sm text-green-600 font-medium mb-1">Nilai Tertinggi</p>
-                  <p className="text-2xl font-bold text-green-900">{stats.tertinggi}</p>
+                <div className="bg-secondary-container/30 border border-secondary/20 p-4 rounded-xl">
+                  <p className="text-sm text-secondary font-medium mb-1">Nilai Tertinggi</p>
+                  <p className="text-2xl font-bold text-on-secondary-container">{stats.tertinggi}</p>
                 </div>
-                <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
-                  <p className="text-sm text-red-600 font-medium mb-1">Nilai Terendah</p>
-                  <p className="text-2xl font-bold text-red-900">{stats.terendah}</p>
+                <div className="bg-error-container border border-error/20 p-4 rounded-xl">
+                  <p className="text-sm text-error font-medium mb-1">Nilai Terendah</p>
+                  <p className="text-2xl font-bold text-error">{stats.terendah}</p>
                 </div>
               </div>
 
               {/* Tabel */}
               <div className="overflow-x-auto border rounded-xl">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
                     <tr>
                       <th className="px-4 py-3 font-semibold w-12 text-center">No</th>
                       {[
@@ -381,7 +381,7 @@ export default function RekapNilai() {
                       ].map(col => (
                         <th
                           key={col.field}
-                          className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-slate-100 transition-colors ${col.field === 'nilaiAkhir' || col.field === 'status' ? 'text-center' : ''}`}
+                          className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-surface-container transition-colors ${col.field === 'nilaiAkhir' || col.field === 'status' ? 'text-center' : ''}`}
                           onClick={() => handleSort(col.field)}
                         >
                           <span className="inline-flex items-center gap-1">
@@ -396,22 +396,22 @@ export default function RekapNilai() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {sortedData.map((sesi: any, index: number) => (
-                      <tr key={sesi.sesiId ?? sesi.siswa.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-4 text-center text-slate-400 font-medium">{index + 1}</td>
+                      <tr key={sesi.sesiId ?? sesi.siswa.id} className="hover:bg-surface-container-low/70 transition-colors">
+                        <td className="px-4 py-4 text-center text-outline-variant font-medium">{index + 1}</td>
                         <td className="px-4 py-4">
-                          <p className="font-semibold text-slate-900">{sesi.siswa.nama}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">NIS: {sesi.siswa.nis}</p>
+                          <p className="font-semibold text-on-surface">{sesi.siswa.nama}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">NIS: {sesi.siswa.nis}</p>
                         </td>
-                        <td className="px-4 py-4 text-slate-600">{sesi.siswa.kelas?.nama || '-'}</td>
+                        <td className="px-4 py-4 text-on-surface-variant">{sesi.siswa.kelas?.nama || '-'}</td>
                         <td className="px-4 py-4">
                           <div className="flex flex-col items-center gap-1.5">
                             <span className={`inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-md font-bold text-sm ${getScoreColor(sesi.nilaiAkhir)}`}>
                               {sesi.nilaiAkhir !== null ? sesi.nilaiAkhir : '—'}
                             </span>
                             {sesi.nilaiAkhir !== null && (
-                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[72px]">
+                              <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden max-w-[72px]">
                                 <div
-                                  className={`h-full rounded-full ${sesi.nilaiAkhir >= 75 ? 'bg-green-500' : sesi.nilaiAkhir >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                  className={`h-full rounded-full ${sesi.nilaiAkhir >= 75 ? 'bg-secondary-container/300' : sesi.nilaiAkhir >= 60 ? 'bg-tertiary-fixed/500' : 'bg-error-container0'}`}
                                   style={{ width: `${sesi.nilaiAkhir}%` }}
                                 />
                               </div>
@@ -422,7 +422,7 @@ export default function RekapNilai() {
                           <div className="flex flex-col items-center gap-1">
                             {statusBadge(sesi.status, sesi.submitReason)}
                             {sesi.selesaiAt && (
-                              <p className="text-[10px] text-slate-400 uppercase">
+                              <p className="text-[10px] text-outline-variant uppercase">
                                 {new Date(sesi.selesaiAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             )}
@@ -430,11 +430,11 @@ export default function RekapNilai() {
                         </td>
                         <td className="px-4 py-4 text-center">
                           {sesi.pelanggaran?.length > 0 ? (
-                            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                            <Badge variant="outline" className="text-error border-error/20 bg-error-container">
                               <AlertTriangle className="w-3 h-3 mr-1" /> {sesi.pelanggaran.length}x
                             </Badge>
                           ) : (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-outline-variant">—</span>
                           )}
                         </td>
                         <td className="px-4 py-4 text-center">
@@ -442,7 +442,7 @@ export default function RekapNilai() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-blue-600 bg-blue-50 hover:bg-blue-100 h-8"
+                              className="text-primary bg-primary-container/15 hover:bg-primary-container/30 h-8"
                               onClick={() => handleOpenDetail(sesi.sesiId)}
                               disabled={!sesi.sesiId}
                             >
@@ -451,7 +451,7 @@ export default function RekapNilai() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-amber-600 hover:bg-amber-50 h-8 px-2"
+                              className="text-on-tertiary-fixed hover:bg-tertiary-fixed/50 h-8 px-2"
                               onClick={() => setResetTarget({
                                 sesiId: sesi.sesiId,
                                 nama: sesi.siswa.nama,
@@ -469,7 +469,7 @@ export default function RekapNilai() {
                     ))}
                     {rekapData.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={7} className="px-4 py-10 text-center text-on-surface-variant">
                           Belum ada peserta yang mengikuti ujian ini.
                         </td>
                       </tr>
@@ -484,7 +484,7 @@ export default function RekapNilai() {
 
       {/* ── Modal Konfirmasi Reset Sesi ──────────────────── */}
       {resetTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={resetModalRef}
             role="dialog"
@@ -493,17 +493,17 @@ export default function RekapNilai() {
             className="w-full max-w-md bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
             <div className="px-6 pt-6 pb-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
-                <RotateCcw className="w-6 h-6 text-amber-600" />
+              <div className="mx-auto w-12 h-12 rounded-full bg-tertiary-fixed/50 flex items-center justify-center mb-3">
+                <RotateCcw className="w-6 h-6 text-on-tertiary-fixed" />
               </div>
-              <h2 id="reset-sesi-title" className="text-lg font-bold text-slate-900 text-center">
+              <h2 id="reset-sesi-title" className="text-lg font-bold text-on-surface text-center">
                 Reset Sesi Ujian?
               </h2>
-              <p className="text-sm text-slate-500 text-center mt-1">
-                <strong className="text-slate-700">{resetTarget.nama}</strong>
-                <span className="text-slate-400"> (NIS {resetTarget.nis})</span>
+              <p className="text-sm text-on-surface-variant text-center mt-1">
+                <strong className="text-on-surface">{resetTarget.nama}</strong>
+                <span className="text-outline-variant"> (NIS {resetTarget.nis})</span>
               </p>
-              <div className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="mt-4 text-xs text-on-tertiary-fixed bg-tertiary-fixed/50 border border-tertiary-fixed rounded-lg p-3">
                 Jawaban, nilai, dan catatan pelanggaran siswa ini akan <strong>dihapus permanen</strong>. Siswa bisa mengerjakan ujian dari awal lagi.
               </div>
             </div>
@@ -521,7 +521,7 @@ export default function RekapNilai() {
                 type="button"
                 onClick={handleResetSesi}
                 disabled={isResetting}
-                className="flex-1 bg-amber-600 hover:bg-amber-700"
+                className="flex-1 bg-tertiary hover:bg-tertiary/90"
               >
                 {isResetting ? 'Memproses...' : 'Ya, Reset'}
               </Button>

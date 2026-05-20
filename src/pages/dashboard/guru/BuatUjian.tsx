@@ -12,7 +12,7 @@ import { useAuthStore } from '../../../store/authStore';
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-red-500 mt-1">{msg}</p>;
+  return <p className="text-xs text-error mt-1">{msg}</p>;
 }
 
 export default function BuatUjian() {
@@ -143,19 +143,19 @@ export default function BuatUjian() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <div className="text-sm text-slate-500 font-medium breadcrumbs flex items-center gap-1.5">
-            <span className="hover:text-slate-900 cursor-pointer" onClick={() => navigate('/dashboard/guru')}>Dashboard</span>
+          <div className="text-sm text-on-surface-variant font-medium breadcrumbs flex items-center gap-1.5">
+            <span className="hover:text-on-surface cursor-pointer" onClick={() => navigate('/dashboard/guru')}>Dashboard</span>
             <span>/</span>
-            <span className="hover:text-slate-900 cursor-pointer" onClick={() => navigate('/dashboard/guru/ujian')}>Ujian</span>
+            <span className="hover:text-on-surface cursor-pointer" onClick={() => navigate('/dashboard/guru/ujian')}>Ujian</span>
             <span>/</span>
-            <span className="text-blue-600">Buat Baru</span>
+            <span className="text-primary">Buat Baru</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">Buat Ujian Baru</h1>
+          <h1 className="text-2xl font-bold text-on-surface tracking-tight mt-1">Buat Ujian Baru</h1>
         </div>
       </div>
 
       {errorMsg && (
-        <div className="bg-red-50 text-red-600 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+        <div className="bg-error-container text-error border border-error/20 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
           <p className="font-medium">{errorMsg}</p>
         </div>
@@ -170,16 +170,16 @@ export default function BuatUjian() {
             </CardHeader>
             <CardContent className="space-y-5">
               {isAdmin && (
-                <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <Label htmlFor="guruId" className="text-blue-900">
-                    Buat Ujian Atas Nama Guru <span className="text-red-500">*</span>
+                <div className="space-y-2 p-4 bg-primary-container/15 border border-primary/30 rounded-lg">
+                  <Label htmlFor="guruId" className="text-primary">
+                    Buat Ujian Atas Nama Guru <span className="text-error">*</span>
                   </Label>
-                  <p className="text-xs text-blue-700">Sebagai admin, kamu wajib memilih guru yang menjadi pemilik ujian ini.</p>
+                  <p className="text-xs text-primary">Sebagai admin, kamu wajib memilih guru yang menjadi pemilik ujian ini.</p>
                   <Select
                     id="guruId"
                     value={guruId}
                     onChange={e => setGuruId(e.target.value)}
-                    className={errors.guruId ? 'border-red-500' : 'bg-white'}
+                    className={errors.guruId ? 'border-error' : 'bg-white'}
                   >
                     <option value="">-- Pilih guru pemilik ujian --</option>
                     {guruList.map(g => (
@@ -190,31 +190,31 @@ export default function BuatUjian() {
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="judul">Judul Ujian <span className="text-red-500">*</span></Label>
+                <Label htmlFor="judul">Judul Ujian <span className="text-error">*</span></Label>
                 <Input
                   id="judul"
                   placeholder="Contoh: Penilaian Tengah Semester 1"
                   value={judul}
                   onChange={e => setJudul(e.target.value)}
                   autoFocus
-                  className={`font-medium text-lg h-12 ${errors.judul ? 'border-red-500' : ''}`}
+                  className={`font-medium text-lg h-12 ${errors.judul ? 'border-error' : ''}`}
                 />
                 <FieldError msg={errors.judul} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mataPelajaran">Mata Pelajaran <span className="text-red-500">*</span></Label>
+                <Label htmlFor="mataPelajaran">Mata Pelajaran <span className="text-error">*</span></Label>
                 <Input
                   id="mataPelajaran"
                   placeholder="Contoh: Matematika Peminatan"
                   value={mataPelajaran}
                   onChange={e => setMataPelajaran(e.target.value)}
-                  className={errors.mataPelajaran ? 'border-red-500' : ''}
+                  className={errors.mataPelajaran ? 'border-error' : ''}
                 />
                 <FieldError msg={errors.mataPelajaran} />
               </div>
 
               <div className="space-y-3 pt-2">
-                <Label>Tipe Ujian <span className="text-red-500">*</span></Label>
+                <Label>Tipe Ujian <span className="text-error">*</span></Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {['LATIHAN', 'ULANGAN_HARIAN', 'UTS', 'UAS'].map((type) => (
                     <button
@@ -223,8 +223,8 @@ export default function BuatUjian() {
                       onClick={() => setTipeUjian(type)}
                       className={`py-3 px-2 rounded-xl text-sm font-medium border text-center transition-all ${
                         tipeUjian === type 
-                          ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' 
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                          ? 'border-primary bg-primary-container/15 text-primary shadow-sm' 
+                          : 'border-outline-variant bg-white text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low'
                       }`}
                     >
                       {type.replace('_', ' ')}
@@ -243,30 +243,30 @@ export default function BuatUjian() {
             <CardContent className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="tanggalMulai">Waktu Dibuka <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="tanggalMulai">Waktu Dibuka <span className="text-error">*</span></Label>
                   <Input
                     id="tanggalMulai"
                     type="datetime-local"
                     value={tanggalMulai}
                     onChange={e => setTanggalMulai(e.target.value)}
-                    className={errors.tanggalMulai ? 'border-red-500' : ''}
+                    className={errors.tanggalMulai ? 'border-error' : ''}
                   />
                   <FieldError msg={errors.tanggalMulai} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tanggalSelesai">Waktu Ditutup <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="tanggalSelesai">Waktu Ditutup <span className="text-error">*</span></Label>
                   <Input
                     id="tanggalSelesai"
                     type="datetime-local"
                     value={tanggalSelesai}
                     onChange={e => setTanggalSelesai(e.target.value)}
-                    className={errors.tanggalSelesai ? 'border-red-500' : ''}
+                    className={errors.tanggalSelesai ? 'border-error' : ''}
                   />
                   <FieldError msg={errors.tanggalSelesai} />
                 </div>
               </div>
               <div className="space-y-2 max-w-sm">
-                <Label htmlFor="durasi">Durasi Pengerjaan (Menit) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="durasi">Durasi Pengerjaan (Menit) <span className="text-error">*</span></Label>
                 <div className="relative">
                   <Input
                     id="durasi"
@@ -275,9 +275,9 @@ export default function BuatUjian() {
                     max="300"
                     value={durasi}
                     onChange={e => setDurasi(e.target.value)}
-                    className={`pr-16 ${errors.durasi ? 'border-red-500' : ''}`}
+                    className={`pr-16 ${errors.durasi ? 'border-error' : ''}`}
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Menit</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant font-medium">Menit</span>
                 </div>
                 <FieldError msg={errors.durasi} />
               </div>
@@ -291,13 +291,13 @@ export default function BuatUjian() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
-                <Label>Pilih Kelas Peserta <span className="text-red-500">*</span></Label>
+                <Label>Pilih Kelas Peserta <span className="text-error">*</span></Label>
                 {kelasList.length === 0 ? (
-                  <div className="p-4 border border-dashed border-slate-300 rounded-xl text-center text-slate-500 text-sm">
+                  <div className="p-4 border border-dashed border-outline-variant rounded-xl text-center text-on-surface-variant text-sm">
                     Anda belum memiliki kelas. Silakan buat kelas terlebih dahulu di menu Siswa & Kelas.
                   </div>
                 ) : (
-                  <div className={`flex flex-wrap gap-3 ${errors.kelasIds ? 'p-2 border border-red-300 rounded-lg bg-red-50/30' : ''}`}>
+                  <div className={`flex flex-wrap gap-3 ${errors.kelasIds ? 'p-2 border border-error/40 rounded-lg bg-error-container/30' : ''}`}>
                     {kelasList.map(kelas => {
                       const isSelected = selectedKelas.includes(kelas.id);
                       return (
@@ -307,13 +307,13 @@ export default function BuatUjian() {
                           onClick={() => toggleKelas(kelas.id)}
                           className={`flex items-center gap-2 px-4 py-2.5 rounded-full border text-sm font-medium transition-all ${
                             isSelected 
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'bg-primary border-primary text-white shadow-sm' 
+                              : 'bg-white border-outline-variant text-on-surface hover:border-outline-variant hover:bg-surface-container-low'
                           }`}
                         >
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-100" />}
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-primary/40" />}
                           {kelas.nama}
-                          <span className={`text-xs ml-1 px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          <span className={`text-xs ml-1 px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-primary-container/150 text-white' : 'bg-surface-container text-on-surface-variant'}`}>
                             {kelas._count?.siswa || 0}
                           </span>
                         </button>
@@ -324,18 +324,18 @@ export default function BuatUjian() {
                 <FieldError msg={errors.kelasIds} />
               </div>
 
-              <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
+              <div className="border-t border-outline-variant pt-5 flex items-center justify-between">
                 <div>
-                  <Label htmlFor="acak" className="text-base font-semibold text-slate-900 cursor-pointer">Acak Urutan Soal</Label>
-                  <p className="text-sm text-slate-500">Urutan soal akan diacak untuk setiap siswa mencegah kecurangan.</p>
+                  <Label htmlFor="acak" className="text-base font-semibold text-on-surface cursor-pointer">Acak Urutan Soal</Label>
+                  <p className="text-sm text-on-surface-variant">Urutan soal akan diacak untuk setiap siswa mencegah kecurangan.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="acak" className="sr-only peer" checked={acak} onChange={e => setAcak(e.target.checked)} />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-surface-container-high rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
             </CardContent>
-            <CardFooter className="bg-slate-50 border-t border-slate-100 p-6 flex justify-end gap-3 rounded-b-xl">
+            <CardFooter className="bg-surface-container-low border-t border-outline-variant p-6 flex justify-end gap-3 rounded-b-xl">
               <Button type="button" variant="outline" onClick={handleCancel}>Batal</Button>
               <Button type="submit" disabled={isLoading} className="gap-2 px-6">
                 {isLoading ? (
@@ -352,7 +352,7 @@ export default function BuatUjian() {
 
       {/* Modal Konfirmasi Batal */}
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <div
             ref={cancelModalRef}
             role="dialog"
@@ -360,12 +360,12 @@ export default function BuatUjian() {
             aria-labelledby="cancel-modal-title"
             className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6 text-amber-600" />
+            <div className="w-12 h-12 bg-tertiary-fixed/70 rounded-full flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6 text-on-tertiary-fixed" />
             </div>
             <div>
-              <h3 id="cancel-modal-title" className="font-bold text-slate-900 text-lg">Buang Perubahan?</h3>
-              <p className="text-slate-500 text-sm mt-1.5">
+              <h3 id="cancel-modal-title" className="font-bold text-on-surface text-lg">Buang Perubahan?</h3>
+              <p className="text-on-surface-variant text-sm mt-1.5">
                 Ada perubahan yang belum disimpan. Yakin ingin membatalkan pembuatan ujian ini?
               </p>
             </div>
@@ -374,7 +374,7 @@ export default function BuatUjian() {
                 Lanjut Edit
               </Button>
               <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-error hover:bg-error/90 text-white"
                 onClick={() => navigate('/dashboard/guru/ujian')}
               >
                 Buang Perubahan
