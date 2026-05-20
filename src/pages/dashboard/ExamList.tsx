@@ -72,9 +72,9 @@ export default function ExamList() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 75) return 'text-green-600 font-bold bg-green-50';
-    if (score >= 60) return 'text-yellow-600 font-bold bg-yellow-50';
-    return 'text-red-600 font-bold bg-red-50';
+    if (score >= 75) return 'text-secondary font-bold bg-secondary-container/30';
+    if (score >= 60) return 'text-on-tertiary-fixed font-bold bg-tertiary-fixed/50';
+    return 'text-error font-bold bg-error-container';
   };
 
   const mapelList = Array.from(new Set(riwayat.map(s => s.ujian.mataPelajaran))).sort();
@@ -102,14 +102,14 @@ export default function ExamList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Ujian Online</h1>
-          <p className="text-slate-500 mt-1">Selesaikan ujian Anda tepat waktu.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Ujian Online</h1>
+          <p className="text-on-surface-variant mt-1">Selesaikan ujian Anda tepat waktu.</p>
         </div>
       </div>
 
-      <div className="flex border-b border-slate-200 gap-6">
+      <div className="flex border-b border-outline-variant gap-6">
         <button
-          className={`pb-3 font-medium transition-colors border-b-2 ${activeTab === 'AKTIF' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          className={`pb-3 font-medium transition-colors border-b-2 ${activeTab === 'AKTIF' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           onClick={() => setActiveTab('AKTIF')}
         >
           <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export default function ExamList() {
           </div>
         </button>
         <button
-          className={`pb-3 font-medium transition-colors border-b-2 ${activeTab === 'RIWAYAT' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          className={`pb-3 font-medium transition-colors border-b-2 ${activeTab === 'RIWAYAT' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}
           onClick={() => setActiveTab('RIWAYAT')}
         >
           <div className="flex items-center gap-2">
@@ -127,44 +127,44 @@ export default function ExamList() {
       </div>
 
       {isLoading ? (
-         <div className="py-12 text-center text-slate-500">Memuat data...</div>
+         <div className="py-12 text-center text-on-surface-variant">Memuat data...</div>
       ) : activeTab === 'AKTIF' ? (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {ujianAktif.length === 0 ? (
-            <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
-               <CheckCircle2 className="w-12 h-12 text-slate-300 mb-3" />
-               <p className="text-lg font-medium text-slate-700">Tidak ada ujian aktif</p>
+            <div className="col-span-full py-16 flex flex-col items-center justify-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl">
+               <CheckCircle2 className="w-12 h-12 text-outline-variant mb-3" />
+               <p className="text-lg font-medium text-on-surface">Tidak ada ujian aktif</p>
                <p className="text-sm">Selamat bersantai! Belum ada ujian yang harus dikerjakan.</p>
             </div>
           ) : (
             ujianAktif.map(ujian => (
-              <Card key={ujian.id} className="hover:border-slate-300 transition-all flex flex-col">
+              <Card key={ujian.id} className="hover:border-outline-variant transition-all flex flex-col">
                 <CardContent className="p-6 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-4">
                     <Badge variant="outline" className="text-[10px] uppercase font-medium">{ujian.tipeUjian.replace('_', ' ')}</Badge>
-                    <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                    <span className="text-xs font-semibold text-error bg-error-container px-2 py-1 rounded-full">
                       Tutup: {formatDate(ujian.tanggalSelesai, 'datetime')}
                     </span>
                   </div>
-                  <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">
+                  <h3 className="font-bold text-lg text-on-surface mb-2 leading-tight">
                     {ujian.judul}
                   </h3>
-                  <div className="space-y-2 mt-auto pt-4 text-sm text-slate-600">
+                  <div className="space-y-2 mt-auto pt-4 text-sm text-on-surface-variant">
                     <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-slate-400" />
+                      <BookOpen className="w-4 h-4 text-outline-variant" />
                       {ujian.mataPelajaran}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-slate-400" />
+                      <Clock className="w-4 h-4 text-outline-variant" />
                       Durasi: {ujian.durasi} menit
                     </div>
                     <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-slate-400" />
+                      <FileText className="w-4 h-4 text-outline-variant" />
                       {ujian._count?.soal || 0} Soal
                     </div>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-slate-100">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => setConfirmModal(ujian)}>
+                  <div className="mt-6 pt-4 border-t border-outline-variant">
+                    <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => setConfirmModal(ujian)}>
                       Mulai Ujian
                     </Button>
                   </div>
@@ -176,8 +176,8 @@ export default function ExamList() {
       ) : (
         <Card>
           {riwayat.length > 0 && (
-            <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-3">
-              <span className="text-sm text-slate-500 shrink-0">Filter:</span>
+            <div className="px-6 py-3 border-b border-outline-variant flex items-center gap-3">
+              <span className="text-sm text-on-surface-variant shrink-0">Filter:</span>
               <Select
                 value={filterMapel}
                 onChange={e => setFilterMapel(e.target.value)}
@@ -187,28 +187,28 @@ export default function ExamList() {
                 {mapelList.map(m => <option key={m} value={m}>{m}</option>)}
               </Select>
               {filterMapel && (
-                <button onClick={() => setFilterMapel('')} className="text-xs text-blue-600 hover:underline">Reset</button>
+                <button onClick={() => setFilterMapel('')} className="text-xs text-primary hover:underline">Reset</button>
               )}
             </div>
           )}
           <CardContent className="p-0">
             {riwayat.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-slate-500 rounded-xl">
-                <History className="w-12 h-12 text-slate-300 mb-3" />
-                <p className="text-lg font-medium text-slate-700">Belum ada riwayat</p>
+              <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant rounded-xl">
+                <History className="w-12 h-12 text-outline-variant mb-3" />
+                <p className="text-lg font-medium text-on-surface">Belum ada riwayat</p>
                 <p className="text-sm">Anda belum mengerjakan ujian apapun.</p>
               </div>
             ) : filteredRiwayat.length === 0 ? (
-              <div className="py-10 text-center text-slate-500 text-sm">
+              <div className="py-10 text-center text-on-surface-variant text-sm">
                 Tidak ada ujian untuk mata pelajaran ini.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 text-xs uppercase">
+                  <thead className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant text-xs uppercase">
                     <tr>
                       <th
-                        className="px-6 py-4 font-semibold cursor-pointer select-none hover:bg-slate-100"
+                        className="px-6 py-4 font-semibold cursor-pointer select-none hover:bg-surface-container"
                         onClick={() => handleSortRiwayat('selesaiAt')}
                       >
                         <span className="inline-flex items-center gap-1">
@@ -222,7 +222,7 @@ export default function ExamList() {
                       <th className="px-6 py-4 font-semibold">Mata Pelajaran</th>
                       <th className="px-6 py-4 font-semibold text-center">Status</th>
                       <th
-                        className="px-6 py-4 font-semibold text-center cursor-pointer select-none hover:bg-slate-100"
+                        className="px-6 py-4 font-semibold text-center cursor-pointer select-none hover:bg-surface-container"
                         onClick={() => handleSortRiwayat('nilaiAkhir')}
                       >
                         <span className="inline-flex items-center justify-center gap-1">
@@ -238,25 +238,25 @@ export default function ExamList() {
                     {filteredRiwayat.map(sesi => (
                       <tr
                         key={sesi.id}
-                        className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                        className="hover:bg-primary-container/15/40 transition-colors cursor-pointer"
                         onClick={() => navigate(`/dashboard/siswa/hasil/${sesi.id}`)}
                         title="Klik untuk lihat detail"
                       >
-                        <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
+                        <td className="px-6 py-4 text-on-surface-variant whitespace-nowrap">
                           {formatDate(sesi.selesaiAt || sesi.mulaiAt)}
                         </td>
-                        <td className="px-6 py-4 font-medium text-slate-900">
+                        <td className="px-6 py-4 font-medium text-on-surface">
                           {sesi.ujian.judul}
                         </td>
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-6 py-4 text-on-surface-variant">
                           {sesi.ujian.mataPelajaran}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <Badge
                             variant="outline"
                             className={
-                              sesi.status === 'SELESAI' ? 'border-green-200 text-green-700 bg-green-50' :
-                              sesi.status === 'AUTO_SUBMIT' ? 'border-red-200 text-red-700 bg-red-50' : ''
+                              sesi.status === 'SELESAI' ? 'border-secondary/30 text-on-secondary-container bg-secondary-container/30' :
+                              sesi.status === 'AUTO_SUBMIT' ? 'border-error/20 text-error bg-error-container' : ''
                             }
                           >
                             {sesi.status === 'SELESAI' ? 'Selesai' :
@@ -269,7 +269,7 @@ export default function ExamList() {
                               {sesi.nilaiAkhir}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-outline-variant">—</span>
                           )}
                         </td>
                       </tr>
@@ -284,7 +284,7 @@ export default function ExamList() {
 
       {/* Modal Konfirmasi Mulai Ujian */}
       {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
           <Card
             ref={confirmModalRef as React.RefObject<HTMLDivElement>}
             role="dialog"
@@ -292,24 +292,24 @@ export default function ExamList() {
             aria-labelledby="mulai-ujian-title"
             className="w-full max-w-md shadow-xl border-0 animate-in fade-in zoom-in-95 duration-200"
           >
-            <CardHeader className="bg-blue-50/50 border-b border-blue-100 pb-4">
+            <CardHeader className="bg-primary-container/15/50 border-b border-primary/20 pb-4">
               <CardTitle id="mulai-ujian-title" className="text-xl">Mulai Ujian?</CardTitle>
               <CardDescription>Perhatikan peraturan sebelum memulai ujian.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
-              <div className="font-semibold text-slate-900 text-lg">{confirmModal.judul}</div>
-              <ul className="text-sm text-slate-600 space-y-2 list-disc pl-5">
+              <div className="font-semibold text-on-surface text-lg">{confirmModal.judul}</div>
+              <ul className="text-sm text-on-surface-variant space-y-2 list-disc pl-5">
                 <li>Durasi ujian adalah <b>{confirmModal.durasi} menit</b>. Waktu tidak akan berhenti meskipun Anda keluar dari browser.</li>
                 <li>Sistem dilengkapi dengan <b>Anti-Cheat</b>. Keluar dari fullscreen atau pindah tab akan tercatat sebagai pelanggaran.</li>
                 <li>Setelah 3x pelanggaran, ujian akan <b>otomatis diakhiri</b>.</li>
                 <li>Pastikan koneksi internet Anda stabil sebelum memulai.</li>
               </ul>
-              <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm border border-yellow-200 mt-4 flex items-start gap-2">
+              <div className="bg-tertiary-fixed/50 text-on-tertiary-fixed p-3 rounded-lg text-sm border border-tertiary-fixed mt-4 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>Ujian yang sudah dimulai tidak bisa dibatalkan atau diulangi.</span>
               </div>
             </CardContent>
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-xl">
+            <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
               <Button type="button" variant="outline" onClick={() => setConfirmModal(null)} disabled={startingUjianId !== null}>Batal</Button>
               <Button onClick={() => handleMulaiUjian(confirmModal.id)} disabled={startingUjianId === confirmModal.id} className="gap-2">
                 {startingUjianId === confirmModal.id ? (

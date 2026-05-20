@@ -27,8 +27,8 @@ export default function RiwayatNilaiSiswa() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Riwayat Nilai</h1>
-        <p className="text-slate-500">Histori nilai ujian CBT yang sudah Anda selesaikan.</p>
+        <h1 className="text-2xl font-bold text-on-surface">Riwayat Nilai</h1>
+        <p className="text-on-surface-variant">Histori nilai ujian CBT yang sudah Anda selesaikan.</p>
       </div>
 
       <Card>
@@ -38,34 +38,34 @@ export default function RiwayatNilaiSiswa() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Memuat riwayat...</div>
+            <div className="text-center py-8 text-on-surface-variant">Memuat riwayat...</div>
           ) : riwayat.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">Belum ada ujian yang diselesaikan.</div>
+            <div className="text-center py-8 text-on-surface-variant">Belum ada ujian yang diselesaikan.</div>
           ) : (
              <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse space-y-2">
                 <thead>
-                  <tr className="border-b bg-slate-50">
-                    <th className="p-3 text-sm font-semibold text-slate-600">Judul Ujian</th>
-                    <th className="p-3 text-sm font-semibold text-slate-600">Mata Pelajaran</th>
-                    <th className="p-3 text-sm font-semibold text-slate-600">Selesai Pada</th>
-                    <th className="p-3 text-sm font-semibold text-slate-600">Status</th>
-                    <th className="p-3 text-right text-sm font-semibold text-slate-600">Nilai Akhir</th>
+                  <tr className="border-b bg-surface-container-low">
+                    <th className="p-3 text-sm font-semibold text-on-surface-variant">Judul Ujian</th>
+                    <th className="p-3 text-sm font-semibold text-on-surface-variant">Mata Pelajaran</th>
+                    <th className="p-3 text-sm font-semibold text-on-surface-variant">Selesai Pada</th>
+                    <th className="p-3 text-sm font-semibold text-on-surface-variant">Status</th>
+                    <th className="p-3 text-right text-sm font-semibold text-on-surface-variant">Nilai Akhir</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-sm">
                   {riwayat.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-medium text-slate-800">{item.ujian.judul}</td>
-                      <td className="p-3 text-slate-600">{item.ujian.mataPelajaran || '-'}</td>
-                      <td className="p-3 text-slate-600">{formatDate(item.selesaiAt)}</td>
+                    <tr key={item.id} className="hover:bg-surface-container-low">
+                      <td className="p-3 font-medium text-on-surface">{item.ujian.judul}</td>
+                      <td className="p-3 text-on-surface-variant">{item.ujian.mataPelajaran || '-'}</td>
+                      <td className="p-3 text-on-surface-variant">{formatDate(item.selesaiAt)}</td>
                       <td className="p-3">
                         <Badge variant={item.status === 'SELESAI' ? 'default' : 'secondary'}>
                           {item.status.replace('_', ' ')}
                         </Badge>
                       </td>
                       <td className="p-3 text-right">
-                        <span className="font-bold text-lg text-slate-800">
+                        <span className="font-bold text-lg text-on-surface">
                           {item.nilaiAkhir}
                         </span>
                       </td>
