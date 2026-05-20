@@ -5,7 +5,14 @@ import {
   GraduationCap, ArrowRight, FileText, CalendarCheck, ClipboardList,
   Newspaper, ShieldCheck, Users, Briefcase, BookOpen,
   Facebook, Instagram, Twitter, Youtube, Music2, MapPin, Mail, Phone,
+  Target, Compass, Lightbulb, Quote, User as UserIcon,
 } from 'lucide-react';
+
+// Whitelist nama ikon Lucide yg boleh dipilih admin untuk fitur unggulan
+const FITUR_ICON_MAP: Record<string, React.ElementType> = {
+  FileText, CalendarCheck, GraduationCap, ClipboardList, Newspaper,
+  ShieldCheck, Users, BookOpen, Briefcase, Target, Compass, Lightbulb,
+};
 import api from '../lib/api';
 
 // Fallback config — dipakai kalau admin belum atur SiteSettings
@@ -15,6 +22,16 @@ const DEFAULT_CONFIG = {
   deskripsi: 'Sistem manajemen sekolah terpadu — ujian online, presensi digital, tracer alumni, dan portal informasi dalam satu platform.',
   logoUrl: '',
   faviconUrl: '',
+  profilImageUrl: '',
+  sejarah: '',
+  visi: '',
+  misi: '',
+  tujuan: '',
+  kepsekNama: '',
+  kepsekJabatan: 'Kepala Sekolah',
+  kepsekFotoUrl: '',
+  kepsekSambutan: '',
+  fiturUnggulan: '',
   alamat: '',
   telepon: '',
   email: '',
@@ -23,6 +40,17 @@ const DEFAULT_CONFIG = {
 };
 
 type SiteConfig = typeof DEFAULT_CONFIG;
+
+interface FiturItem { icon: string; title: string; desc: string }
+
+const DEFAULT_FITUR: FiturItem[] = [
+  { icon: 'FileText', title: 'Ujian Online',
+    desc: 'Bank soal lengkap dengan timer otomatis, anti-cheat, dan koreksi instan. Hasil & rekap nilai langsung tersedia.' },
+  { icon: 'CalendarCheck', title: 'Presensi Digital',
+    desc: 'Catat kehadiran siswa per sesi pelajaran. Setiap guru punya rekap presensi sendiri, export Excel.' },
+  { icon: 'GraduationCap', title: 'Tracer Alumni',
+    desc: 'Lulusan bisa daftar mandiri. Lihat sebaran karir & pendidikan alumni lewat statistik publik.' },
+];
 
 // Placeholder stat — bisa di-edit di code kalau sekolah punya angka real.
 // Alumni di-fetch real-time dari /api/alumni/stats.
@@ -40,25 +68,6 @@ const HERO_FEATURES: { Icon: React.ElementType; label: string }[] = [
   { Icon: ClipboardList,  label: 'Rekap Nilai' },
   { Icon: Newspaper,      label: 'Berita Sekolah' },
   { Icon: ShieldCheck,    label: 'Anti-Curang' },
-];
-
-// Fitur unggulan utama (3 cards)
-const FITUR_UTAMA: { Icon: React.ElementType; title: string; desc: string }[] = [
-  {
-    Icon: FileText,
-    title: 'Ujian Online',
-    desc: 'Bank soal lengkap dengan timer otomatis, anti-cheat, dan koreksi instan. Hasil & rekap nilai langsung tersedia.',
-  },
-  {
-    Icon: CalendarCheck,
-    title: 'Presensi Digital',
-    desc: 'Catat kehadiran siswa per sesi pelajaran. Setiap guru punya rekap presensi sendiri, export Excel.',
-  },
-  {
-    Icon: GraduationCap,
-    title: 'Tracer Alumni',
-    desc: 'Lulusan bisa daftar mandiri. Lihat sebaran karir & pendidikan alumni lewat statistik publik.',
-  },
 ];
 
 export default function LandingPage() {
@@ -107,6 +116,29 @@ export default function LandingPage() {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Parse fitur unggulan JSON dari config; fallback ke default kalau invalid/kosong
+  const fiturList: FiturItem[] = useMemo(() => {
+    if (!cfg.fiturUnggulan?.trim()) return DEFAULT_FITUR;
+    try {
+      const parsed = JSON.parse(cfg.fiturUnggulan);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .filter((it: any) => it && typeof it === 'object' && it.title)
+          .map((it: any) => ({
+            icon: typeof it.icon === 'string' ? it.icon : 'FileText',
+            title: String(it.title),
+            desc: String(it.desc || ''),
+          }));
+      }
+    } catch { /* fallback */ }
+    return DEFAULT_FITUR;
+  }, [cfg.fiturUnggulan]);
+
+  // Parse misi (satu poin per baris) untuk profil sekolah
+  const misiList = (cfg.misi || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const showProfil = !!(cfg.sejarah?.trim() || cfg.visi?.trim() || cfg.misi?.trim() || cfg.tujuan?.trim() || cfg.profilImageUrl?.trim());
+  const showSambutan = !!(cfg.kepsekSambutan?.trim() || cfg.kepsekNama?.trim() || cfg.kepsekFotoUrl?.trim());
+
   const totalAlumni = Object.values(alumniStats).reduce((sum, n) => sum + (n || 0), 0);
   const alumniBekerja = alumniStats.BEKERJA || 0;
   const alumniKuliah = alumniStats.KULIAH || 0;
@@ -139,6 +171,7 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-7 text-label-md font-medium text-on-surface-variant">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-primary transition-colors">Beranda</button>
+            {showProfil && <button onClick={() => scrollTo('profil')} className="hover:text-primary transition-colors">Profil</button>}
             <button onClick={() => scrollTo('fitur')} className="hover:text-primary transition-colors">Fitur</button>
             <button onClick={() => scrollTo('berita')} className="hover:text-primary transition-colors">Berita</button>
             <button onClick={() => scrollTo('alumni')} className="hover:text-primary transition-colors">Alumni</button>
@@ -160,7 +193,7 @@ export default function LandingPage() {
             </span>
             <h1 className="text-headline-lg leading-tight">
               Portal Akademik <br className="hidden sm:block" />
-              <span className="text-secondary-container">Digital</span>
+              <span className="text-white">Digital</span>
             </h1>
             <p className="text-lg text-on-primary/85 max-w-lg leading-relaxed">
               {cfg.deskripsi}
@@ -196,6 +229,111 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═════════════════ 2.5 SAMBUTAN KEPALA SEKOLAH ═════════════════ */}
+      {showSambutan && (
+        <section id="sambutan" className="bg-surface px-4 sm:px-6 py-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Sambutan</p>
+              <h2 className="text-headline-md text-on-surface">Kata Sambutan {cfg.kepsekJabatan || 'Kepala Sekolah'}</h2>
+            </div>
+            <div className="grid md:grid-cols-[260px_1fr] gap-10 items-center">
+              <div className="flex flex-col items-center">
+                {cfg.kepsekFotoUrl ? (
+                  <img
+                    src={cfg.kepsekFotoUrl}
+                    alt={cfg.kepsekNama || 'Kepala Sekolah'}
+                    className="w-48 h-48 sm:w-60 sm:h-60 rounded-2xl object-cover border-4 border-surface-container-low shadow-md"
+                  />
+                ) : (
+                  <div className="w-48 h-48 sm:w-60 sm:h-60 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center">
+                    <UserIcon className="w-16 h-16 text-outline-variant" />
+                  </div>
+                )}
+                <div className="mt-4 text-center">
+                  {cfg.kepsekNama && <p className="font-bold text-on-surface text-lg">{cfg.kepsekNama}</p>}
+                  <p className="text-sm text-on-surface-variant">{cfg.kepsekJabatan || 'Kepala Sekolah'}</p>
+                </div>
+              </div>
+              <div className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 sm:p-8">
+                <Quote className="absolute -top-4 -left-3 w-10 h-10 text-primary/20" />
+                <p className="text-on-surface leading-relaxed whitespace-pre-wrap text-base sm:text-lg">
+                  {cfg.kepsekSambutan || 'Selamat datang di portal sekolah kami.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═════════════════ 2.6 PROFIL SEKOLAH (Sejarah + Visi/Misi/Tujuan) ═════════════════ */}
+      {showProfil && (
+        <section id="profil" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-20">
+          <div className="max-w-7xl mx-auto space-y-12">
+            <div className="text-center max-w-2xl mx-auto">
+              <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Tentang Kami</p>
+              <h2 className="text-headline-md text-on-surface">Profil Sekolah</h2>
+            </div>
+
+            {(cfg.sejarah?.trim() || cfg.profilImageUrl?.trim()) && (
+              <div className="grid md:grid-cols-2 gap-10 items-center">
+                {cfg.profilImageUrl ? (
+                  <img
+                    src={cfg.profilImageUrl}
+                    alt={`Profil ${cfg.namaSekolah}`}
+                    className="w-full h-auto rounded-2xl object-cover border border-outline-variant shadow-sm"
+                  />
+                ) : (
+                  <div className="w-full aspect-[4/3] rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center">
+                    <BookOpen className="w-16 h-16 text-outline-variant" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-headline-sm text-on-surface mb-3">Sejarah Singkat</h3>
+                  <p className="text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+                    {cfg.sejarah || 'Belum ada cerita sejarah.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {(cfg.visi?.trim() || cfg.misi?.trim() || cfg.tujuan?.trim()) && (
+              <div className="grid md:grid-cols-3 gap-6">
+                {cfg.visi?.trim() && (
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
+                      <Target className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-on-surface text-lg mb-2">Visi</h3>
+                    <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{cfg.visi}</p>
+                  </div>
+                )}
+                {misiList.length > 0 && (
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
+                      <Compass className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-on-surface text-lg mb-2">Misi</h3>
+                    <ol className="list-decimal list-inside space-y-1.5 text-sm text-on-surface-variant leading-relaxed">
+                      {misiList.map((m, i) => <li key={i}>{m}</li>)}
+                    </ol>
+                  </div>
+                )}
+                {cfg.tujuan?.trim() && (
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
+                      <Lightbulb className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-on-surface text-lg mb-2">Tujuan</h3>
+                    <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{cfg.tujuan}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* ═════════════════ 3. STATISTIK ═════════════════ */}
       <section id="statistik" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-16">
         <div className="max-w-7xl mx-auto">
@@ -230,16 +368,19 @@ export default function LandingPage() {
             <h2 className="text-headline-md text-on-surface">Fitur Unggulan</h2>
             <p className="text-on-surface-variant">Solusi digital terintegrasi untuk seluruh aktivitas akademik sekolah.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {FITUR_UTAMA.map(({ Icon, title, desc }, i) => (
-              <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow">
-                <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-lg flex items-center justify-center mb-4">
-                  <Icon className="w-6 h-6" />
+          <div className={`grid gap-6 ${fiturList.length === 1 ? 'md:grid-cols-1 max-w-xl mx-auto' : fiturList.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : 'md:grid-cols-3'}`}>
+            {fiturList.map((f, i) => {
+              const Icon = FITUR_ICON_MAP[f.icon] || FileText;
+              return (
+                <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow">
+                  <div className="w-12 h-12 bg-primary-container/15 text-primary rounded-lg flex items-center justify-center mb-4">
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-on-surface text-lg mb-2">{f.title}</h3>
+                  <p className="text-on-surface-variant text-sm leading-relaxed">{f.desc}</p>
                 </div>
-                <h3 className="font-bold text-on-surface text-lg mb-2">{title}</h3>
-                <p className="text-on-surface-variant text-sm leading-relaxed">{desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -306,7 +447,7 @@ export default function LandingPage() {
             <div className="space-y-5">
               <p className="text-label-sm text-on-primary/70 uppercase tracking-wider font-bold">Tracer Alumni</p>
               <h2 className="text-headline-lg leading-tight">
-                Lulusan Kami <span className="text-secondary-container">Tersebar</span> Di Mana-mana
+                Lulusan Kami <span className="text-white">Tersebar</span> Di Mana-mana
               </h2>
               <p className="text-on-primary/85 leading-relaxed">
                 Pantau jejak karir & pendidikan ribuan alumni. Sudah lulus? Daftar mandiri dan jadi bagian dari komunitas.
@@ -329,9 +470,9 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {[
-                { label: 'Bekerja',   value: alumniBekerja,   accent: 'text-secondary-container' },
+                { label: 'Bekerja',   value: alumniBekerja,   accent: 'text-white' },
                 { label: 'Kuliah',    value: alumniKuliah,    accent: 'text-tertiary-container' },
-                { label: 'Wirausaha', value: alumniWirausaha, accent: 'text-secondary-container' },
+                { label: 'Wirausaha', value: alumniWirausaha, accent: 'text-white' },
               ].map(({ label, value, accent }, i) => (
                 <div key={i} className="bg-on-primary/10 border border-on-primary/15 rounded-xl p-5 text-center">
                   <div className={`text-4xl sm:text-5xl font-bold ${accent} tracking-tight`}>{value}</div>

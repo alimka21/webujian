@@ -708,11 +708,13 @@ router.get('/alumni/export', async (req, res, next) => {
 // Whitelist field — biar request body tidak bisa nyelundupin field
 // yang tidak diinginkan (misal id, updatedAt).
 const SITE_CONFIG_FIELDS = [
-  'namaSekolah', 'tagline', 'deskripsi',
+  'namaSekolah', 'jenjang', 'tagline', 'deskripsi',
   'logoUrl', 'faviconUrl', 'heroImageUrl',
   'heroBadge', 'heroTitle', 'heroSubtitle',
   'profilImageUrl', 'sejarah',
   'visi', 'misi', 'tujuan',
+  'kepsekNama', 'kepsekJabatan', 'kepsekFotoUrl', 'kepsekSambutan',
+  'fiturUnggulan',
   'alamat', 'telepon', 'email', 'whatsapp',
   'facebook', 'instagram', 'twitter', 'youtube', 'tiktok',
 ] as const;

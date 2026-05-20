@@ -2,8 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Save, ImageIcon, Building2, Home, BookOpen, Phone, Share2,
-  AlertTriangle, Upload, X, ImagePlus,
+  AlertTriangle, Upload, X, ImagePlus, UserSquare, Sparkles, Plus, Trash2,
 } from 'lucide-react';
+
+// Whitelist ikon Lucide untuk fitur unggulan — harus sinkron dgn FITUR_ICON_MAP di LandingPage.tsx
+const FITUR_ICON_KEYS = [
+  'FileText', 'CalendarCheck', 'GraduationCap', 'ClipboardList', 'Newspaper',
+  'ShieldCheck', 'Users', 'BookOpen', 'Briefcase', 'Target', 'Compass', 'Lightbulb',
+];
+
+interface FiturItem { icon: string; title: string; desc: string }
 import { Button } from '../../components/ui/button';
 import { Input, Label } from '../../components/ui/input';
 import api from '../../lib/api';
@@ -166,6 +174,35 @@ export default function SiteSettings() {
   const set = (key: string, value: string) => setConfig(c => ({ ...c, [key]: value }));
   const get = (key: string) => (config?.[key] ?? '') as string;
 
+  // ── Fitur Unggulan editor (JSON-encoded di SiteConfig.fiturUnggulan) ──
+  const fiturList: FiturItem[] = (() => {
+    const raw = get('fiturUnggulan');
+    if (!raw.trim()) return [];
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p.map((it: any) => ({
+        icon: it?.icon || 'FileText',
+        title: it?.title || '',
+        desc: it?.desc || '',
+      }));
+    } catch { /* ignore */ }
+    return [];
+  })();
+  const setFitur = (items: FiturItem[]) => set('fiturUnggulan', JSON.stringify(items));
+  const addFitur = () => {
+    if (fiturList.length >= 6) {
+      toast.error('Maksimal 6 fitur unggulan');
+      return;
+    }
+    setFitur([...fiturList, { icon: 'FileText', title: '', desc: '' }]);
+  };
+  const updateFitur = (i: number, patch: Partial<FiturItem>) => {
+    const next = fiturList.slice();
+    next[i] = { ...next[i], ...patch };
+    setFitur(next);
+  };
+  const removeFitur = (i: number) => setFitur(fiturList.filter((_, idx) => idx !== i));
+
   const handleSave = async () => {
     if (!config) return;
     try {
@@ -271,6 +308,62 @@ export default function SiteSettings() {
         <TextAreaField label="Visi" value={get('visi')} onChange={v => set('visi', v)} placeholder="Pandangan jangka panjang sekolah" rows={3} />
         <TextAreaField label="Misi" value={get('misi')} onChange={v => set('misi', v)} placeholder="Pisahkan tiap misi dengan baris baru (Enter)" rows={5} />
         <TextAreaField label="Tujuan" value={get('tujuan')} onChange={v => set('tujuan', v)} placeholder="Tujuan strategis sekolah" rows={3} />
+      </Section>
+
+      <Section icon={UserSquare} title="Sambutan Kepala Sekolah" description="Foto, nama, dan teks sambutan yang tampil di section khusus pada landing.">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <TextField label="Nama Kepala Sekolah" value={get('kepsekNama')} onChange={v => set('kepsekNama', v)} placeholder="Contoh: Dr. Budi Santoso, M.Pd." />
+          <TextField label="Jabatan" value={get('kepsekJabatan')} onChange={v => set('kepsekJabatan', v)} placeholder="Kepala Sekolah" />
+        </div>
+        <ImageField
+          label="Foto Kepala Sekolah" hint="Foto resmi. Disarankan rasio persegi (1:1)."
+          value={get('kepsekFotoUrl')} onChange={v => set('kepsekFotoUrl', v)}
+          maxWidth={512} preview="square"
+        />
+        <TextAreaField label="Teks Sambutan" value={get('kepsekSambutan')} onChange={v => set('kepsekSambutan', v)}
+          placeholder="Tulis sambutan singkat untuk pengunjung situs..." rows={6} />
+      </Section>
+
+      <Section icon={Sparkles} title="Fitur Unggulan" description="Daftar fitur yang ditonjolkan di landing (3–6 item ideal). Pilih ikon dari preset.">
+        {fiturList.length === 0 ? (
+          <div className="text-center py-8 border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant">
+            <Sparkles className="w-8 h-8 mx-auto mb-2 text-outline-variant" />
+            <p className="text-sm mb-3">Belum ada fitur. Default fitur (Ujian Online, Presensi, Tracer Alumni) akan dipakai.</p>
+            <Button type="button" variant="outline" size="sm" onClick={addFitur}>
+              <Plus className="w-4 h-4 mr-1.5" /> Tambah Fitur
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {fiturList.map((f, i) => (
+              <div key={i} className="border border-outline-variant rounded-xl p-4 bg-surface-container-low space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-on-surface">Fitur #{i + 1}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeFitur(i)} className="text-error hover:bg-error-container">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-[160px_1fr] gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Ikon</Label>
+                    <select
+                      value={f.icon}
+                      onChange={e => updateFitur(i, { icon: e.target.value })}
+                      className="flex h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface shadow-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      {FITUR_ICON_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                  </div>
+                  <TextField label="Judul" value={f.title} onChange={v => updateFitur(i, { title: v })} placeholder="Misal: Ujian Online" />
+                </div>
+                <TextAreaField label="Deskripsi" value={f.desc} onChange={v => updateFitur(i, { desc: v })} placeholder="Penjelasan singkat fitur ini" rows={2} />
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addFitur} disabled={fiturList.length >= 6}>
+              <Plus className="w-4 h-4 mr-1.5" /> Tambah Fitur ({fiturList.length}/6)
+            </Button>
+          </div>
+        )}
       </Section>
 
       <Section icon={Phone} title="Hubungi Kami" description="Info kontak untuk footer landing.">

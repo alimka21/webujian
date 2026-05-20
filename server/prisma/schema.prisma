@@ -259,6 +259,16 @@ model SiteConfig {
   misi           String?  @db.Text
   tujuan         String?  @db.Text
 
+  // Sambutan kepala sekolah — ditampilkan di section khusus pada landing
+  kepsekNama     String?
+  kepsekJabatan  String?  @default("Kepala Sekolah")
+  kepsekFotoUrl  String?  @db.LongText
+  kepsekSambutan String?  @db.Text
+
+  // Fitur unggulan — JSON array: [{ icon: string, title: string, desc: string }]
+  // icon = nama lucide-react yg di-whitelist di frontend (FileText, CalendarCheck, dst)
+  fiturUnggulan  String?  @db.LongText
+
   alamat         String?  @db.Text
   telepon        String?
   email          String?
