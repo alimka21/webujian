@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import compression from "compression";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
@@ -192,6 +195,20 @@ async function bootstrapDatabase() {
 const app = express();
 const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3001) : 3001;
 
+// ── Security headers (helmet) ────────────────────────
+// CSP & COEP di-disable: CSP butuh whitelist inline-style/iframe yg belum
+// disiapkan; COEP off supaya Google Maps iframe di footer tidak ke-block.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ── Gzip compression — kurangi ukuran response 60-80% ─
+app.use(compression({
+  level: 6,        // balance kompresi vs CPU
+  threshold: 1024, // hanya compress response > 1KB
+}));
+
 // Flag: bootstrap belum selesai → request ke /api/* (selain /health) dapat 503
 let bootstrapDone = false;
 
@@ -230,6 +247,60 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// ── Rate limiting ─────────────────────────────────────
+// Sengaja sebelum bootstrap gate supaya brute-force tidak bisa nge-hit gate berulang.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: "Terlalu banyak percobaan login. Coba lagi dalam 15 menit." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/auth/login", authLimiter);
+
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 200,
+  message: { error: "Terlalu banyak request. Coba lagi sebentar." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.includes("/assets"),
+});
+app.use("/api", generalLimiter);
+
+// ── Cache-Control headers per kategori endpoint ───────
+// URUTAN PENTING: middleware Express tidak short-circuit. Yang lebih spesifik
+// HARUS declared SETELAH yang lebih umum supaya menang override.
+
+// 1. Dashboard private (guru/siswa/admin) — default 30 detik di browser
+app.use(["/api/guru", "/api/siswa", "/api/admin"], (req, res, next) => {
+  if (req.method === "GET") {
+    res.set("Cache-Control", "private, max-age=30");
+  } else {
+    res.set("Cache-Control", "no-store");
+  }
+  next();
+});
+// 2. Override: sesi ujian aktif TIDAK BOLEH di-cache (jawaban/timer/anti-cheat)
+app.use("/api/siswa/sesi", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  next();
+});
+// 3. Auth → no cache
+app.use("/api/auth", (_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+// 4. Public (berita, alumni stats) → cache 5 menit di browser, SWR 1 menit
+app.use(["/api/berita", "/api/alumni"], (req, res, next) => {
+  if (req.method === "GET") {
+    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+  } else {
+    res.set("Cache-Control", "no-store");
+  }
+  next();
+});
+
 // ── Gate: blok /api/* sampai bootstrap selesai ────────
 app.use("/api", (_req, res, next) => {
   if (bootstrapDone) return next();
@@ -260,7 +331,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // ── Serve frontend (production only) ─────────────────
 if (process.env.NODE_ENV === "production") {
   const frontendDist = path.join(__dirname, "../../dist");
-  app.use(express.static(frontendDist));
+  app.use(express.static(frontendDist, {
+    maxAge: "1y",     // Vite hash filename, aman cache 1 tahun
+    immutable: true,
+    etag: true,
+  }));
   app.get("*", (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
