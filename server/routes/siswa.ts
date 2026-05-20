@@ -331,19 +331,34 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
 
     const soalList = sesi.ujian.soal;
 
-    const jawabanMap = new Map(sesi.jawaban.map(j => [j.soalId, j]));
+    // Group jawaban by soalId — PG_KOMPLEKS bisa punya >1 row per soal.
+    const jawabanBySoal = new Map<string, typeof sesi.jawaban>();
+    for (const j of sesi.jawaban) {
+      const arr = jawabanBySoal.get(j.soalId);
+      if (arr) arr.push(j);
+      else jawabanBySoal.set(j.soalId, [j]);
+    }
 
     const jawabanDetail = soalList.map(soal => {
-      const jwb = jawabanMap.get(soal.id);
-      const opsiBenar = soal.opsi.find(o => o.benar);
+      const jwbList = jawabanBySoal.get(soal.id) || [];
+      const opsiBenarList = soal.opsi.filter(o => o.benar);
+      const opsiDipilihList = jwbList
+        .map(j => j.opsi ? { teks: j.opsi.teks } : null)
+        .filter((x): x is { teks: string } => x !== null);
+      // isBenar konsisten antar row (di-set bareng saat submit) → ambil dari row pertama
+      const isBenar = jwbList.length > 0 ? jwbList[0].isBenar : false;
       return {
         nomor: soal.nomor,
         teks: soal.teks,
         tipe: soal.tipe,
-        opsiDipilih: jwb?.opsi ? { teks: jwb.opsi.teks } : null,
-        opsiBenar: opsiBenar ? { teks: opsiBenar.teks } : null,
-        isBenar: jwb?.isBenar ?? false,
-        tidakDijawab: !jwb
+        // Untuk kompat backward — single-opsi tetap tampilkan opsiDipilih
+        opsiDipilih: opsiDipilihList[0] || null,
+        opsiBenar: opsiBenarList[0] ? { teks: opsiBenarList[0].teks } : null,
+        // Field baru untuk PG_KOMPLEKS (array semua opsi)
+        opsiDipilihList,
+        opsiBenarList: opsiBenarList.map(o => ({ teks: o.teks })),
+        isBenar,
+        tidakDijawab: jwbList.length === 0,
       };
     });
 

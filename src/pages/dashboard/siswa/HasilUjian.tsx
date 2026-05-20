@@ -17,6 +17,9 @@ interface JawabanItem {
   tipe: string;
   opsiDipilih: { teks: string } | null;
   opsiBenar: { teks: string } | null;
+  // Untuk PG_KOMPLEKS — list opsi (single-select tetap pakai opsiDipilih/opsiBenar di atas)
+  opsiDipilihList?: { teks: string }[];
+  opsiBenarList?: { teks: string }[];
   isBenar: boolean;
   tidakDijawab: boolean;
 }
@@ -281,22 +284,37 @@ export default function HasilUjian() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-on-surface leading-snug mb-2">{item.teks}</p>
                     <div className="space-y-1 text-xs">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-on-surface-variant shrink-0 w-28">Jawaban kamu:</span>
-                        {item.tidakDijawab ? (
-                          <span className="italic text-outline-variant">Tidak dijawab</span>
-                        ) : (
-                          <span className={`font-medium ${item.isBenar ? 'text-on-secondary-container' : 'text-error'}`}>
-                            {item.opsiDipilih?.teks ?? '—'}
-                          </span>
-                        )}
-                      </div>
-                      {!item.isBenar && (
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-on-surface-variant shrink-0 w-28">Jawaban benar:</span>
-                          <span className="font-medium text-on-secondary-container">{item.opsiBenar?.teks ?? '—'}</span>
-                        </div>
-                      )}
+                      {(() => {
+                        const isMulti = item.tipe === 'PG_KOMPLEKS';
+                        const dipilihTeks = isMulti
+                          ? (item.opsiDipilihList || []).map(o => o.teks)
+                          : (item.opsiDipilih ? [item.opsiDipilih.teks] : []);
+                        const benarTeks = isMulti
+                          ? (item.opsiBenarList || []).map(o => o.teks)
+                          : (item.opsiBenar ? [item.opsiBenar.teks] : []);
+                        return (
+                          <>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-on-surface-variant shrink-0 w-28">Jawaban kamu:</span>
+                              {item.tidakDijawab ? (
+                                <span className="italic text-outline-variant">Tidak dijawab</span>
+                              ) : (
+                                <span className={`font-medium ${item.isBenar ? 'text-on-secondary-container' : 'text-error'}`}>
+                                  {dipilihTeks.length > 0 ? dipilihTeks.join(', ') : '—'}
+                                </span>
+                              )}
+                            </div>
+                            {!item.isBenar && (
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-on-surface-variant shrink-0 w-28">Jawaban benar:</span>
+                                <span className="font-medium text-on-secondary-container">
+                                  {benarTeks.length > 0 ? benarTeks.join(', ') : '—'}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

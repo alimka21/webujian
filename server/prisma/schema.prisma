@@ -186,7 +186,9 @@ model Jawaban {
   opsi    Opsi?     @relation(fields: [opsiId], references: [id], onDelete: Cascade)
   isBenar Boolean   @default(false)
 
-  @@unique([sesiId, soalId])
+  // Tidak boleh @@unique — PG_KOMPLEKS butuh multiple row per (sesi, soal),
+  // satu row per opsi yang dipilih siswa. Index biasa cukup untuk query.
+  @@index([sesiId, soalId])
 }
 
 model Pelanggaran {
