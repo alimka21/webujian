@@ -48,7 +48,7 @@ if (dbUrl) {
 }
 console.log("[startup] NODE_ENV:", process.env.NODE_ENV);
 
-import { logger, errorHandler } from './middleware';
+import { logger, errorHandler, extractUserId } from './middleware';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
 import guruRoutes from './routes/guru';
@@ -247,6 +247,11 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// ── Soft JWT decode → req.userId — dipasang SEBELUM rate limiter supaya
+// bucket di-key per user, bukan per IP. Tanpa ini, 500 siswa di belakang
+// 1 NAT sekolah jadi 1 IP → bucket 200/min habis dalam 12 detik.
+app.use("/api", extractUserId);
+
 // ── Rate limiting ─────────────────────────────────────
 // Sengaja sebelum bootstrap gate supaya brute-force tidak bisa nge-hit gate berulang.
 const authLimiter = rateLimit({
@@ -255,6 +260,8 @@ const authLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan login. Coba lagi dalam 15 menit." },
   standardHeaders: true,
   legacyHeaders: false,
+  // Pre-login req.userId undefined → fallback ke IP (brute force protection)
+  keyGenerator: (req) => req.userId || req.ip || 'unknown',
 });
 app.use("/api/auth/login", authLimiter);
 
@@ -264,9 +271,24 @@ const generalLimiter = rateLimit({
   message: { error: "Terlalu banyak request. Coba lagi sebentar." },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip || 'unknown',
   skip: (req) => req.path.includes("/assets"),
 });
 app.use("/api", generalLimiter);
+
+// Sesi ujian — bucket per-user terpisah supaya auto-save intensif
+// (debounce 500ms = max 2 req/s/siswa) tidak menggerus quota endpoint lain.
+// Double-limit dengan generalLimiter: traffic /sesi tidak makan jatah 200/min
+// untuk endpoint dashboard biasa.
+const ujianLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 120,
+  message: { error: "Aktivitas ujian terlalu cepat. Tunggu sebentar." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip || 'unknown',
+});
+app.use("/api/siswa/sesi", ujianLimiter);
 
 // ── Cache-Control headers per kategori endpoint ───────
 // URUTAN PENTING: middleware Express tidak short-circuit. Yang lebih spesifik
