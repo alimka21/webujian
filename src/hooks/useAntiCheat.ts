@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../lib/api';
 
+// ── Deteksi iOS Safari ────────────────────────────────────────────
+// iOS Safari TIDAK mendukung Fullscreen API (kebijakan Apple) — kita
+// harus bypass fullscreen-gate supaya siswa pengguna iPhone/iPad tetap
+// bisa mengerjakan ujian. Anti-cheat TAB_SWITCH (visibilitychange)
+// tetap aktif. Listener blur skip di iOS karena false positive saat
+// user tap address bar / pull-down notification center.
+const isIOS = typeof navigator !== 'undefined'
+  && /iPad|iPhone|iPod/.test(navigator.userAgent)
+  && !(window as any).MSStream;
+const isFullscreenSupported = !isIOS && typeof document !== 'undefined'
+  && !!document.documentElement.requestFullscreen;
+
 export type ViolationType = 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'WINDOW_BLUR' | 'DEVTOOLS';
 
 export interface Violation {
@@ -145,26 +157,48 @@ export function useAntiCheat({
       e.preventDefault();
     };
 
+    // TAB_SWITCH detection (visibilitychange) — AKTIF di semua platform
+    // termasuk iOS. Fire saat siswa switch app / lock screen.
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    window.addEventListener('blur', handleWindowBlur);
+
+    // Fullscreen + blur detection — SKIP di iOS karena:
+    //  - fullscreenchange tidak akan fire (Fullscreen API tidak ada)
+    //  - window blur false positive saat tap address bar / notif center
+    if (isFullscreenSupported) {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.addEventListener('blur', handleWindowBlur);
+    }
+
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('contextmenu', handleContextMenu);
 
-    setIsFullscreen(!!document.fullscreenElement || !!(document as any).webkitFullscreenElement);
+    // Initial state — di non-iOS baca dari DOM. Di iOS biarkan false
+    // sampai siswa tap "Mulai Ujian" yg call requestFullscreen() (yg
+    // langsung bypass set true).
+    if (isFullscreenSupported) {
+      setIsFullscreen(!!document.fullscreenElement || !!(document as any).webkitFullscreenElement);
+    }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      window.removeEventListener('blur', handleWindowBlur);
+      if (isFullscreenSupported) {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        window.removeEventListener('blur', handleWindowBlur);
+      }
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [triggerViolation]);
 
   const requestFullscreen = async () => {
+    // iOS / browser tanpa Fullscreen API: bypass dgn set state langsung.
+    // Siswa lanjut masuk ujian. Anti-cheat tetap aktif via TAB_SWITCH.
+    if (!isFullscreenSupported) {
+      setIsFullscreen(true);
+      return;
+    }
     try {
       const el = document.documentElement as any;
       if (el.requestFullscreen) {
@@ -187,6 +221,7 @@ export function useAntiCheat({
     violations,
     violationCount: countRef.current,
     isFullscreen,
+    isFullscreenSupported, // false di iOS — TakeExam render pesan berbeda
     isWarningVisible,
     latestViolation,
     requestFullscreen,

@@ -98,6 +98,7 @@ export default function TakeExam() {
   const {
     violationCount,
     isFullscreen,
+    isFullscreenSupported,
     isWarningVisible,
     latestViolation,
     requestFullscreen,
@@ -299,29 +300,54 @@ export default function TakeExam() {
           <div className="w-20 h-20 bg-on-primary/10 text-on-primary rounded-xl flex items-center justify-center mx-auto">
             <Maximize className="w-10 h-10" />
           </div>
-          <div>
-            <h2 id="fullscreen-gate-title" className="text-headline-lg text-on-primary">
-              Masuk Mode Layar Penuh
-            </h2>
-            <p className="text-on-primary/80 mt-3 leading-relaxed">
-              Ujian ini mewajibkan mode layar penuh. Anda tidak diizinkan berpindah tab
-              atau mengecilkan layar selama ujian berlangsung.
-            </p>
-          </div>
-          <div className="bg-on-primary/10 text-on-primary p-4 rounded-xl text-sm text-left">
-            <p className="font-semibold mb-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" /> Penting!
-            </p>
-            <ul className="list-disc pl-5 space-y-1 text-on-primary/90">
-              <li>Meninggalkan layar penuh dicatat sebagai <strong>pelanggaran</strong>.</li>
-              <li>Jika pelanggaran mencapai {maxViolations} kali, ujian <strong>dihentikan paksa</strong>.</li>
-            </ul>
-          </div>
+          {isFullscreenSupported ? (
+            <>
+              <div>
+                <h2 id="fullscreen-gate-title" className="text-headline-lg text-on-primary">
+                  Masuk Mode Layar Penuh
+                </h2>
+                <p className="text-on-primary/80 mt-3 leading-relaxed">
+                  Ujian ini mewajibkan mode layar penuh. Anda tidak diizinkan berpindah tab
+                  atau mengecilkan layar selama ujian berlangsung.
+                </p>
+              </div>
+              <div className="bg-on-primary/10 text-on-primary p-4 rounded-xl text-sm text-left">
+                <p className="font-semibold mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Penting!
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-on-primary/90">
+                  <li>Meninggalkan layar penuh dicatat sebagai <strong>pelanggaran</strong>.</li>
+                  <li>Jika pelanggaran mencapai {maxViolations} kali, ujian <strong>dihentikan paksa</strong>.</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <h2 id="fullscreen-gate-title" className="text-headline-lg text-on-primary">
+                  Siap Memulai Ujian
+                </h2>
+                <p className="text-on-primary/80 mt-3 leading-relaxed">
+                  Perangkat Anda tidak mendukung mode layar penuh. Ujian tetap bisa
+                  dikerjakan. Pastikan tidak berpindah aplikasi selama ujian berlangsung.
+                </p>
+              </div>
+              <div className="bg-on-primary/10 text-on-primary p-4 rounded-xl text-sm text-left">
+                <p className="font-semibold mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Penting!
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-on-primary/90">
+                  <li>Berpindah aplikasi atau membuka tab lain dicatat sebagai <strong>pelanggaran</strong>.</li>
+                  <li>Jika pelanggaran mencapai {maxViolations} kali, ujian <strong>dihentikan paksa</strong>.</li>
+                </ul>
+              </div>
+            </>
+          )}
           <button
             onClick={requestFullscreen}
             className="w-full h-12 bg-on-primary text-primary rounded-full font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/90 active:translate-y-px transition-all shadow-md"
           >
-            Masuk Layar Penuh & Lanjutkan Ujian
+            {isFullscreenSupported ? 'Masuk Layar Penuh & Lanjutkan Ujian' : 'Mulai Ujian'}
           </button>
         </div>
       </div>
