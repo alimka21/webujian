@@ -30,7 +30,20 @@ export default defineConfig(({mode}) => {
     build: {
       outDir: "dist",
       sourcemap: false,
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          // Split node_modules besar jadi vendor chunks:
+          //  - Vendor jarang berubah → cacheable lebih lama
+          //  - Bundle utama kecil → first-load cepat
+          //  - Page yang tidak pakai exceljs/recharts tidak ikut download
+          manualChunks: {
+            exceljs: ['exceljs'],
+            recharts: ['recharts'],
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          },
+        },
+      },
     },
   };
 });
