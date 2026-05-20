@@ -90,10 +90,15 @@ model Ujian {
   judul          String
   mataPelajaran  String
   tipeUjian      String?   @default("ULANGAN_HARIAN")
+  // Tipe bebas; UI menyediakan preset (LATIHAN/ULANGAN_HARIAN/UTS/UAS) tapi guru/admin
+  // boleh mengisi string custom lewat opsi "Lainnya".
   durasi         Int // dalam menit
   tanggalMulai   DateTime?
   tanggalSelesai DateTime?
-  acak           Boolean   @default(false)
+  acak           Boolean   @default(false) // Acak urutan soal
+  acakOpsi       Boolean   @default(false) // Acak urutan opsi pilihan jawaban
+  tampilkanPembahasan Boolean @default(true)  // Tampilkan kunci jawaban di halaman hasil
+  tampilkanNilai      Boolean @default(true)  // Tampilkan nilai akhir di halaman hasil
   createdAt      DateTime  @default(now())
 
   guruId String

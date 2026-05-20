@@ -52,7 +52,31 @@ export default function TakeExam() {
         }
 
         setSessionData(res);
-        setSoalList(res.ujian.soal || []);
+
+        // Shuffle soal & opsi pakai seed dari sessionId — stabil antar refresh,
+        // beda untuk tiap siswa.
+        const seedStr = String(sessionId || '');
+        let seed = 0;
+        for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+        const rng = () => {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          return seed / 0x100000000;
+        };
+        const shuffle = <T,>(arr: T[]): T[] => {
+          const a = arr.slice();
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        };
+
+        let soal = res.ujian.soal || [];
+        if (res.ujian.acak) soal = shuffle(soal);
+        if (res.ujian.acakOpsi) {
+          soal = soal.map((s: any) => ({ ...s, opsi: shuffle(s.opsi || []) }));
+        }
+        setSoalList(soal);
 
         const storedAns = localStorage.getItem(`exam_ans_${sessionId}`);
         if (storedAns) setAnswers(JSON.parse(storedAns));

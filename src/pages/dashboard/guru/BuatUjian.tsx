@@ -29,11 +29,16 @@ export default function BuatUjian() {
   // Form State
   const [judul, setJudul] = useState('');
   const [mataPelajaran, setMataPelajaran] = useState('');
+  const PRESET_TIPE = ['LATIHAN', 'ULANGAN_HARIAN', 'UTS', 'UAS'];
   const [tipeUjian, setTipeUjian] = useState('LATIHAN');
+  const [tipeKustom, setTipeKustom] = useState(''); // dipakai saat tipeUjian = '__LAINNYA__'
   const [durasi, setDurasi] = useState('60');
   const [tanggalMulai, setTanggalMulai] = useState('');
   const [tanggalSelesai, setTanggalSelesai] = useState('');
   const [acak, setAcak] = useState(true);
+  const [acakOpsi, setAcakOpsi] = useState(false);
+  const [tampilkanPembahasan, setTampilkanPembahasan] = useState(true);
+  const [tampilkanNilai, setTampilkanNilai] = useState(true);
   const [selectedKelas, setSelectedKelas] = useState<string[]>([]);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancelModalRef = useModalA11y<HTMLDivElement>(showCancelConfirm, () => setShowCancelConfirm(false));
@@ -103,6 +108,12 @@ export default function BuatUjian() {
     if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
       errs.tanggalSelesai = 'Waktu ditutup harus lebih besar dari waktu dibuka';
     }
+    if (tanggalSelesai && new Date(tanggalSelesai) <= new Date()) {
+      errs.tanggalSelesai = 'Waktu ditutup sudah lewat — siswa tidak akan bisa mengikuti ujian ini';
+    }
+    if (tipeUjian === '__LAINNYA__' && !tipeKustom.trim()) {
+      errs.tipeUjian = 'Isi nama tipe ujian kustom';
+    }
     if (selectedKelas.length === 0) errs.kelasIds = 'Pilih minimal satu kelas peserta';
 
     if (Object.keys(errs).length > 0) {
@@ -114,14 +125,18 @@ export default function BuatUjian() {
 
     try {
       setIsLoading(true);
+      const finalTipe = tipeUjian === '__LAINNYA__' ? tipeKustom.trim() : tipeUjian;
       const res = await api.post('/api/guru/ujian', {
         judul,
         mataPelajaran,
-        tipeUjian,
+        tipeUjian: finalTipe,
         durasi: parseInt(durasi),
         tanggalMulai,
         tanggalSelesai,
         acak,
+        acakOpsi,
+        tampilkanPembahasan,
+        tampilkanNilai,
         kelasIds: selectedKelas,
         ...(isAdmin && guruId ? { guruId } : {}),
       });
@@ -215,22 +230,45 @@ export default function BuatUjian() {
 
               <div className="space-y-3 pt-2">
                 <Label>Tipe Ujian <span className="text-error">*</span></Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {['LATIHAN', 'ULANGAN_HARIAN', 'UTS', 'UAS'].map((type) => (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {PRESET_TIPE.map((type) => (
                     <button
                       key={type}
                       type="button"
                       onClick={() => setTipeUjian(type)}
                       className={`py-3 px-2 rounded-xl text-sm font-medium border text-center transition-all ${
-                        tipeUjian === type 
-                          ? 'border-primary bg-primary-container/15 text-primary shadow-sm' 
+                        tipeUjian === type
+                          ? 'border-primary bg-primary-container/15 text-primary shadow-sm'
                           : 'border-outline-variant bg-white text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low'
                       }`}
                     >
                       {type.replace('_', ' ')}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setTipeUjian('__LAINNYA__')}
+                    className={`py-3 px-2 rounded-xl text-sm font-medium border text-center transition-all ${
+                      tipeUjian === '__LAINNYA__'
+                        ? 'border-primary bg-primary-container/15 text-primary shadow-sm'
+                        : 'border-outline-variant bg-white text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low'
+                    }`}
+                  >
+                    LAINNYA
+                  </button>
                 </div>
+                {tipeUjian === '__LAINNYA__' && (
+                  <div className="space-y-1.5 pt-1">
+                    <Input
+                      placeholder="Contoh: KUIS_HARIAN, REMEDIAL, TRYOUT, dst"
+                      value={tipeKustom}
+                      onChange={e => setTipeKustom(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
+                      className={errors.tipeUjian ? 'border-error' : ''}
+                    />
+                    <p className="text-xs text-on-surface-variant">Spasi otomatis diganti underscore, huruf besar.</p>
+                    <FieldError msg={errors.tipeUjian} />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -324,15 +362,24 @@ export default function BuatUjian() {
                 <FieldError msg={errors.kelasIds} />
               </div>
 
-              <div className="border-t border-outline-variant pt-5 flex items-center justify-between">
-                <div>
-                  <Label htmlFor="acak" className="text-base font-semibold text-on-surface cursor-pointer">Acak Urutan Soal</Label>
-                  <p className="text-sm text-on-surface-variant">Urutan soal akan diacak untuk setiap siswa mencegah kecurangan.</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="acak" className="sr-only peer" checked={acak} onChange={e => setAcak(e.target.checked)} />
-                  <div className="w-11 h-6 bg-surface-container-high rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+              <div className="border-t border-outline-variant pt-5 space-y-4">
+                {[
+                  { id: 'acak', label: 'Acak Urutan Soal', desc: 'Urutan soal diacak untuk setiap siswa.', value: acak, set: setAcak },
+                  { id: 'acakOpsi', label: 'Acak Opsi Pilihan Jawaban', desc: 'Urutan pilihan A/B/C/D di tiap soal juga diacak.', value: acakOpsi, set: setAcakOpsi },
+                  { id: 'tampilkanPembahasan', label: 'Tampilkan Pembahasan', desc: 'Siswa bisa melihat kunci jawaban di halaman hasil ujian.', value: tampilkanPembahasan, set: setTampilkanPembahasan },
+                  { id: 'tampilkanNilai', label: 'Tampilkan Nilai', desc: 'Siswa bisa melihat nilai akhir setelah submit. Matikan jika ingin pengumuman terpisah.', value: tampilkanNilai, set: setTampilkanNilai },
+                ].map(t => (
+                  <div key={t.id} className="flex items-center justify-between gap-4">
+                    <div>
+                      <Label htmlFor={t.id} className="text-base font-semibold text-on-surface cursor-pointer">{t.label}</Label>
+                      <p className="text-sm text-on-surface-variant">{t.desc}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input type="checkbox" id={t.id} className="sr-only peer" checked={t.value} onChange={e => t.set(e.target.checked)} />
+                      <div className="w-11 h-6 bg-surface-container-high rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                ))}
               </div>
             </CardContent>
             <CardFooter className="bg-surface-container-low border-t border-outline-variant p-6 flex justify-end gap-3 rounded-b-xl">

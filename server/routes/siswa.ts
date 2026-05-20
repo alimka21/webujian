@@ -175,6 +175,8 @@ router.get('/sesi/:sessionId', async (req, res, next) => {
         judul: sesi.ujian.judul,
         mataPelajaran: sesi.ujian.mataPelajaran,
         durasi: sesi.ujian.durasi,
+        acak: sesi.ujian.acak,
+        acakOpsi: sesi.ujian.acakOpsi,
         soal: sesi.ujian.soal
       },
       siswa: {
@@ -302,7 +304,7 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
       where: { id: req.params.sessionId },
       include: {
         siswa: { select: { nama: true } },
-        ujian: { select: { judul: true, mataPelajaran: true, durasi: true } },
+        ujian: { select: { judul: true, mataPelajaran: true, durasi: true, tampilkanPembahasan: true, tampilkanNilai: true } },
         pelanggaran: { orderBy: { timestamp: 'asc' } },
         jawaban: {
           include: {

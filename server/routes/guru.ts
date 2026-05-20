@@ -177,10 +177,22 @@ router.get('/ujian', async (req, res, next) => {
 router.post('/ujian', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);
-    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai, acak, kelasIds, guruId: bodyGuruId } = req.body;
+    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai,
+            acak, acakOpsi, tampilkanPembahasan, tampilkanNilai,
+            kelasIds, guruId: bodyGuruId } = req.body;
 
     if (!judul || !mataPelajaran || !durasi || !tanggalMulai || !tanggalSelesai) {
       return res.status(400).json({ error: "Semua field wajib diisi" });
+    }
+
+    // Validasi waktu: tanggalSelesai harus di masa depan & lebih besar dari mulai
+    const tMulai = new Date(tanggalMulai);
+    const tSelesai = new Date(tanggalSelesai);
+    if (tSelesai <= new Date()) {
+      return res.status(400).json({ error: "Waktu ditutup harus lebih besar dari waktu saat ini" });
+    }
+    if (tSelesai <= tMulai) {
+      return res.status(400).json({ error: "Waktu ditutup harus lebih besar dari waktu dibuka" });
     }
 
     // Admin wajib pilih guru pemilik ujian; guru pakai ID dari session-nya.
@@ -197,9 +209,12 @@ router.post('/ujian', async (req, res, next) => {
       data: {
         judul, mataPelajaran, tipeUjian,
         durasi: Number(durasi),
-        tanggalMulai: new Date(tanggalMulai),
-        tanggalSelesai: new Date(tanggalSelesai),
+        tanggalMulai: tMulai,
+        tanggalSelesai: tSelesai,
         acak: !!acak,
+        acakOpsi: !!acakOpsi,
+        tampilkanPembahasan: tampilkanPembahasan === undefined ? true : !!tampilkanPembahasan,
+        tampilkanNilai: tampilkanNilai === undefined ? true : !!tampilkanNilai,
         guruId: finalGuruId,
         kelas: {
           create: (kelasIds || []).map((kId: string) => ({ kelasId: kId }))
@@ -223,8 +238,20 @@ router.get('/ujian/:id', async (req, res, next) => {
 
 router.patch('/ujian/:id', async (req, res, next) => {
   try {
-    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai, acak, kelasIds } = req.body;
-    
+    const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai,
+            acak, acakOpsi, tampilkanPembahasan, tampilkanNilai, kelasIds } = req.body;
+
+    // Validasi waktu kalau di-update
+    if (tanggalSelesai) {
+      const tSelesai = new Date(tanggalSelesai);
+      if (tSelesai <= new Date()) {
+        return res.status(400).json({ error: "Waktu ditutup harus lebih besar dari waktu saat ini" });
+      }
+      if (tanggalMulai && tSelesai <= new Date(tanggalMulai)) {
+        return res.status(400).json({ error: "Waktu ditutup harus lebih besar dari waktu dibuka" });
+      }
+    }
+
     // Hapus relasi UjianKelas lama
     if (kelasIds) {
       await prisma.ujianKelas.deleteMany({ where: { ujianId: req.params.id } });
@@ -240,6 +267,9 @@ router.patch('/ujian/:id', async (req, res, next) => {
         ...(tanggalMulai && {tanggalMulai: new Date(tanggalMulai)}),
         ...(tanggalSelesai && {tanggalSelesai: new Date(tanggalSelesai)}),
         ...(acak !== undefined && {acak: !!acak}),
+        ...(acakOpsi !== undefined && {acakOpsi: !!acakOpsi}),
+        ...(tampilkanPembahasan !== undefined && {tampilkanPembahasan: !!tampilkanPembahasan}),
+        ...(tampilkanNilai !== undefined && {tampilkanNilai: !!tampilkanNilai}),
         ...(kelasIds && {
           kelas: { create: kelasIds.map((c: string) => ({ kelasId: c })) }
         })
@@ -289,6 +319,9 @@ router.post('/ujian/:id/duplikat', async (req, res, next) => {
           tanggalMulai: source.tanggalMulai,
           tanggalSelesai: source.tanggalSelesai,
           acak: source.acak,
+          acakOpsi: source.acakOpsi,
+          tampilkanPembahasan: source.tampilkanPembahasan,
+          tampilkanNilai: source.tampilkanNilai,
           guruId: guru.id,
           kelas: { create: source.kelas.map(k => ({ kelasId: k.kelasId })) },
           soal: {
