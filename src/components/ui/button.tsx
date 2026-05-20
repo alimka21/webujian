@@ -25,15 +25,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "inline-flex items-center justify-center whitespace-nowrap font-bold uppercase tracking-wider text-label-md transition-all active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50",
           {
             // Primary — pill, deep blue
-            "bg-primary text-on-primary hover:bg-primary/90 shadow-sm rounded-full":
+            "bg-primary text-white hover:bg-primary/90 shadow-sm rounded-full":
               isPrimary,
-            "bg-secondary text-on-secondary hover:bg-secondary/90 rounded-lg":
+            "bg-secondary text-white hover:bg-secondary/90 rounded-lg":
               variant === "secondary",
             "border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-low rounded-lg":
               variant === "outline",
             "bg-transparent text-primary hover:bg-primary-container/10 rounded-lg":
               variant === "ghost",
-            "bg-error text-on-error hover:bg-error/90 shadow-sm rounded-lg":
+            "bg-error text-white hover:bg-error/90 shadow-sm rounded-lg":
               variant === "destructive",
             // Sizing (pill primary → wider px; sisanya tetap proporsional)
             "h-10 px-8 py-2.5": size === "default" && isPrimary,
