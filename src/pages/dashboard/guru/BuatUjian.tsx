@@ -67,11 +67,13 @@ export default function BuatUjian() {
 
     // Admin perlu pilih guru pemilik ujian
     if (isAdmin) {
-      api.get('/api/admin/users?role=GURU')
-        .then((users: any[]) => {
+      // Endpoint sekarang paginated — ambil 100 (cukup untuk dropdown sekolah typical).
+      api.get('/api/admin/users?role=GURU&limit=100')
+        .then((res: any) => {
+          const users = res?.data ?? [];
           const list = users
-            .filter(u => u.guru)
-            .map(u => ({ id: u.guru.id, nama: u.guru.nama, mataPelajaran: u.guru.mataPelajaran }));
+            .filter((u: any) => u.guru)
+            .map((u: any) => ({ id: u.guru.id, nama: u.guru.nama, mataPelajaran: u.guru.mataPelajaran }));
           setGuruList(list);
         })
         .catch(() => toast.error('Gagal memuat daftar guru'));

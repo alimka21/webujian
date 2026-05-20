@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
+import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
 
 const router = Router();
 router.use(requireAuth, requireRole(['SUPER_ADMIN']));
@@ -35,22 +36,29 @@ router.get('/users', async (req, res, next) => {
   try {
     const { role } = req.query;
     const whereCondition = role ? { role: String(role) } : {};
-    // Select eksplisit — JANGAN return password hash ke frontend (security).
-    const users = await prisma.user.findMany({
-      where: whereCondition,
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        admin: { select: { id: true, nama: true } },
-        guru:  { select: { id: true, nama: true, nip: true, mataPelajaran: true, fotoUrl: true } },
-        siswa: { select: { id: true, nama: true, nis: true, kelas: { select: { id: true, nama: true, tingkat: true } } } },
-      },
-    });
+    const { page, limit, skip } = getPaginationParams(req.query);
 
-    res.json(users);
+    // Select eksplisit — JANGAN return password hash ke frontend (security).
+    const [users, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        where: whereCondition,
+        skip, take: limit,
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          admin: { select: { id: true, nama: true } },
+          guru:  { select: { id: true, nama: true, nip: true, mataPelajaran: true, fotoUrl: true } },
+          siswa: { select: { id: true, nama: true, nis: true, kelas: { select: { id: true, nama: true, tingkat: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.count({ where: whereCondition }),
+    ]);
+
+    res.json(buildPaginatedResult(users, total, page, limit));
   } catch (error) {
     next(error);
   }

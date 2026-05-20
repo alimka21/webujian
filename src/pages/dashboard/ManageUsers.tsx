@@ -124,11 +124,17 @@ export default function ManageUsers() {
   const importResultModalRef = useModalA11y<HTMLDivElement>(importResult !== null, () => setImportResult(null));
 
   // ── Fetch ──
+  // TODO: GET /api/admin/users sekarang server-side paginated. Halaman ini
+  // masih pakai client-side filter (search + filter kelas), jadi sementara
+  // ambil 100 per role. Kalau dataset > 100, refactor jadi server-side search.
   const fetchSiswa = async () => {
     try {
       setIsLoadingSiswa(true);
-      const res = await api.get('/api/admin/users?role=SISWA');
-      setSiswaList(res);
+      const res = await api.get('/api/admin/users?role=SISWA&limit=100');
+      setSiswaList(res.data ?? []);
+      if (res.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} siswa — hanya 100 pertama yang ditampilkan. Refactor server-search akan datang.`);
+      }
     } catch (e: any) { toast.error(e.message || 'Gagal memuat data siswa'); }
     finally { setIsLoadingSiswa(false); }
   };
@@ -136,8 +142,11 @@ export default function ManageUsers() {
   const fetchGuru = async () => {
     try {
       setIsLoadingGuru(true);
-      const res = await api.get('/api/admin/users?role=GURU');
-      setGuruList(res);
+      const res = await api.get('/api/admin/users?role=GURU&limit=100');
+      setGuruList(res.data ?? []);
+      if (res.pagination?.total > 100) {
+        toast.info(`Total ${res.pagination.total} guru — hanya 100 pertama ditampilkan.`);
+      }
     } catch (e: any) { toast.error(e.message || 'Gagal memuat data guru'); }
     finally { setIsLoadingGuru(false); }
   };
