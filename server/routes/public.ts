@@ -1,6 +1,7 @@
 // server/routes/public.ts
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { withCache, invalidateByPrefix } from '../lib/cache';
 
 const router = Router();
 
@@ -10,24 +11,27 @@ router.get('/berita', async (req, res, next) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const data = await prisma.berita.findMany({
-      where: { status: 'PUBLISHED' },
-      skip,
-      take: limit,
-      orderBy: { publishedAt: 'desc' }
+    const result = await withCache(`pub:berita:${limit}:${page}`, 600, async () => {
+      const data = await prisma.berita.findMany({
+        where: { status: 'PUBLISHED' },
+        skip,
+        take: limit,
+        orderBy: { publishedAt: 'desc' }
+      });
+      const total = await prisma.berita.count({ where: { status: 'PUBLISHED' } });
+      return { data, total, page, limit };
     });
 
-    const total = await prisma.berita.count({ where: { status: 'PUBLISHED' } });
-
-    res.json({ data, total, page, limit });
+    res.json(result);
   } catch(error) { next(error); }
 });
 
 router.get('/berita/:slug', async (req, res, next) => {
   try {
-    const berita = await prisma.berita.findUnique({
-      where: { slug: req.params.slug }
-    });
+    const slug = req.params.slug;
+    const berita = await withCache(`pub:berita:slug:${slug}`, 600, () =>
+      prisma.berita.findUnique({ where: { slug } })
+    );
     if (!berita || berita.status !== 'PUBLISHED') {
       return res.status(404).json({ error: 'Berita tidak ditemukan' });
     }
@@ -38,10 +42,11 @@ router.get('/berita/:slug', async (req, res, next) => {
 // Singleton: SiteConfig untuk landing page. Auto-create kalau belum ada.
 router.get('/site-config', async (req, res, next) => {
   try {
-    let config = await prisma.siteConfig.findFirst();
-    if (!config) {
-      config = await prisma.siteConfig.create({ data: {} });
-    }
+    const config = await withCache('pub:site-config', 300, async () => {
+      let c = await prisma.siteConfig.findFirst();
+      if (!c) c = await prisma.siteConfig.create({ data: {} });
+      return c;
+    });
     res.json(config);
   } catch (error) { next(error); }
 });
@@ -92,24 +97,31 @@ router.post('/alumni/register', async (req, res, next) => {
         kontak: kontak ? String(kontak).trim() || null : null,
       },
     });
+    // Self-register alumni is unverified — alumni stats hanya hitung verified,
+    // jadi sebenarnya tidak ngubah angka. Tapi invalidasi tetap supaya admin
+    // dashboard yang baca raw count langsung fresh saat verifikasi nanti.
+    invalidateByPrefix('pub:alumni');
     res.status(201).json({ success: true, id: created.id });
   } catch (error) { next(error); }
 });
 
 router.get('/alumni/stats', async (req, res, next) => {
   try {
-    // Hanya hitung alumni yang sudah diverifikasi admin
-    const alumniList = await prisma.alumni.findMany({ where: { isVerified: true } });
+    const stats = await withCache('pub:alumni:stats', 600, async () => {
+      // Hanya hitung alumni yang sudah diverifikasi admin
+      const alumniList = await prisma.alumni.findMany({ where: { isVerified: true } });
 
-    const perTahun: Record<number, number> = {};
-    const perStatus: Record<string, number> = {};
+      const perTahun: Record<number, number> = {};
+      const perStatus: Record<string, number> = {};
 
-    alumniList.forEach(a => {
-      perTahun[a.tahunLulus] = (perTahun[a.tahunLulus] || 0) + 1;
-      perStatus[a.status] = (perStatus[a.status] || 0) + 1;
+      alumniList.forEach(a => {
+        perTahun[a.tahunLulus] = (perTahun[a.tahunLulus] || 0) + 1;
+        perStatus[a.status] = (perStatus[a.status] || 0) + 1;
+      });
+
+      return { perTahun, perStatus };
     });
-
-    res.json({ perTahun, perStatus });
+    res.json(stats);
   } catch(error) { next(error); }
 });
 

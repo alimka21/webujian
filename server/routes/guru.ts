@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
+import { withCache, invalidateByPrefix } from '../lib/cache';
 
 const router = Router();
 // SUPER_ADMIN dibolehkan agar bisa mengelola ujian/soal/hasil milik
@@ -32,36 +33,39 @@ router.get('/stats', async (req, res, next) => {
     const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     if (!guru) return res.status(404).json({ error: 'Guru tidak ditemukan' });
 
-    const totalUjian = await prisma.ujian.count({ where: { guruId: guru.id } });
-    
-    // Total Siswa dari kelas yang diajar
-    const kelasArr = await prisma.kelas.findMany({ where: { guruId: guru.id } });
-    const kelasIds = kelasArr.map(k => k.id);
-    const totalSiswa = await prisma.siswa.count({ where: { kelasId: { in: kelasIds } } });
+    const stats = await withCache(`guru:stats:${guru.id}`, 120, async () => {
+      const totalUjian = await prisma.ujian.count({ where: { guruId: guru.id } });
 
-    // Rata-rata nilai: ambil semua sesiUjian dari ujian yang dibuat guru ini
-    const sesiSelesai = await prisma.sesiUjian.findMany({
-      where: { 
-        status: { in: ['SELESAI', 'AUTO_SUBMIT'] },
-        ujian: { guruId: guru.id }
-      },
-      select: { nilaiAkhir: true }
+      // Total Siswa dari kelas yang diajar
+      const kelasArr = await prisma.kelas.findMany({ where: { guruId: guru.id } });
+      const kelasIds = kelasArr.map(k => k.id);
+      const totalSiswa = await prisma.siswa.count({ where: { kelasId: { in: kelasIds } } });
+
+      // Rata-rata nilai: ambil semua sesiUjian dari ujian yang dibuat guru ini
+      const sesiSelesai = await prisma.sesiUjian.findMany({
+        where: {
+          status: { in: ['SELESAI', 'AUTO_SUBMIT'] },
+          ujian: { guruId: guru.id }
+        },
+        select: { nilaiAkhir: true }
+      });
+
+      const avg = sesiSelesai.length > 0
+        ? sesiSelesai.reduce((a, b) => a + (b.nilaiAkhir || 0), 0) / sesiSelesai.length
+        : 0;
+
+      const now = new Date();
+      const ujianAktif = await prisma.ujian.count({
+        where: {
+          guruId: guru.id,
+          tanggalMulai: { lte: now },
+          tanggalSelesai: { gte: now }
+        }
+      });
+
+      return { totalUjian, totalSiswa, rataRataNilai: Math.round(avg * 10) / 10, ujianAktif };
     });
-
-    const avg = sesiSelesai.length > 0 
-      ? sesiSelesai.reduce((a, b) => a + (b.nilaiAkhir || 0), 0) / sesiSelesai.length 
-      : 0;
-
-    const now = new Date();
-    const ujianAktif = await prisma.ujian.count({
-      where: {
-        guruId: guru.id,
-        tanggalMulai: { lte: now },
-        tanggalSelesai: { gte: now }
-      }
-    });
-
-    res.json({ totalUjian, totalSiswa, rataRataNilai: Math.round(avg * 10) / 10, ujianAktif });
+    res.json(stats);
   } catch (error) {
     next(error);
   }
@@ -70,14 +74,20 @@ router.get('/stats', async (req, res, next) => {
 router.get('/kelas', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);
-    const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
-    const kelas = await prisma.kelas.findMany({
-      where,
-      include: {
-        _count: { select: { siswa: true } },
-        guru: { select: { id: true, nama: true } },
-      },
-    });
+    // Cache hanya untuk guru (per-id). Admin (isAdmin) skip cache karena
+    // satu key "guru:kelas:__admin__" akan tabrakan dgn scope yg berbeda.
+    const cacheKey = scope.isAdmin ? null : `guru:kelas:${scope.guruId ?? '__none__'}`;
+    const fetcher = async () => {
+      const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
+      return prisma.kelas.findMany({
+        where,
+        include: {
+          _count: { select: { siswa: true } },
+          guru: { select: { id: true, nama: true } },
+        },
+      });
+    };
+    const kelas = cacheKey ? await withCache(cacheKey, 120, fetcher) : await fetcher();
     res.json(kelas);
   } catch (error) {
     next(error);
@@ -92,6 +102,9 @@ router.post('/kelas', async (req, res, next) => {
     const result = await prisma.kelas.create({
       data: { ...req.body, guruId: guru.id }
     });
+    invalidateByPrefix(`guru:kelas:${guru.id}`);
+    invalidateByPrefix(`guru:stats:${guru.id}`);
+    invalidateByPrefix('admin:stats');
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -104,6 +117,8 @@ router.patch('/kelas/:id', async (req, res, next) => {
       where: { id: req.params.id },
       data: req.body
     });
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
     res.json(result);
   } catch(error) { next(error); }
 });
@@ -111,6 +126,9 @@ router.patch('/kelas/:id', async (req, res, next) => {
 router.delete('/kelas/:id', async (req, res, next) => {
   try {
     await prisma.kelas.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch(error) { next(error); }
 });
@@ -144,6 +162,10 @@ router.post('/siswa', async (req, res, next) => {
       },
       include: { siswa: true }
     });
+    // _count.siswa di kelas berubah → invalidate semua guru:kelas:*
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('admin:stats');
     res.status(201).json(result.siswa);
   } catch(error) { next(error); }
 });
@@ -151,6 +173,8 @@ router.post('/siswa', async (req, res, next) => {
 router.patch('/siswa/:id', async (req, res, next) => {
   try {
     const result = await prisma.siswa.update({ where: { id: req.params.id }, data: req.body });
+    // Pindah kelas affect _count.siswa per-kelas
+    invalidateByPrefix('guru:kelas:');
     res.json(result);
   } catch(error) { next(error); }
 });
@@ -159,6 +183,9 @@ router.delete('/siswa/:id', async (req, res, next) => {
   try {
     const siswa = await prisma.siswa.findUnique({ where: { id: req.params.id } });
     if(siswa) await prisma.user.delete({ where: { id: siswa.userId } });
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch(error) { next(error); }
 });
@@ -233,6 +260,8 @@ router.post('/ujian', async (req, res, next) => {
         }
       }
     });
+    invalidateByPrefix(`guru:stats:${finalGuruId}`);
+    invalidateByPrefix('admin:stats');
     res.json(ujian);
   } catch(error) { next(error); }
 });
@@ -303,6 +332,8 @@ router.delete('/ujian/:id', async (req, res, next) => {
     }
 
     await prisma.ujian.delete({ where: { id: id } });
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch(error) { next(error); }
 });
@@ -357,6 +388,8 @@ router.post('/ujian/:id/duplikat', async (req, res, next) => {
       });
     });
 
+    invalidateByPrefix(`guru:stats:${guru.id}`);
+    invalidateByPrefix('admin:stats');
     res.json(copy);
   } catch(error) { next(error); }
 });
@@ -499,6 +532,8 @@ router.delete('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
 
     await prisma.sesiUjian.delete({ where: { id: req.params.sesiId } });
 
+    // rataRataNilai di guru:stats berubah karena sesi dihapus.
+    invalidateByPrefix('guru:stats:');
     res.json({
       success: true,
       message: `Sesi ujian "${sesi.siswa.nama}" (NIS ${sesi.siswa.nis}) berhasil di-reset. Siswa bisa mengerjakan ulang.`,

@@ -5,27 +5,31 @@ import ExcelJS from 'exceljs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
+import { withCache, invalidateByPrefix } from '../lib/cache';
 
 const router = Router();
 router.use(requireAuth, requireRole(['SUPER_ADMIN']));
 
 router.get('/stats', async (req, res, next) => {
   try {
-    const [totalSiswa, totalGuru, totalAlumni, totalUjian, totalBerita] = await Promise.all([
-      prisma.siswa.count(),
-      prisma.guru.count(),
-      prisma.alumni.count(),
-      prisma.ujian.count(),
-      prisma.berita.count()
-    ]);
+    const stats = await withCache('admin:stats', 120, async () => {
+      const [totalSiswa, totalGuru, totalAlumni, totalUjian, totalBerita] = await Promise.all([
+        prisma.siswa.count(),
+        prisma.guru.count(),
+        prisma.alumni.count(),
+        prisma.ujian.count(),
+        prisma.berita.count()
+      ]);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const presensiHariIni = await prisma.presensi.count({
-      where: { tanggal: { gte: today } }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const presensiHariIni = await prisma.presensi.count({
+        where: { tanggal: { gte: today } }
+      });
+
+      return { totalSiswa, totalGuru, totalAlumni, totalUjian, totalBerita, presensiHariIni };
     });
-
-    res.json({ totalSiswa, totalGuru, totalAlumni, totalUjian, totalBerita, presensiHariIni });
+    res.json(stats);
   } catch (error) {
     next(error);
   }
@@ -104,6 +108,9 @@ router.post('/users', async (req, res, next) => {
       }
     });
 
+    invalidateByPrefix('admin:stats');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('guru:kelas:');
     res.json(user);
   } catch (error) {
     next(error);
@@ -147,6 +154,9 @@ router.patch('/users/:id', async (req, res, next) => {
       }
     });
 
+    invalidateByPrefix('admin:stats');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('guru:kelas:');
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -156,6 +166,9 @@ router.patch('/users/:id', async (req, res, next) => {
 router.delete('/users/:id', async (req, res, next) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('admin:stats');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('guru:kelas:');
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -335,6 +348,9 @@ router.post('/users/import', async (req, res, next) => {
       }
     }
 
+    invalidateByPrefix('admin:stats');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('guru:kelas:');
     res.json({ created, skipped, failed });
   } catch (error) {
     next(error);
@@ -383,6 +399,8 @@ router.post('/kelas', async (req, res, next) => {
       return res.status(400).json({ error: 'Semua field wajib diisi' });
     }
     const kelas = await prisma.kelas.create({ data: { nama, tingkat, tahunAjaran, guruId } });
+    invalidateByPrefix(`guru:kelas:${guruId}`);
+    invalidateByPrefix(`guru:stats:${guruId}`);
     res.status(201).json(kelas);
   } catch (error) { next(error); }
 });
@@ -399,6 +417,9 @@ router.patch('/kelas/:id', async (req, res, next) => {
         ...(guruId && { guruId })
       }
     });
+    // Tidak tahu pasti guru lama vs baru — invalidate semua.
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
     res.json(kelas);
   } catch (error) { next(error); }
 });
@@ -410,6 +431,8 @@ router.delete('/kelas/:id', async (req, res, next) => {
       return res.status(400).json({ error: `Tidak bisa menghapus kelas yang masih memiliki ${jumlahSiswa} siswa` });
     }
     await prisma.kelas.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('guru:kelas:');
+    invalidateByPrefix('guru:stats:');
     res.json({ success: true });
   } catch (error) { next(error); }
 });
@@ -434,6 +457,8 @@ router.get('/berita', async (req, res, next) => {
 router.post('/berita', async (req, res, next) => {
   try {
     const result = await prisma.berita.create({ data: req.body });
+    invalidateByPrefix('pub:berita');
+    invalidateByPrefix('admin:stats');
     res.status(201).json(result);
   } catch(error) {
     next(error);
@@ -442,10 +467,11 @@ router.post('/berita', async (req, res, next) => {
 
 router.patch('/berita/:id', async (req, res, next) => {
   try {
-    const result = await prisma.berita.update({ 
+    const result = await prisma.berita.update({
       where: { id: req.params.id },
-      data: req.body 
+      data: req.body
     });
+    invalidateByPrefix('pub:berita');
     res.json(result);
   } catch(error) {
     next(error);
@@ -455,6 +481,8 @@ router.patch('/berita/:id', async (req, res, next) => {
 router.delete('/berita/:id', async (req, res, next) => {
   try {
     await prisma.berita.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('pub:berita');
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch(error) {
     next(error);
@@ -484,6 +512,8 @@ router.post('/alumni', async (req, res, next) => {
     const result = await prisma.alumni.create({
       data: { ...req.body, isVerified: req.body.isVerified ?? true },
     });
+    invalidateByPrefix('pub:alumni');
+    invalidateByPrefix('admin:stats');
     res.status(201).json(result);
   } catch(error) {
     next(error);
@@ -502,16 +532,18 @@ router.post('/alumni/verify', async (req, res, next) => {
       where: { id: { in: ids } },
       data: { isVerified: isVerified !== false },
     });
+    invalidateByPrefix('pub:alumni');
     res.json({ success: true, updated: result.count });
   } catch (error) { next(error); }
 });
 
 router.patch('/alumni/:id', async (req, res, next) => {
   try {
-    const result = await prisma.alumni.update({ 
+    const result = await prisma.alumni.update({
       where: { id: req.params.id },
-      data: req.body 
+      data: req.body
     });
+    invalidateByPrefix('pub:alumni');
     res.json(result);
   } catch(error) {
     next(error);
@@ -521,6 +553,8 @@ router.patch('/alumni/:id', async (req, res, next) => {
 router.delete('/alumni/:id', async (req, res, next) => {
   try {
     await prisma.alumni.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('pub:alumni');
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch(error) {
     next(error);
@@ -580,6 +614,7 @@ router.delete('/ujian/:id', async (req, res, next) => {
       });
     }
     await prisma.ujian.delete({ where: { id: req.params.id } });
+    invalidateByPrefix('admin:stats');
     res.json({ success: true });
   } catch (error) { next(error); }
 });
@@ -684,6 +719,10 @@ router.post('/alumni/import', async (req, res, next) => {
       }
     }
 
+    if (created > 0) {
+      invalidateByPrefix('pub:alumni');
+      invalidateByPrefix('admin:stats');
+    }
     res.json({ created, skipped, failed });
   } catch (error) { next(error); }
 });
@@ -768,6 +807,7 @@ router.patch('/site-config', async (req, res, next) => {
         data,
       });
     }
+    invalidateByPrefix('pub:site-config');
     res.json(config);
   } catch (error) { next(error); }
 });
