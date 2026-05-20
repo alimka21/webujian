@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Save, ImageIcon, Building2, Home, BookOpen, Phone, Share2,
-  AlertTriangle, Upload, X, ImagePlus, UserSquare, Sparkles, Plus, Trash2,
+  Save, ImageIcon, Building2, BookOpen, Phone, Share2,
+  AlertTriangle, Upload, X, ImagePlus, UserSquare, Sparkles, Plus, Trash2, MapPin,
 } from 'lucide-react';
 
 // Whitelist ikon Lucide untuk fitur unggulan — harus sinkron dgn FITUR_ICON_MAP di LandingPage.tsx
@@ -287,18 +287,7 @@ export default function SiteSettings() {
         </div>
       </Section>
 
-      <Section icon={Home} title="Hero (Section Atas Landing)" description="Bagian paling pertama dilihat pengunjung.">
-        <TextField label="Badge / Label Kecil" value={get('heroBadge')} onChange={v => set('heroBadge', v)} placeholder="Contoh: Penerimaan Siswa Baru 2026/2027" />
-        <TextAreaField label="Judul Utama" value={get('heroTitle')} onChange={v => set('heroTitle', v)} placeholder="Membangun Generasi Pemimpin Masa Depan" rows={2} />
-        <TextAreaField label="Subtitle" value={get('heroSubtitle')} onChange={v => set('heroSubtitle', v)} placeholder="Deskripsi singkat tentang sekolah" rows={3} />
-        <ImageField
-          label="Gambar Hero" hint="Tampil di sebelah kanan judul. Rasio landscape (4:3 atau 16:9)."
-          value={get('heroImageUrl')} onChange={v => set('heroImageUrl', v)}
-          maxWidth={800} preview="wide"
-        />
-      </Section>
-
-      <Section icon={BookOpen} title="Profil Sekolah" description="Sejarah, visi, misi, tujuan, dan foto fasilitas.">
+<Section icon={BookOpen} title="Profil Sekolah" description="Sejarah, visi, misi, tujuan, dan foto fasilitas.">
         <TextAreaField label="Sejarah Singkat" value={get('sejarah')} onChange={v => set('sejarah', v)} placeholder="Cerita pendirian dan perkembangan sekolah" rows={5} />
         <ImageField
           label="Foto Profil / Fasilitas" hint="Tampil di section Profil & Identitas."
@@ -372,6 +361,32 @@ export default function SiteSettings() {
           <TextField label="Telepon" value={get('telepon')} onChange={v => set('telepon', v)} placeholder="(021) 555-0123" />
           <TextField label="WhatsApp" value={get('whatsapp')} onChange={v => set('whatsapp', v)} placeholder="628123456789" />
           <TextField label="Email" type="email" value={get('email')} onChange={v => set('email', v)} placeholder="info@sekolah.sch.id" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            <MapPin className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+            URL Embed Google Maps
+          </Label>
+          <p className="text-xs text-on-surface-variant">
+            Buka Google Maps → cari lokasi sekolah → Bagikan → tab <strong>Sematkan peta</strong> → copy isi <code className="px-1 bg-surface-container rounded text-[11px]">src="..."</code> di iframe-nya. Tempel di sini. Peta akan tampil di footer landing.
+          </p>
+          <Input
+            value={get('mapsEmbedUrl')}
+            onChange={e => set('mapsEmbedUrl', e.target.value)}
+            placeholder="https://www.google.com/maps/embed?pb=!1m18..."
+          />
+          {get('mapsEmbedUrl') && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-outline-variant">
+              <iframe
+                src={get('mapsEmbedUrl')}
+                className="w-full h-64"
+                style={{ border: 0 }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Preview lokasi"
+              />
+            </div>
+          )}
         </div>
       </Section>
 

@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { GraduationCap, ArrowLeft, Calendar, Share2, Link as LinkIcon, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import api from '../lib/api';
+import SiteFooter from '../components/SiteFooter';
 
 export default function BeritaDetail() {
   const { slug } = useParams();
@@ -213,9 +214,7 @@ export default function BeritaDetail() {
         )}
       </main>
 
-      <footer className="bg-inverse-surface text-inverse-on-surface/70 py-5 text-center text-sm shrink-0">
-        &copy; {new Date().getFullYear()} Berita Sekolah.
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

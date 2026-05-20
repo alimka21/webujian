@@ -715,7 +715,7 @@ const SITE_CONFIG_FIELDS = [
   'visi', 'misi', 'tujuan',
   'kepsekNama', 'kepsekJabatan', 'kepsekFotoUrl', 'kepsekSambutan',
   'fiturUnggulan',
-  'alamat', 'telepon', 'email', 'whatsapp',
+  'alamat', 'telepon', 'email', 'whatsapp', 'mapsEmbedUrl',
   'facebook', 'instagram', 'twitter', 'youtube', 'tiktok',
 ] as const;
 

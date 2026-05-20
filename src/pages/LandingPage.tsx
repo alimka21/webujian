@@ -4,9 +4,9 @@ import { Button } from '../components/ui/button';
 import {
   GraduationCap, ArrowRight, FileText, CalendarCheck, ClipboardList,
   Newspaper, ShieldCheck, Users, Briefcase, BookOpen,
-  Facebook, Instagram, Twitter, Youtube, Music2, MapPin, Mail, Phone,
   Target, Compass, Lightbulb, Quote, User as UserIcon,
 } from 'lucide-react';
+import SiteFooter from '../components/SiteFooter';
 
 // Whitelist nama ikon Lucide yg boleh dipilih admin untuk fitur unggulan
 const FITUR_ICON_MAP: Record<string, React.ElementType> = {
@@ -143,15 +143,6 @@ export default function LandingPage() {
   const alumniBekerja = alumniStats.BEKERJA || 0;
   const alumniKuliah = alumniStats.KULIAH || 0;
   const alumniWirausaha = alumniStats.WIRAUSAHA || 0;
-
-  // Active social links
-  const socials = [
-    { url: (cfg as any).facebook,  label: 'Facebook',  Icon: Facebook },
-    { url: (cfg as any).instagram, label: 'Instagram', Icon: Instagram },
-    { url: (cfg as any).twitter,   label: 'Twitter / X', Icon: Twitter },
-    { url: (cfg as any).youtube,   label: 'YouTube',   Icon: Youtube },
-    { url: (cfg as any).tiktok,    label: 'TikTok',    Icon: Music2 },
-  ].filter(s => s.url && s.url.trim() !== '');
 
   return (
     <div className="min-h-screen bg-background text-on-background">
@@ -372,9 +363,9 @@ export default function LandingPage() {
             {fiturList.map((f, i) => {
               const Icon = FITUR_ICON_MAP[f.icon] || FileText;
               return (
-                <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow">
-                  <div className="w-12 h-12 bg-primary-container/15 text-primary rounded-lg flex items-center justify-center mb-4">
-                    <Icon className="w-6 h-6" />
+                <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow text-center">
+                  <div className="mx-auto w-14 h-14 bg-primary-container/15 text-primary rounded-2xl flex items-center justify-center mb-4">
+                    <Icon className="w-7 h-7" />
                   </div>
                   <h3 className="font-bold text-on-surface text-lg mb-2">{f.title}</h3>
                   <p className="text-on-surface-variant text-sm leading-relaxed">{f.desc}</p>
@@ -484,96 +475,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═════════════════ 7. FOOTER ═════════════════ */}
-      <footer id="kontak" className="bg-inverse-surface text-inverse-on-surface px-4 sm:px-6 py-14">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-10">
-          {/* Brand */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              {cfg.logoUrl ? (
-                <img src={cfg.logoUrl} alt={cfg.namaSekolah} className="w-9 h-9 rounded-lg object-contain bg-inverse-on-surface p-1" />
-              ) : (
-                <div className="w-9 h-9 rounded-lg bg-inverse-primary text-primary flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5" />
-                </div>
-              )}
-              <span className="font-bold text-lg">{cfg.namaSekolah}</span>
-            </div>
-            <p className="text-sm text-inverse-on-surface/75 leading-relaxed">{cfg.tagline}</p>
-          </div>
-
-          {/* Tautan cepat */}
-          <div>
-            <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Tautan Cepat</h4>
-            <ul className="space-y-2 text-sm">
-              <li><button onClick={() => scrollTo('fitur')} className="hover:text-inverse-primary transition-colors">Fitur Unggulan</button></li>
-              <li><button onClick={() => scrollTo('berita')} className="hover:text-inverse-primary transition-colors">Berita</button></li>
-              <li><button onClick={() => scrollTo('alumni')} className="hover:text-inverse-primary transition-colors">Tracer Alumni</button></li>
-              <li><Link to="/alumni/daftar" className="hover:text-inverse-primary transition-colors">Daftar Alumni</Link></li>
-              <li><Link to="/login" className="hover:text-inverse-primary transition-colors">Login Portal</Link></li>
-            </ul>
-          </div>
-
-          {/* Kontak */}
-          <div className="md:col-span-2">
-            <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Hubungi Kami</h4>
-            <ul className="space-y-2.5 text-sm text-inverse-on-surface/85">
-              {cfg.alamat && (
-                <li className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span className="whitespace-pre-wrap">{cfg.alamat}</span>
-                </li>
-              )}
-              {cfg.email && (
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 shrink-0" />
-                  <a href={`mailto:${cfg.email}`} className="hover:text-inverse-primary transition-colors">{cfg.email}</a>
-                </li>
-              )}
-              {cfg.telepon && (
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 shrink-0" />
-                  <a href={`tel:${cfg.telepon.replace(/[^\d+]/g, '')}`} className="hover:text-inverse-primary transition-colors">{cfg.telepon}</a>
-                </li>
-              )}
-              {cfg.whatsapp && (
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 shrink-0" />
-                  <a
-                    href={`https://wa.me/${cfg.whatsapp.replace(/[^\d]/g, '')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="hover:text-inverse-primary transition-colors"
-                  >
-                    WhatsApp: {cfg.whatsapp}
-                  </a>
-                </li>
-              )}
-            </ul>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-inverse-on-surface/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-inverse-on-surface/70">
-            &copy; {new Date().getFullYear()} {cfg.namaSekolah}. Semua hak dilindungi.
-          </p>
-          {socials.length > 0 && (
-            <div className="flex gap-3">
-              {socials.map(({ url, label, Icon }) => (
-                <a
-                  key={label}
-                  href={url ?? '#'}
-                  target="_blank" rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-inverse-on-surface/10 hover:bg-inverse-primary hover:text-primary text-inverse-on-surface flex items-center justify-center transition-colors"
-                  aria-label={label}
-                  title={label}
-                >
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      </footer>
+      {/* ═════════════════ 7. FOOTER (komponen reusable) ═════════════════ */}
+      <SiteFooter />
     </div>
   );
 }

@@ -273,6 +273,8 @@ model SiteConfig {
   telepon        String?
   email          String?
   whatsapp       String?
+  // Google Maps embed URL (dapat dari "Bagikan" → "Sematkan peta" → src= iframe)
+  mapsEmbedUrl   String?  @db.Text
 
   facebook       String?
   instagram      String?

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Pagination } from '../components/ui/pagination';
 import api from '../lib/api';
+import SiteFooter from '../components/SiteFooter';
 
 const PAGE_SIZE = 9;
 
@@ -178,9 +179,7 @@ export default function BeritaList() {
         )}
       </main>
 
-      <footer className="bg-inverse-surface text-inverse-on-surface/70 py-6 text-center text-sm">
-        &copy; {new Date().getFullYear()} Berita Sekolah.
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
