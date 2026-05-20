@@ -15,6 +15,7 @@ interface FiturItem { icon: string; title: string; desc: string }
 import { Button } from '../../components/ui/button';
 import { Input, Label } from '../../components/ui/input';
 import api from '../../lib/api';
+import { invalidateSiteConfig } from '../../hooks/useSiteConfig';
 import { fileToResizedBase64, dataUrlSizeKB } from '../../lib/imageUtils';
 
 type Config = Record<string, string | null>;
@@ -212,6 +213,9 @@ export default function SiteSettings() {
       delete payload.updatedAt;
       const res = await api.patch('/api/admin/site-config', payload);
       setConfig(res);
+      // Bust shared cache supaya komponen lain (DashboardLayout sidebar,
+      // SiteFooter, LandingPage, title/favicon di App) langsung pakai data baru.
+      invalidateSiteConfig();
       toast.success('Konfigurasi berhasil disimpan');
     } catch (e: any) {
       toast.error(e.message || 'Gagal menyimpan konfigurasi');

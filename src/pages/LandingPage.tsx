@@ -14,6 +14,7 @@ const FITUR_ICON_MAP: Record<string, React.ElementType> = {
   ShieldCheck, Users, BookOpen, Briefcase, Target, Compass, Lightbulb,
 };
 import api from '../lib/api';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
 // Fallback config — dipakai kalau admin belum atur SiteSettings
 const DEFAULT_CONFIG = {
@@ -74,7 +75,8 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [berita, setBerita] = useState<any[]>([]);
   const [alumniStats, setAlumniStats] = useState<Record<string, number>>({});
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
+  // Site config via shared hook (dedupe — semua komponen share 1 fetch)
+  const siteConfig = useSiteConfig();
 
   const cfg = useMemo<SiteConfig>(() => {
     const merged: any = { ...DEFAULT_CONFIG };
@@ -89,11 +91,9 @@ export default function LandingPage() {
     Promise.all([
       api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
       api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
-      api.get('/api/site-config').catch(() => null),
-    ]).then(([resBerita, resAlumni, resConfig]) => {
+    ]).then(([resBerita, resAlumni]) => {
       setBerita(resBerita.data || []);
       setAlumniStats(resAlumni.perStatus || {});
-      if (resConfig) setSiteConfig(resConfig);
     });
   }, []);
 

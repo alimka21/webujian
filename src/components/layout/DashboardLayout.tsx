@@ -10,6 +10,7 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import api from '../../lib/api';
+import { useSiteConfig } from '../../hooks/useSiteConfig';
 
 interface NavItem {
   label: string;
@@ -87,22 +88,19 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [siteBrand, setSiteBrand] = useState<{ nama: string; logo: string }>({ nama: 'Sekolah', logo: '' });
 
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const logoutModalRef = useModalA11y<HTMLDivElement>(showLogoutConfirm, () => setShowLogoutConfirm(false));
+  // Site brand dari shared cache (dedupe)
+  const siteCfg = useSiteConfig();
+  const siteBrand = {
+    nama: siteCfg.namaSekolah?.trim() || 'Sekolah',
+    logo: siteCfg.logoUrl || '',
+  };
 
-  useEffect(() => {
-    api.get('/api/site-config')
-      .then((cfg) => setSiteBrand({
-        nama: cfg?.namaSekolah?.trim() || 'Sekolah',
-        logo: cfg?.logoUrl || '',
-      }))
-      .catch(() => { /* default */ });
-  }, []);
+  const logoutModalRef = useModalA11y<HTMLDivElement>(showLogoutConfirm, () => setShowLogoutConfirm(false));
 
   const confirmLogout = async () => {
     setIsLoggingOut(true);

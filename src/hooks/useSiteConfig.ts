@@ -1,43 +1,99 @@
 import { useEffect, useState } from 'react';
 import api from '../lib/api';
 
-export interface SiteConfigPartial {
+/**
+ * Tipe full SiteConfig — semua field yang dikirim dari backend.
+ * Pakai Partial untuk semua, supaya komponen tidak crash kalau field
+ * baru belum ditambah di DB (rolling deploy).
+ */
+export interface SiteConfig {
   namaSekolah?: string;
   jenjang?: 'SD' | 'SMP' | 'SMA' | 'SMK' | null;
+  tagline?: string;
+  deskripsi?: string;
   logoUrl?: string;
   faviconUrl?: string;
+  heroImageUrl?: string;
+  heroBadge?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  profilImageUrl?: string;
+  sejarah?: string;
+  visi?: string;
+  misi?: string;
+  tujuan?: string;
+  kepsekNama?: string;
+  kepsekJabatan?: string;
+  kepsekFotoUrl?: string;
+  kepsekSambutan?: string;
+  fiturUnggulan?: string;
+  alamat?: string;
+  telepon?: string;
+  email?: string;
+  whatsapp?: string;
+  mapsEmbedUrl?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  youtube?: string;
+  tiktok?: string;
+  [key: string]: any;
+}
+
+// Singleton — semua komponen share 1 cache + 1 in-flight promise.
+// Dipakai useSiteConfig hook + getSiteConfig() function call.
+let cached: SiteConfig | null = null;
+let inflight: Promise<SiteConfig> | null = null;
+// Listeners untuk re-render saat cache di-invalidate / refresh
+const listeners = new Set<(cfg: SiteConfig) => void>();
+
+function notify(cfg: SiteConfig) {
+  for (const l of listeners) l(cfg);
 }
 
 /**
- * Cache module-level supaya tidak fetch berulang dari banyak komponen.
- * Dipakai kalau bentuk full SiteConfig tidak relevan — hanya butuh
- * nilai-nilai untuk UX (jenjang, nama, dll).
+ * Fetch site config (dedupe). Aman dipanggil dari banyak tempat —
+ * request hanya 1× per session sampai invalidate.
  */
-let cached: SiteConfigPartial | null = null;
-let inflight: Promise<SiteConfigPartial> | null = null;
-
-async function fetchConfig(): Promise<SiteConfigPartial> {
+export async function getSiteConfig(): Promise<SiteConfig> {
   if (cached) return cached;
   if (inflight) return inflight;
   inflight = api.get('/api/site-config').then(
-    (cfg) => { cached = cfg; return cfg; },
-    () => { cached = {}; return cached!; },
+    (cfg) => { cached = cfg; inflight = null; notify(cfg); return cfg; },
+    () => { cached = {}; inflight = null; notify(cached!); return cached!; },
   );
   return inflight;
 }
 
+/**
+ * Clear cache. Dipanggil setelah admin save SiteSettings supaya
+ * komponen lain dapat data fresh tanpa reload page.
+ */
+export function invalidateSiteConfig(): void {
+  cached = null;
+  inflight = null;
+  getSiteConfig(); // refetch + notify listeners
+}
+
+/**
+ * Hook React — auto re-render saat cache update.
+ */
 export function useSiteConfig() {
-  const [config, setConfig] = useState<SiteConfigPartial | null>(cached);
+  const [config, setConfig] = useState<SiteConfig>(cached ?? {});
 
   useEffect(() => {
     let mounted = true;
-    fetchConfig().then((cfg) => {
+    getSiteConfig().then((cfg) => {
       if (mounted) setConfig(cfg);
     });
-    return () => { mounted = false; };
+    const listener = (cfg: SiteConfig) => {
+      if (mounted) setConfig(cfg);
+    };
+    listeners.add(listener);
+    return () => { mounted = false; listeners.delete(listener); };
   }, []);
 
-  return config ?? {};
+  return config;
 }
 
 /**

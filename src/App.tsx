@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'sonner';
 import { useAuthStore } from './store/authStore';
 import ProtectedRoute from './components/ProtectedRoute';
-import api from './lib/api';
+import { getSiteConfig } from './hooks/useSiteConfig';
 
 // Critical-path pages (eager) — biar landing & login tampil tanpa Suspense delay
 import LandingPage from './pages/LandingPage';
@@ -55,24 +55,22 @@ export default function App() {
     fetchMe();
   }, [fetchMe, token]);
 
-  // Set document.title + favicon dari SiteConfig (sekali per mount).
-  // Dipasang di App supaya semua page (login, dashboard, exam) pakai
-  // nama sekolah yg sama, bukan hardcoded "Web Ujian Premium".
+  // Set document.title + favicon dari SiteConfig (shared cache).
+  // getSiteConfig() de-dupe — request hanya 1x walau dipanggil dari
+  // banyak komponen (App, DashboardLayout, SiteFooter, LandingPage, dst).
   useEffect(() => {
-    api.get('/api/site-config')
-      .then((cfg) => {
-        if (cfg?.namaSekolah) document.title = cfg.namaSekolah;
-        if (cfg?.faviconUrl) {
-          let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-          if (!link) {
-            link = document.createElement('link');
-            link.rel = 'icon';
-            document.head.appendChild(link);
-          }
-          link.href = cfg.faviconUrl;
+    getSiteConfig().then((cfg) => {
+      if (cfg?.namaSekolah) document.title = cfg.namaSekolah;
+      if (cfg?.faviconUrl) {
+        let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
         }
-      })
-      .catch(() => { /* biarkan default "Memuat..." */ });
+        link.href = cfg.faviconUrl;
+      }
+    }).catch(() => { /* biarkan default */ });
   }, []);
 
   return (

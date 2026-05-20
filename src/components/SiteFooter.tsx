@@ -1,42 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   GraduationCap, Facebook, Instagram, Twitter, Youtube, Music2,
   MapPin, Mail, Phone,
 } from 'lucide-react';
-import api from '../lib/api';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
-interface SiteCfg {
-  namaSekolah?: string;
-  tagline?: string;
-  logoUrl?: string;
-  alamat?: string;
-  telepon?: string;
-  email?: string;
-  whatsapp?: string;
-  mapsEmbedUrl?: string;
-  facebook?: string; instagram?: string; twitter?: string;
-  youtube?: string; tiktok?: string;
-}
-
-const DEFAULT_CFG: SiteCfg = {
-  namaSekolah: 'Portal Sekolah',
-  tagline: 'Pusat pendidikan terdepan yang mendidik generasi berprestasi.',
-};
-
-// Cache config di module supaya navigasi antar halaman tidak refetch berulang.
-let cachedCfg: SiteCfg | null = null;
+const DEFAULT_TAGLINE = 'Pusat pendidikan terdepan yang mendidik generasi berprestasi.';
 
 export default function SiteFooter() {
-  const [cfg, setCfg] = useState<SiteCfg>(cachedCfg || DEFAULT_CFG);
-
-  useEffect(() => {
-    if (cachedCfg) return;
-    api.get('/api/site-config').then((res: SiteCfg) => {
-      cachedCfg = res;
-      setCfg(res);
-    }).catch(() => { /* fallback ke DEFAULT_CFG */ });
-  }, []);
+  const rawCfg = useSiteConfig();
+  // Apply default kalau tagline kosong supaya footer tidak terlihat janggal.
+  const cfg = { tagline: DEFAULT_TAGLINE, ...rawCfg };
 
   const socials = [
     { url: cfg.facebook,  label: 'Facebook',  Icon: Facebook },
