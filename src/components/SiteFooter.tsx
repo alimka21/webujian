@@ -36,7 +36,14 @@ export default function SiteFooter() {
                 <GraduationCap className="w-5 h-5" />
               </div>
             )}
-            <span className="font-bold text-lg">{namaSekolah}</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg leading-tight">{namaSekolah}</span>
+              {cfg.jenjang && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-inverse-on-surface/70">
+                  Jenjang {cfg.jenjang}
+                </span>
+              )}
+            </div>
           </div>
           {cfg.tagline && <p className="text-sm text-inverse-on-surface/75 leading-relaxed">{cfg.tagline}</p>}
         </div>

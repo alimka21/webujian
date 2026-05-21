@@ -98,6 +98,7 @@ export default function DashboardLayout() {
   const siteBrand = {
     nama: siteCfg.namaSekolah?.trim() || 'Sekolah',
     logo: siteCfg.logoUrl || '',
+    jenjang: siteCfg.jenjang || '',
   };
 
   const logoutModalRef = useModalA11y<HTMLDivElement>(showLogoutConfirm, () => setShowLogoutConfirm(false));
@@ -159,9 +160,16 @@ export default function DashboardLayout() {
                 <GraduationCap className="w-5 h-5" />
               </div>
             )}
-            <span className="font-bold text-primary text-base truncate" title={siteBrand.nama}>
-              {siteBrand.nama}
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-primary text-base truncate" title={siteBrand.nama}>
+                {siteBrand.nama}
+              </span>
+              {siteBrand.jenjang && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Jenjang {siteBrand.jenjang}
+                </span>
+              )}
+            </div>
           </div>
           <button
             className="lg:hidden text-on-surface-variant hover:text-on-surface"

@@ -19,6 +19,7 @@ import { useSiteConfig } from '../hooks/useSiteConfig';
 // Fallback config — dipakai kalau admin belum atur SiteSettings
 const DEFAULT_CONFIG = {
   namaSekolah: 'Portal Sekolah',
+  jenjang: '',
   tagline: 'Pusat pendidikan terdepan yang mendidik generasi berprestasi.',
   deskripsi: 'Sistem manajemen sekolah terpadu — ujian online, presensi digital, tracer alumni, dan portal informasi dalam satu platform.',
   logoUrl: '',
@@ -157,7 +158,14 @@ export default function LandingPage() {
                 <GraduationCap className="w-5 h-5" />
               </div>
             )}
-            <span className="font-bold text-lg tracking-tight text-primary hidden sm:block">{cfg.namaSekolah}</span>
+            <div className="hidden sm:flex flex-col">
+              <span className="font-bold text-lg tracking-tight text-primary leading-tight">{cfg.namaSekolah}</span>
+              {cfg.jenjang && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Jenjang {cfg.jenjang}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="hidden md:flex items-center gap-7 text-label-md font-medium text-on-surface-variant">
