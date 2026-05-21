@@ -24,6 +24,7 @@ const DEFAULT_CONFIG = {
   deskripsi: 'Sistem manajemen sekolah terpadu — ujian online, presensi digital, tracer alumni, dan portal informasi dalam satu platform.',
   logoUrl: '',
   faviconUrl: '',
+  heroImageUrl: '',
   profilImageUrl: '',
   sejarah: '',
   visi: '',
@@ -62,15 +63,7 @@ const STATS_HARDCODED = {
   tahunBerdiri: '2005',
 };
 
-// Hero icon grid (3x2)
-const HERO_FEATURES: { Icon: React.ElementType; label: string }[] = [
-  { Icon: FileText,       label: 'Ujian Online' },
-  { Icon: CalendarCheck,  label: 'Presensi Digital' },
-  { Icon: GraduationCap,  label: 'Tracer Alumni' },
-  { Icon: ClipboardList,  label: 'Rekap Nilai' },
-  { Icon: Newspaper,      label: 'Berita Sekolah' },
-  { Icon: ShieldCheck,    label: 'Anti-Curang' },
-];
+// (HERO_FEATURES dihapus — hero sekarang pakai image + floating card, bukan icon grid)
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -184,10 +177,16 @@ export default function LandingPage() {
       </nav>
 
       {/* ═════════════════ 2. HERO ═════════════════ */}
-      <section className="bg-primary text-on-primary px-4 sm:px-6 py-20 sm:py-28">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+      <section className="relative bg-primary text-on-primary px-4 sm:px-6 py-20 sm:py-28 overflow-hidden">
+        {/* Soft glow accents */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary-fixed rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-container rounded-full blur-3xl" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10 grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-7">
-            <span className="inline-flex items-center rounded-full bg-on-primary/10 px-3 py-1 text-label-sm font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-2 rounded-full bg-on-primary/10 border border-on-primary/15 px-3 py-1 text-label-sm font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse" />
               {cfg.namaSekolah}
             </span>
             <h1 className="text-headline-lg leading-tight">
@@ -213,17 +212,40 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Icon grid 3x2 — gantikan stock photo */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-md md:ml-auto">
-            {HERO_FEATURES.map(({ Icon, label }, i) => (
-              <div
-                key={i}
-                className="aspect-square bg-on-primary/10 border border-on-primary/15 rounded-xl flex flex-col items-center justify-center gap-2 p-3 hover:bg-on-primary/15 transition-colors"
-              >
-                <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-on-primary" />
-                <span className="text-label-sm text-on-primary/85 text-center font-medium leading-tight">{label}</span>
+          {/* Image besar + floating "Ujian Online" card */}
+          <div className="relative group">
+            <div className="absolute -inset-4 bg-gradient-to-tr from-tertiary-fixed/20 to-transparent rounded-[2rem] blur-2xl group-hover:blur-3xl transition-all" />
+            <div className="relative aspect-[4/3] rounded-[2rem] overflow-hidden border-4 border-on-primary/10 shadow-2xl bg-on-primary/5">
+              {cfg.heroImageUrl ? (
+                <img
+                  src={cfg.heroImageUrl}
+                  alt={cfg.namaSekolah}
+                  className="w-full h-full object-cover"
+                />
+              ) : cfg.profilImageUrl ? (
+                <img
+                  src={cfg.profilImageUrl}
+                  alt={cfg.namaSekolah}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <GraduationCap className="w-32 h-32 text-on-primary/30" />
+                </div>
+              )}
+            </div>
+            {/* Floating quick-access card */}
+            <div className="absolute -bottom-6 -left-6 bg-surface-container-lowest p-5 rounded-2xl shadow-xl hidden lg:block border border-outline-variant max-w-[240px]">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-primary-container/15 text-primary flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <span className="font-bold text-primary">Ujian Online</span>
               </div>
-            ))}
+              <p className="text-label-sm text-on-surface-variant">
+                Akses portal ujian terpadu dengan sistem anti-curang.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -232,33 +254,36 @@ export default function LandingPage() {
       {showSambutan && (
         <section id="sambutan" className="bg-surface px-4 sm:px-6 py-20">
           <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10">
+            <div className="text-center mb-12">
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Sambutan</p>
               <h2 className="text-headline-md text-on-surface">Kata Sambutan {cfg.kepsekJabatan || 'Kepala Sekolah'}</h2>
             </div>
-            <div className="grid md:grid-cols-[260px_1fr] gap-10 items-center">
-              <div className="flex flex-col items-center">
+            {/* Card besar dgn quote icon di sudut atas-kanan + foto miring kiri */}
+            <div className="relative flex flex-col md:flex-row items-center gap-12 bg-surface-container-lowest p-8 md:p-12 rounded-3xl border border-outline-variant shadow-sm">
+              <Quote className="absolute top-8 right-8 w-24 h-24 text-primary/10 pointer-events-none" />
+              <div className="w-64 flex-shrink-0 text-center relative z-10">
                 {cfg.kepsekFotoUrl ? (
                   <img
                     src={cfg.kepsekFotoUrl}
                     alt={cfg.kepsekNama || 'Kepala Sekolah'}
-                    className="w-48 h-48 sm:w-60 sm:h-60 rounded-2xl object-cover border-4 border-surface-container-low shadow-md"
+                    className="w-56 h-72 mx-auto mb-6 rounded-2xl object-cover border-8 border-surface-container-lowest shadow-lg rotate-[-2deg] transition-transform hover:rotate-0"
                   />
                 ) : (
-                  <div className="w-48 h-48 sm:w-60 sm:h-60 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center">
-                    <UserIcon className="w-16 h-16 text-outline-variant" />
+                  <div className="w-56 h-72 mx-auto mb-6 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center rotate-[-2deg] transition-transform hover:rotate-0">
+                    <UserIcon className="w-20 h-20 text-outline-variant" />
                   </div>
                 )}
-                <div className="mt-4 text-center">
-                  {cfg.kepsekNama && <p className="font-bold text-on-surface text-lg">{cfg.kepsekNama}</p>}
-                  <p className="text-sm text-on-surface-variant">{cfg.kepsekJabatan || 'Kepala Sekolah'}</p>
-                </div>
+                {cfg.kepsekNama && <h3 className="text-headline-sm text-primary">{cfg.kepsekNama}</h3>}
+                <p className="text-on-surface-variant text-sm font-medium">{cfg.kepsekJabatan || 'Kepala Sekolah'}</p>
               </div>
-              <div className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 sm:p-8">
-                <Quote className="absolute -top-4 -left-3 w-10 h-10 text-primary/20" />
-                <p className="text-on-surface leading-relaxed whitespace-pre-wrap text-base sm:text-lg">
+              <div className="flex-1 relative z-10">
+                <p className="text-on-surface-variant leading-relaxed italic text-base sm:text-lg whitespace-pre-wrap">
                   {cfg.kepsekSambutan || 'Selamat datang di portal sekolah kami.'}
                 </p>
+                <div className="mt-8 flex gap-2">
+                  <span className="w-12 h-1 bg-primary rounded-full" />
+                  <span className="w-4 h-1 bg-tertiary-fixed rounded-full" />
+                </div>
               </div>
             </div>
           </div>
@@ -297,34 +322,46 @@ export default function LandingPage() {
             )}
 
             {(cfg.visi?.trim() || cfg.misi?.trim() || cfg.tujuan?.trim()) && (
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid lg:grid-cols-3 gap-4">
                 {cfg.visi?.trim() && (
-                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
-                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
-                      <Target className="w-5 h-5" />
+                  <div className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 hover:border-primary transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-primary-container/15 text-primary group-hover:bg-primary group-hover:text-on-primary flex items-center justify-center shrink-0 transition-all">
+                        <Target className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-primary mb-1">Visi</h4>
+                        <p className="text-label-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{cfg.visi}</p>
+                      </div>
                     </div>
-                    <h3 className="font-bold text-on-surface text-lg mb-2">Visi</h3>
-                    <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{cfg.visi}</p>
                   </div>
                 )}
                 {misiList.length > 0 && (
-                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
-                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
-                      <Compass className="w-5 h-5" />
+                  <div className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 hover:border-primary transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-primary-container/15 text-primary group-hover:bg-primary group-hover:text-on-primary flex items-center justify-center shrink-0 transition-all">
+                        <Compass className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-primary mb-1">Misi</h4>
+                        <ol className="list-decimal list-inside space-y-1 text-label-sm text-on-surface-variant leading-relaxed">
+                          {misiList.map((m, i) => <li key={i}>{m}</li>)}
+                        </ol>
+                      </div>
                     </div>
-                    <h3 className="font-bold text-on-surface text-lg mb-2">Misi</h3>
-                    <ol className="list-decimal list-inside space-y-1.5 text-sm text-on-surface-variant leading-relaxed">
-                      {misiList.map((m, i) => <li key={i}>{m}</li>)}
-                    </ol>
                   </div>
                 )}
                 {cfg.tujuan?.trim() && (
-                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
-                    <div className="w-11 h-11 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center mb-4">
-                      <Lightbulb className="w-5 h-5" />
+                  <div className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 hover:border-primary transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-primary-container/15 text-primary group-hover:bg-primary group-hover:text-on-primary flex items-center justify-center shrink-0 transition-all">
+                        <Lightbulb className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-primary mb-1">Tujuan</h4>
+                        <p className="text-label-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{cfg.tujuan}</p>
+                      </div>
                     </div>
-                    <h3 className="font-bold text-on-surface text-lg mb-2">Tujuan</h3>
-                    <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{cfg.tujuan}</p>
                   </div>
                 )}
               </div>
@@ -333,26 +370,20 @@ export default function LandingPage() {
         </section>
       )}
 
-      {/* ═════════════════ 3. STATISTIK ═════════════════ */}
-      <section id="statistik" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-16">
+      {/* ═════════════════ 3. STATISTIK (banner di bg-primary) ═════════════════ */}
+      <section id="statistik" className="bg-primary text-on-primary px-4 sm:px-6 py-16">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold mb-2">Sekilas Tentang Kami</p>
-            <h2 className="text-headline-md text-on-surface">Statistik Sekolah</h2>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { icon: BookOpen,      label: 'Siswa Aktif',       value: STATS_HARDCODED.siswa },
-              { icon: Users,         label: 'Tenaga Pendidik',   value: STATS_HARDCODED.guru },
-              { icon: GraduationCap, label: 'Alumni Terdata',    value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
+              { icon: Users,         label: 'Siswa Aktif',       value: STATS_HARDCODED.siswa },
+              { icon: GraduationCap, label: 'Tenaga Pendidik',   value: STATS_HARDCODED.guru },
+              { icon: BookOpen,      label: 'Alumni Terdata',    value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
               { icon: Briefcase,     label: 'Berdiri Sejak',     value: STATS_HARDCODED.tahunBerdiri },
             ].map(({ icon: Icon, label, value }, i) => (
-              <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 text-center">
-                <div className="mx-auto w-12 h-12 bg-primary-container/20 text-primary rounded-lg flex items-center justify-center mb-3">
-                  <Icon className="w-6 h-6" />
-                </div>
-                <div className="text-5xl font-bold text-primary tracking-tight">{value}</div>
-                <div className="text-sm text-on-surface-variant mt-2 font-medium">{label}</div>
+              <div key={i} className="space-y-2">
+                <Icon className="w-9 h-9 mx-auto text-tertiary-fixed" />
+                <div className="text-4xl md:text-5xl font-extrabold tracking-tight">{value}</div>
+                <div className="text-label-md uppercase tracking-wider text-on-primary/80 font-bold">{label}</div>
               </div>
             ))}
           </div>
@@ -371,12 +402,21 @@ export default function LandingPage() {
             {fiturList.map((f, i) => {
               const Icon = FITUR_ICON_MAP[f.icon] || FileText;
               return (
-                <div key={i} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 hover:shadow-sm transition-shadow text-center">
-                  <div className="mx-auto w-14 h-14 bg-primary-container/15 text-primary rounded-2xl flex items-center justify-center mb-4">
+                <div
+                  key={i}
+                  className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 hover:border-primary hover:shadow-lg transition-all"
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-primary-container/15 text-primary flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Icon className="w-7 h-7" />
                   </div>
-                  <h3 className="font-bold text-on-surface text-lg mb-2">{f.title}</h3>
-                  <p className="text-on-surface-variant text-sm leading-relaxed">{f.desc}</p>
+                  <h3 className="font-bold text-primary text-lg mb-2">{f.title}</h3>
+                  <p className="text-on-surface-variant text-sm leading-relaxed mb-4">{f.desc}</p>
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="inline-flex items-center gap-1.5 text-primary font-bold text-label-sm uppercase tracking-wider group-hover:gap-3 transition-all"
+                  >
+                    Pelajari Selengkapnya <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               );
             })}
@@ -423,9 +463,14 @@ export default function LandingPage() {
                   )}
                 </div>
                 <div className="p-5 flex flex-col flex-1">
-                  <p className="text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">
-                    {new Date(b.publishedAt ?? b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-label-sm font-bold text-primary bg-primary-container/15 px-2 py-0.5 rounded uppercase tracking-wider">
+                      Berita
+                    </span>
+                    <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+                      {new Date(b.publishedAt ?? b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
                   <h3 className="font-bold text-on-surface text-lg leading-tight mb-2 line-clamp-2 group-hover:text-primary transition-colors">
                     {b.judul}
                   </h3>
@@ -440,42 +485,56 @@ export default function LandingPage() {
       </section>
 
       {/* ═════════════════ 6. TRACER ALUMNI TEASER ═════════════════ */}
-      <section id="alumni" className="bg-primary text-on-primary px-4 sm:px-6 py-20">
-        <div className="max-w-7xl mx-auto">
+      <section id="alumni" className="relative bg-surface-container-low px-4 sm:px-6 py-20 overflow-hidden">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <svg className="w-full h-full fill-primary" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            <path d="M0,50 L100,50 M50,0 L50,100" stroke="currentColor" strokeWidth="0.2" />
+          </svg>
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-5">
-              <p className="text-label-sm text-on-primary/70 uppercase tracking-wider font-bold">Tracer Alumni</p>
-              <h2 className="text-headline-lg leading-tight">
-                Lulusan Kami <span className="text-white">Tersebar</span> Di Mana-mana
+              <p className="text-label-sm text-primary uppercase tracking-wider font-bold">Tracer Alumni</p>
+              <h2 className="text-headline-lg leading-tight text-on-surface">
+                Lulusan Kami Tersebar Di Mana-mana
               </h2>
-              <p className="text-on-primary/85 leading-relaxed">
+              <p className="text-on-surface-variant leading-relaxed text-lg">
                 Pantau jejak karir & pendidikan ribuan alumni. Sudah lulus? Daftar mandiri dan jadi bagian dari komunitas.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <button
                   onClick={() => navigate('/alumni/daftar')}
-                  className="inline-flex items-center gap-2 rounded-full bg-on-primary text-primary px-6 py-2.5 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/90 active:translate-y-px transition-all"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary text-on-primary px-6 py-3 font-bold uppercase tracking-wider text-label-md hover:bg-primary/90 active:translate-y-px transition-all shadow-sm"
                 >
-                  Daftar Alumni <ArrowRight className="w-4 h-4" />
+                  Daftar Alumni
                 </button>
                 <button
                   onClick={() => scrollTo('statistik')}
-                  className="inline-flex items-center gap-2 rounded-full border border-on-primary/30 text-on-primary px-6 py-2.5 font-bold uppercase tracking-wider text-label-md hover:bg-on-primary/10 transition-all"
+                  className="inline-flex items-center gap-2 rounded-full border border-primary text-primary px-6 py-3 font-bold uppercase tracking-wider text-label-md hover:bg-primary/5 transition-all"
                 >
                   Lihat Statistik
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {/* Stack vertikal — number kiri, icon kanan */}
+            <div className="space-y-4">
               {[
-                { label: 'Bekerja',   value: alumniBekerja,   accent: 'text-white' },
-                { label: 'Kuliah',    value: alumniKuliah,    accent: 'text-tertiary-container' },
-                { label: 'Wirausaha', value: alumniWirausaha, accent: 'text-white' },
-              ].map(({ label, value, accent }, i) => (
-                <div key={i} className="bg-on-primary/10 border border-on-primary/15 rounded-xl p-5 text-center">
-                  <div className={`text-4xl sm:text-5xl font-bold ${accent} tracking-tight`}>{value}</div>
-                  <div className="text-label-sm text-on-primary/85 uppercase tracking-wider font-medium mt-2">{label}</div>
+                { Icon: BookOpen,      label: 'Bekerja',    value: alumniBekerja },
+                { Icon: GraduationCap, label: 'Kuliah',     value: alumniKuliah },
+                { Icon: Briefcase,     label: 'Wirausaha',  value: alumniWirausaha },
+              ].map(({ Icon, label, value }, i) => (
+                <div
+                  key={i}
+                  className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex justify-between items-center hover:border-primary transition-all shadow-sm"
+                >
+                  <div>
+                    <h4 className="text-3xl sm:text-4xl font-bold text-primary tabular-nums">{value}</h4>
+                    <p className="text-label-md text-on-surface-variant uppercase tracking-wider font-bold mt-1">{label}</p>
+                  </div>
+                  <Icon className="w-10 h-10 text-primary/20 group-hover:text-primary transition-colors" />
                 </div>
               ))}
             </div>
