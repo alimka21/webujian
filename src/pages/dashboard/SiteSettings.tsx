@@ -212,21 +212,16 @@ export default function SiteSettings() {
       delete payload.id;
       delete payload.updatedAt;
 
-      // WAF Hostinger LiteSpeed memblokir Google Maps embed URL karena
-      // pola "!1m18!1m12..." + %3A dianggap pola serangan (403 Forbidden).
-      // Workaround: encode jadi base64 dgn prefix "__b64:" — backend decode
-      // sebelum simpan ke DB. Apply juga ke fiturUnggulan (JSON panjang)
-      // untuk jaga-jaga.
-      const WAF_RISKY_FIELDS = ['mapsEmbedUrl', 'fiturUnggulan'];
-      for (const k of WAF_RISKY_FIELDS) {
-        const v = payload[k];
-        if (typeof v === 'string' && v.trim() && !v.startsWith('__b64:')) {
-          // unescape+encodeURIComponent supaya UTF-8 chars aman utk btoa
-          payload[k] = '__b64:' + btoa(unescape(encodeURIComponent(v)));
-        }
-      }
+      // Hostinger anti-bot interstitial ("Just a moment...") trigger saat
+      // body request mengandung kombinasi base64 image besar + Google Maps
+      // URL + JSON panjang. Workaround: encode SELURUH payload ke 1 base64
+      // string supaya detector hanya lihat 1 opaque blob. Backend unwrap.
+      // 60s timeout — base64 image bisa besar, jangan agresif default 20s.
+      const wrapped = {
+        _payload_b64: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
+      };
 
-      const res = await api.patch('/api/admin/site-config', payload);
+      const res = await api.patch('/api/admin/site-config', wrapped, 60_000);
       setConfig(res);
       // Bust shared cache supaya komponen lain (DashboardLayout sidebar,
       // SiteFooter, LandingPage, title/favicon di App) langsung pakai data baru.

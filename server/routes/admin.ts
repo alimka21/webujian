@@ -911,9 +911,23 @@ function decodeB64(v: any): any {
 
 router.patch('/site-config', async (req, res, next) => {
   try {
+    // Unwrap full-payload base64 envelope kalau frontend kirim _payload_b64.
+    // Workaround Hostinger anti-bot interstitial yg trigger saat body
+    // mengandung base64 image besar + Google Maps URL + JSON panjang
+    // bareng. Detector cuma lihat 1 string opaque, bukan banyak field.
+    let body: Record<string, any> = req.body || {};
+    if (typeof body._payload_b64 === 'string') {
+      try {
+        const decoded = Buffer.from(body._payload_b64, 'base64').toString('utf8');
+        body = JSON.parse(decoded);
+      } catch (err: any) {
+        return res.status(400).json({ error: 'Payload terenkripsi tidak valid' });
+      }
+    }
+
     const data: Record<string, any> = {};
     for (const key of SITE_CONFIG_FIELDS) {
-      if (req.body[key] !== undefined) data[key] = decodeB64(req.body[key]);
+      if (body[key] !== undefined) data[key] = decodeB64(body[key]);
     }
 
     let config = await prisma.siteConfig.findFirst();
