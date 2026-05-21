@@ -253,7 +253,8 @@ export default function AlumniTracer() {
         return;
       }
 
-      const result = await api.post('/api/admin/alumni/import', { items });
+      // 60s timeout — bulk import bisa lama walau sudah dioptimisasi.
+      const result = await api.post('/api/admin/alumni/import', { items }, 60_000);
       setImportResult(result);
       if (result.created > 0) toast.success(`${result.created} alumni berhasil di-import`);
       fetchAlumni();

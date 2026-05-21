@@ -443,7 +443,9 @@ export default function ManageUsers() {
         return;
       }
 
-      const result = await api.post('/api/admin/users/import', { type, items });
+      // 60s timeout — bulk import bisa lama (bcrypt + 500 row insert) walau
+      // sudah dioptimisasi ke ~5 query. Override default 20s.
+      const result = await api.post('/api/admin/users/import', { type, items }, 60_000);
       setImportResult(result);
       setImportResultType(type);
 

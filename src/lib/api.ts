@@ -3,6 +3,10 @@ const API_BASE = import.meta.env.PROD
   ? (import.meta.env.VITE_API_URL as string) || ""
   : ""; // dev: pakai vite proxy
 
+// Default timeout 20 detik — cukup untuk slow upload Excel ringan, tidak
+// terlalu agresif. Caller bisa override via 3rd arg (mis. import bulk).
+const DEFAULT_TIMEOUT_MS = 20_000;
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -13,7 +17,8 @@ class ApiError extends Error {
 
 async function request<T = any>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
   // Try state token first since authStore uses persist 'auth-storage'.
   let token = null;
@@ -36,11 +41,29 @@ async function request<T = any>(
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  // AbortController — cegah request hang lama saat WiFi sekolah goyang.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new ApiError(
+        `Permintaan timeout setelah ${Math.round(timeoutMs / 1000)} detik — koneksi lambat. Coba lagi.`,
+        408
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Handle no-content responses
   if (res.status === 204) return undefined as T;
@@ -64,10 +87,14 @@ async function request<T = any>(
 }
 
 export const api = {
-  get:    <T = any>(url: string) => request<T>(url, { method: "GET" }),
-  post:   <T = any>(url: string, body?: any) => request<T>(url, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
-  patch:  <T = any>(url: string, body?: any) => request<T>(url, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
-  delete: <T = any>(url: string) => request<T>(url, { method: "DELETE" }),
+  get:    <T = any>(url: string, timeoutMs?: number) =>
+    request<T>(url, { method: "GET" }, timeoutMs),
+  post:   <T = any>(url: string, body?: any, timeoutMs?: number) =>
+    request<T>(url, { method: "POST", body: body ? JSON.stringify(body) : undefined }, timeoutMs),
+  patch:  <T = any>(url: string, body?: any, timeoutMs?: number) =>
+    request<T>(url, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }, timeoutMs),
+  delete: <T = any>(url: string, timeoutMs?: number) =>
+    request<T>(url, { method: "DELETE" }, timeoutMs),
 };
 
 export default api;
