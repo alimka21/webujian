@@ -314,7 +314,7 @@ export default function SiteSettings() {
         <TextAreaField label="Deskripsi Singkat" value={get('deskripsi')} onChange={v => set('deskripsi', v)} placeholder="Penjelasan ringkas, tampil di hero subtitle dan footer" rows={3} />
       </Section>
 
-      <Section icon={ImageIcon} title="Logo & Favicon" description="Branding ditampilkan di navbar dan tab browser.">
+      <Section icon={ImageIcon} title="Logo, Favicon & Hero" description="Branding di navbar, tab browser, dan gambar besar di hero landing.">
         <div className="grid sm:grid-cols-2 gap-6">
           <ImageField
             label="Logo" hint="Tampil di navbar & footer. Disarankan PNG transparan."
@@ -327,6 +327,12 @@ export default function SiteSettings() {
             maxWidth={128} preview="square"
           />
         </div>
+        <ImageField
+          label="Gambar Hero (Banner Atas Landing)"
+          hint="Tampil besar di kanan judul 'Portal Akademik Digital'. Rasio landscape (4:3 atau 16:9). Kalau kosong, fallback ke Foto Profil di section Profil Sekolah."
+          value={get('heroImageUrl')} onChange={v => set('heroImageUrl', v)}
+          maxWidth={1200} preview="wide"
+        />
       </Section>
 
 <Section icon={BookOpen} title="Profil Sekolah" description="Sejarah, visi, misi, tujuan, dan foto fasilitas.">
