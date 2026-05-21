@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import {
   AlertCircle, Clock, ChevronLeft, ChevronRight, Flag, X, CheckSquare,
-  Maximize, List, ShieldAlert,
+  Maximize, List, ShieldAlert, Check, CloudOff, Loader2, WifiOff,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAntiCheat } from '../../hooks/useAntiCheat';
@@ -23,6 +23,70 @@ function useDebounce<T extends (...args: any[]) => void>(func: T, wait: number) 
   );
 }
 
+// Indikator status auto-save + koneksi.
+// Offline override semua status save (sinyal paling kritis).
+// Di mobile teks disembunyikan (sm:inline) — cuma icon supaya hemat ruang header.
+function SaveIndicator({
+  status,
+  isOnline,
+}: {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  isOnline: boolean;
+}) {
+  if (!isOnline) {
+    return (
+      <div
+        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-error text-xs font-medium"
+        role="status"
+        aria-live="polite"
+      >
+        <WifiOff className="w-3.5 h-3.5" />
+        <span>Offline</span>
+      </div>
+    );
+  }
+  if (status === 'saving') {
+    return (
+      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-xs font-medium" role="status" aria-live="polite">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        <span>Menyimpan…</span>
+      </div>
+    );
+  }
+  if (status === 'saved') {
+    return (
+      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container/40 text-on-secondary-container text-xs font-medium" role="status" aria-live="polite">
+        <Check className="w-3.5 h-3.5" />
+        <span>Tersimpan</span>
+      </div>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-error text-xs font-medium" role="status" aria-live="polite">
+        <CloudOff className="w-3.5 h-3.5" />
+        <span>Belum tersimpan</span>
+      </div>
+    );
+  }
+  return null; // idle
+}
+
+// Versi compact (cuma icon) untuk mobile — tampil sebelum timer di header sempit.
+function SaveIndicatorMobile({
+  status,
+  isOnline,
+}: {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  isOnline: boolean;
+}) {
+  if (!isOnline) return <WifiOff className="sm:hidden w-4 h-4 text-error shrink-0" aria-label="Offline" />;
+  if (status === 'saving') return <Loader2 className="sm:hidden w-4 h-4 text-tertiary animate-spin shrink-0" aria-label="Menyimpan" />;
+  if (status === 'saved') return <Check className="sm:hidden w-4 h-4 text-secondary shrink-0" aria-label="Tersimpan" />;
+  if (status === 'error') return <CloudOff className="sm:hidden w-4 h-4 text-error shrink-0" aria-label="Belum tersimpan" />;
+  return null;
+}
+
 export default function TakeExam() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -36,6 +100,10 @@ export default function TakeExam() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   // Modal a11y refs
   const submitModalRef = useModalA11y<HTMLDivElement>(showSubmitConfirm, () => setShowSubmitConfirm(false));
@@ -126,15 +194,35 @@ export default function TakeExam() {
   // Save answer to server (debounced)
   const saveAnswerToServer = useDebounce(async (soalId: string, opsiIds: string[]) => {
     if (!sessionId) return;
+    setSaveStatus('saving');
     try {
       await api.post(`/api/siswa/sesi/${sessionId}/jawab`, {
         soalId,
         opsiIds
       });
+      setSaveStatus('saved');
+      // Auto-revert ke idle setelah 2 detik supaya badge "Tersimpan" tidak persisten
+      setTimeout(() => {
+        setSaveStatus(prev => (prev === 'saved' ? 'idle' : prev));
+      }, 2000);
     } catch (err) {
       console.error('Failed to save answer', err);
+      setSaveStatus('error');
     }
   }, 500);
+
+  // Online/offline listener — sinyal cepat saat browser deteksi koneksi putus.
+  // Tidak block input (siswa tetap bisa jawab via localStorage, sync saat submit).
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleAnswerSelect = (opsiId: string) => {
     const currentSoal = soalList[currentIndex];
@@ -412,14 +500,20 @@ export default function TakeExam() {
           </span>
         </div>
 
-        {/* Timer pill */}
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-base sm:text-lg shrink-0 transition-colors ${
-          isCritical ? 'bg-error-container text-error animate-pulse' :
-          isWarning ? 'bg-tertiary-fixed text-on-tertiary-fixed' :
-          'bg-primary-container/20 text-primary'
-        }`}>
-          <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span>{formattedTime}</span>
+        {/* Save status indicator + Timer */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Mobile: icon-only sebelum timer biar hemat ruang */}
+          <SaveIndicatorMobile status={saveStatus} isOnline={isOnline} />
+          {/* Desktop: badge dengan teks */}
+          <SaveIndicator status={saveStatus} isOnline={isOnline} />
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-base sm:text-lg transition-colors ${
+            isCritical ? 'bg-error-container text-error animate-pulse' :
+            isWarning ? 'bg-tertiary-fixed text-on-tertiary-fixed' :
+            'bg-primary-container/20 text-primary'
+          }`}>
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>{formattedTime}</span>
+          </div>
         </div>
 
         {/* Avatar + nama */}
