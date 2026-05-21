@@ -59,10 +59,10 @@ export default function SiteFooter() {
           </ul>
         </div>
 
-        {/* Kontak */}
-        <div className="md:col-span-2">
+        {/* Kontak (kolom 3) */}
+        <div>
           <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Hubungi Kami</h4>
-          <ul className="space-y-2.5 text-sm text-inverse-on-surface/85 mb-4">
+          <ul className="space-y-2.5 text-sm text-inverse-on-surface/85">
             {cfg.alamat && (
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
@@ -72,7 +72,7 @@ export default function SiteFooter() {
             {cfg.email && (
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 shrink-0" />
-                <a href={`mailto:${cfg.email}`} className="hover:text-inverse-primary transition-colors">{cfg.email}</a>
+                <a href={`mailto:${cfg.email}`} className="hover:text-inverse-primary transition-colors break-all">{cfg.email}</a>
               </li>
             )}
             {cfg.telepon && (
@@ -94,7 +94,12 @@ export default function SiteFooter() {
               </li>
             )}
           </ul>
-          {cfg.mapsEmbedUrl && (
+        </div>
+
+        {/* Peta lokasi (kolom 4) — hanya muncul kalau admin sudah set mapsEmbedUrl */}
+        {cfg.mapsEmbedUrl && (
+          <div>
+            <h4 className="text-label-sm uppercase tracking-wider font-bold mb-4">Lokasi Kami</h4>
             <div className="rounded-lg overflow-hidden border border-inverse-on-surface/15">
               <iframe
                 src={cfg.mapsEmbedUrl}
@@ -105,8 +110,8 @@ export default function SiteFooter() {
                 title={`Lokasi ${namaSekolah}`}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-inverse-on-surface/10 flex flex-col sm:flex-row justify-between items-center gap-4">
