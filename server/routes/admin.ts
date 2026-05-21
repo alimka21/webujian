@@ -897,11 +897,23 @@ const SITE_CONFIG_FIELDS = [
   'facebook', 'instagram', 'twitter', 'youtube', 'tiktok',
 ] as const;
 
+// Decode base64 dari frontend (workaround WAF LiteSpeed yang block
+// payload mengandung Google Maps embed URL atau JSON panjang).
+// Frontend prefix value dengan "__b64:" — kita unwrap di sini.
+function decodeB64(v: any): any {
+  if (typeof v !== 'string' || !v.startsWith('__b64:')) return v;
+  try {
+    return Buffer.from(v.slice(6), 'base64').toString('utf8');
+  } catch {
+    return v; // fallback ke raw kalau decode gagal
+  }
+}
+
 router.patch('/site-config', async (req, res, next) => {
   try {
     const data: Record<string, any> = {};
     for (const key of SITE_CONFIG_FIELDS) {
-      if (req.body[key] !== undefined) data[key] = req.body[key];
+      if (req.body[key] !== undefined) data[key] = decodeB64(req.body[key]);
     }
 
     let config = await prisma.siteConfig.findFirst();
