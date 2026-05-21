@@ -212,16 +212,44 @@ export default function SiteSettings() {
       delete payload.id;
       delete payload.updatedAt;
 
-      // Hostinger anti-bot interstitial ("Just a moment...") trigger saat
-      // body request mengandung kombinasi base64 image besar + Google Maps
-      // URL + JSON panjang. Workaround: encode SELURUH payload ke 1 base64
-      // string supaya detector hanya lihat 1 opaque blob. Backend unwrap.
-      // 60s timeout — base64 image bisa besar, jangan agresif default 20s.
-      const wrapped = {
-        _payload_b64: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
-      };
+      // ── Workaround Hostinger anti-bot interstitial ("Just a moment...") ──
+      // Trigger saat body PATCH besar (base64 image puluhan KB) atau pola
+      // suspicious (Google Maps URL dgn banyak "!"). Strategi:
+      //
+      // 1. Pisahkan field gambar (data URL base64) ke request terpisah,
+      //    satu PATCH per gambar — body per request manageable.
+      // 2. Untuk field text-only PATCH pertama, encode field "risky"
+      //    (mapsEmbedUrl, fiturUnggulan) jadi __b64: supaya WAF tidak
+      //    deteksi pola.
+      // 3. Header X-Requested-With: XMLHttpRequest sudah di-set global
+      //    di api.ts — anti-bot biasanya exempt AJAX-style request.
+      const HEAVY_FIELDS = ['logoUrl', 'faviconUrl', 'heroImageUrl', 'profilImageUrl', 'kepsekFotoUrl'];
+      const heavy: Record<string, any> = {};
+      for (const k of HEAVY_FIELDS) {
+        if (payload[k] !== undefined) {
+          heavy[k] = payload[k];
+          delete payload[k];
+        }
+      }
 
-      const res = await api.patch('/api/admin/site-config', wrapped, 60_000);
+      // Per-field __b64 encoding utk WAF-risky text fields
+      const WAF_RISKY_FIELDS = ['mapsEmbedUrl', 'fiturUnggulan'];
+      for (const k of WAF_RISKY_FIELDS) {
+        const v = payload[k];
+        if (typeof v === 'string' && v.trim() && !v.startsWith('__b64:')) {
+          payload[k] = '__b64:' + btoa(unescape(encodeURIComponent(v)));
+        }
+      }
+
+      // 1. Save text fields dulu (body kecil, aman lewat anti-bot)
+      let res = await api.patch('/api/admin/site-config', payload);
+
+      // 2. Save tiap image field secara sequential (bukan parallel — hindari
+      //    burst pattern yg trigger anti-bot frequency check).
+      for (const [field, data] of Object.entries(heavy)) {
+        res = await api.patch('/api/admin/site-config', { [field]: data }, 60_000);
+      }
+
       setConfig(res);
       // Bust shared cache supaya komponen lain (DashboardLayout sidebar,
       // SiteFooter, LandingPage, title/favicon di App) langsung pakai data baru.

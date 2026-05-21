@@ -37,6 +37,9 @@ async function request<T = any>(
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    // Anti-bot interstitial Hostinger biasanya exempt XHR yg mark dirinya
+    // dengan header ini. Tidak ngubah API behavior — cuma signal "ini AJAX".
+    "X-Requested-With": "XMLHttpRequest",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
