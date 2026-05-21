@@ -147,7 +147,7 @@ export default function HasilUjian() {
       {data.ujian.tampilkanNilai !== false ? (
         <div className={`rounded-2xl border-2 p-8 text-center ${scoreBg}`}>
           <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Nilai Anda</p>
-          <p className={`text-7xl font-extrabold tabular-nums ${scoreColor}`}>{nilaiDisplay}</p>
+          <p className={`text-5xl sm:text-6xl md:text-7xl font-extrabold tabular-nums ${scoreColor}`}>{nilaiDisplay}</p>
           <span className={`inline-block mt-3 text-sm font-semibold px-3 py-1 rounded-full ${
             nilai >= 75 ? 'bg-secondary-container/60 text-on-secondary-container' :
             nilai >= 60 ? 'bg-tertiary-fixed/70 text-on-tertiary-fixed' :

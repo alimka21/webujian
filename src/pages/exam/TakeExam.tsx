@@ -585,7 +585,7 @@ export default function TakeExam() {
                 </div>
                 <button
                   onClick={toggleFlag}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-label-md font-bold uppercase tracking-wider transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-label-md font-bold uppercase tracking-wider transition-colors min-h-[40px] ${
                     flagged[currentSoal?.id]
                       ? 'bg-tertiary-fixed text-on-tertiary-fixed border border-tertiary'
                       : 'text-on-surface-variant hover:text-primary hover:bg-primary-container/10 border border-transparent'

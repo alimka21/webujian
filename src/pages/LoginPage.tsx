@@ -139,6 +139,11 @@ export default function LoginPage() {
               <Input
                 id="identifier"
                 type={role === 'SISWA' ? 'text' : 'email'}
+                // Soft keyboard angka di mobile untuk siswa (NIS).
+                // Tetap type=text supaya leading zero NIS tidak ke-strip
+                // dan tidak ada spinner number bawaan browser.
+                inputMode={role === 'SISWA' ? 'numeric' : 'email'}
+                pattern={role === 'SISWA' ? '[0-9]*' : undefined}
                 placeholder={identifierPlaceholder}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
