@@ -5,11 +5,12 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  // Kembali ke library engine (default) — binary engine ternyata sama saja
-  // nge-panic "timer has gone away" pada Hostinger CloudLinux. Multi-target
-  // dipertahankan supaya `prisma generate` siapkan binary untuk variasi
-  // platform (CloudLinux rhel-like, Debian VPS, macOS dev).
-  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
+  // Trim binaryTargets ke MINIMUM yang dipakai:
+  //   - native              → dev macOS/Linux (auto-detect)
+  //   - rhel-openssl-1.1.x  → Hostinger CloudLinux production
+  // Sebelumnya 5 target = ~250 MB di node_modules tiap deploy.
+  // Dipangkas jadi 2 = ~100 MB. Hemat ~150 MB per build.
+  binaryTargets = ["native", "rhel-openssl-1.1.x"]
 }
 
 model User {
