@@ -282,6 +282,15 @@ model SiteConfig {
   misi   String? @db.Text
   tujuan String? @db.Text
 
+  // Statistik landing yg bisa di-edit admin (selain alumni yg auto dari DB)
+  statSiswaValue String?  @default("1,250+")
+  statSiswaLabel String?  @default("Siswa Aktif")
+  statGuruValue  String?  @default("85+")
+  statGuruLabel  String?  @default("Tenaga Pendidik")
+  statTahunValue String?  @default("2005")
+  statTahunLabel String?  @default("Berdiri Sejak")
+  statAlumniLabel String? @default("Alumni Terdata")
+
   // Sambutan kepala sekolah — ditampilkan di section khusus pada landing
   kepsekNama     String?
   kepsekJabatan  String? @default("Kepala Sekolah")

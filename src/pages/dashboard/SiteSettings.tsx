@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Save, ImageIcon, Building2, BookOpen, Phone, Share2,
-  AlertTriangle, Upload, X, ImagePlus, UserSquare, Sparkles, Plus, Trash2, MapPin,
+  AlertTriangle, Upload, X, ImagePlus, UserSquare, Sparkles, Plus, Trash2, MapPin, BarChart3,
 } from 'lucide-react';
 
 // Whitelist ikon Lucide untuk fitur unggulan — harus sinkron dgn FITUR_ICON_MAP di LandingPage.tsx
@@ -339,6 +339,30 @@ export default function SiteSettings() {
         <TextAreaField label="Visi" value={get('visi')} onChange={v => set('visi', v)} placeholder="Pandangan jangka panjang sekolah" rows={3} />
         <TextAreaField label="Misi" value={get('misi')} onChange={v => set('misi', v)} placeholder="Pisahkan tiap misi dengan baris baru (Enter)" rows={5} />
         <TextAreaField label="Tujuan" value={get('tujuan')} onChange={v => set('tujuan', v)} placeholder="Tujuan strategis sekolah" rows={3} />
+      </Section>
+
+      <Section
+        icon={BarChart3}
+        title="Statistik Sekolah"
+        description="Angka dan teks 4 kartu statistik di landing. Alumni Terdata otomatis dari data alumni (tidak perlu diisi nilai)."
+      >
+        <p className="text-xs text-on-surface-variant -mt-2">
+          Tip: pakai format ringkas seperti <code className="bg-surface-container px-1 rounded">1,250+</code>, <code className="bg-surface-container px-1 rounded">85</code>, atau <code className="bg-surface-container px-1 rounded">2005</code>.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <TextField label="Siswa — Nilai" value={get('statSiswaValue')} onChange={v => set('statSiswaValue', v)} placeholder="1,250+" />
+          <TextField label="Siswa — Label" value={get('statSiswaLabel')} onChange={v => set('statSiswaLabel', v)} placeholder="Siswa Aktif" />
+          <TextField label="Guru — Nilai" value={get('statGuruValue')} onChange={v => set('statGuruValue', v)} placeholder="85+" />
+          <TextField label="Guru — Label" value={get('statGuruLabel')} onChange={v => set('statGuruLabel', v)} placeholder="Tenaga Pendidik" />
+          <TextField label="Tahun — Nilai" value={get('statTahunValue')} onChange={v => set('statTahunValue', v)} placeholder="2005" />
+          <TextField label="Tahun — Label" value={get('statTahunLabel')} onChange={v => set('statTahunLabel', v)} placeholder="Berdiri Sejak" />
+        </div>
+        <TextField
+          label="Alumni — Label (nilai auto dari data alumni)"
+          value={get('statAlumniLabel')}
+          onChange={v => set('statAlumniLabel', v)}
+          placeholder="Alumni Terdata"
+        />
       </Section>
 
       <Section icon={UserSquare} title="Sambutan Kepala Sekolah" description="Foto, nama, dan teks sambutan yang tampil di section khusus pada landing.">

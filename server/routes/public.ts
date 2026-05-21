@@ -107,17 +107,27 @@ router.post('/alumni/register', async (req, res, next) => {
 
 router.get('/alumni/stats', async (req, res, next) => {
   try {
-    const stats = await withCache('pub:alumni:stats', 600, async () => {
-      // Hanya hitung alumni yang sudah diverifikasi admin
-      const alumniList = await prisma.alumni.findMany({ where: { isVerified: true } });
+    // Cache pendek (30s) — landing perlu data fresh setelah admin verify/add
+    // alumni di tab tracer. groupBy lebih efisien daripada findMany + reduce.
+    const stats = await withCache('pub:alumni:stats', 30, async () => {
+      const [byStatus, byTahun] = await Promise.all([
+        prisma.alumni.groupBy({
+          by: ['status'],
+          where: { isVerified: true },
+          _count: { _all: true },
+        }),
+        prisma.alumni.groupBy({
+          by: ['tahunLulus'],
+          where: { isVerified: true },
+          _count: { _all: true },
+        }),
+      ]);
+
+      const perStatus: Record<string, number> = {};
+      for (const g of byStatus) perStatus[g.status] = g._count._all;
 
       const perTahun: Record<number, number> = {};
-      const perStatus: Record<string, number> = {};
-
-      alumniList.forEach(a => {
-        perTahun[a.tahunLulus] = (perTahun[a.tahunLulus] || 0) + 1;
-        perStatus[a.status] = (perStatus[a.status] || 0) + 1;
-      });
+      for (const g of byTahun) perTahun[g.tahunLulus] = g._count._all;
 
       return { perTahun, perStatus };
     });

@@ -26,6 +26,13 @@ const DEFAULT_CONFIG = {
   faviconUrl: '',
   heroImageUrl: '',
   profilImageUrl: '',
+  statSiswaValue: '1,250+',
+  statSiswaLabel: 'Siswa Aktif',
+  statGuruValue: '85+',
+  statGuruLabel: 'Tenaga Pendidik',
+  statTahunValue: '2005',
+  statTahunLabel: 'Berdiri Sejak',
+  statAlumniLabel: 'Alumni Terdata',
   sejarah: '',
   visi: '',
   misi: '',
@@ -55,14 +62,6 @@ const DEFAULT_FITUR: FiturItem[] = [
     desc: 'Lulusan bisa daftar mandiri. Lihat sebaran karir & pendidikan alumni lewat statistik publik.' },
 ];
 
-// Placeholder stat — bisa di-edit di code kalau sekolah punya angka real.
-// Alumni di-fetch real-time dari /api/alumni/stats.
-const STATS_HARDCODED = {
-  siswa: '1,250+',
-  guru: '85+',
-  tahunBerdiri: '2005',
-};
-
 // (HERO_FEATURES dihapus — hero sekarang pakai image + floating card, bukan icon grid)
 
 export default function LandingPage() {
@@ -89,6 +88,20 @@ export default function LandingPage() {
       setBerita(resBerita.data || []);
       setAlumniStats(resAlumni.perStatus || {});
     });
+  }, []);
+
+  // Auto-refresh alumni stats saat user kembali ke tab — supaya angka real-time
+  // setelah admin verify/add alumni di tab lain. Cache server 30s tetap berlaku.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        api.get('/api/alumni/stats')
+          .then((r: any) => setAlumniStats(r?.perStatus || {}))
+          .catch(() => { /* abaikan */ });
+      }
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
   }, []);
 
   // Document title + favicon
@@ -375,10 +388,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { icon: Users,         label: 'Siswa Aktif',       value: STATS_HARDCODED.siswa },
-              { icon: GraduationCap, label: 'Tenaga Pendidik',   value: STATS_HARDCODED.guru },
-              { icon: BookOpen,      label: 'Alumni Terdata',    value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
-              { icon: Briefcase,     label: 'Berdiri Sejak',     value: STATS_HARDCODED.tahunBerdiri },
+              { icon: Users,         label: cfg.statSiswaLabel  || 'Siswa Aktif',     value: cfg.statSiswaValue || '—' },
+              { icon: GraduationCap, label: cfg.statGuruLabel   || 'Tenaga Pendidik', value: cfg.statGuruValue  || '—' },
+              // Alumni AUTO dari API — real-time count dari DB
+              { icon: BookOpen,      label: cfg.statAlumniLabel || 'Alumni Terdata',  value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
+              { icon: Briefcase,     label: cfg.statTahunLabel  || 'Berdiri Sejak',   value: cfg.statTahunValue || '—' },
             ].map(({ icon: Icon, label, value }, i) => (
               <div key={i} className="space-y-2">
                 <Icon className="w-9 h-9 mx-auto text-tertiary-fixed" />
@@ -410,13 +424,7 @@ export default function LandingPage() {
                     <Icon className="w-7 h-7" />
                   </div>
                   <h3 className="font-bold text-primary text-lg mb-2">{f.title}</h3>
-                  <p className="text-on-surface-variant text-sm leading-relaxed mb-4">{f.desc}</p>
-                  <button
-                    onClick={() => navigate('/login')}
-                    className="inline-flex items-center gap-1.5 text-primary font-bold text-label-sm uppercase tracking-wider group-hover:gap-3 transition-all"
-                  >
-                    Pelajari Selengkapnya <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <p className="text-on-surface-variant text-sm leading-relaxed">{f.desc}</p>
                 </div>
               );
             })}
