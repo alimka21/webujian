@@ -5,12 +5,18 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  // Trim binaryTargets ke MINIMUM yang dipakai:
-  //   - native              → dev macOS/Linux (auto-detect)
-  //   - rhel-openssl-1.1.x  → Hostinger CloudLinux production
-  // Sebelumnya 5 target = ~250 MB di node_modules tiap deploy.
-  // Dipangkas jadi 2 = ~100 MB. Hemat ~150 MB per build.
-  binaryTargets = ["native", "rhel-openssl-1.1.x"]
+  // binaryTargets MINIMUM yang BENAR-BENAR dipakai Hostinger:
+  //   - native               → dev macOS/Linux (auto-detect)
+  //   - debian-openssl-1.1.x → Hostinger CloudLinux (detect distro="undefined"
+  //                            → fallback ke "debian" walau aslinya rhel-based)
+  //
+  // CATATAN: rhel-openssl-1.1.x TIDAK dipakai walaupun Hostinger CloudLinux
+  // aslinya rhel — Prisma get-platform tidak bisa detect distro Hostinger,
+  // jadi pilih debian sebagai fallback. Lihat log "Distro is 'undefined'.
+  // Falling back to Prisma engines built for 'debian'."
+  //
+  // Sebelumnya 5 target = ~250 MB. Dipangkas jadi 2 = ~100 MB.
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 model User {

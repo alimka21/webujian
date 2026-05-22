@@ -370,6 +370,22 @@ app.listen(PORT, () => {
   console.log(`✅ Backend siap di http://localhost:${PORT}`);
   console.log(`   Mode: ${process.env.NODE_ENV || "development"}`);
 
+  // ── Pre-warm Prisma engine (cegah PANIC "timer has gone away") ──
+  // CloudLinux LiteSpeed FastCGI spawn beberapa worker. Tanpa pre-warm,
+  // request konkuren pertama trigger lazy library init bareng-bareng →
+  // race condition → engine PANIC ("library already starting").
+  // Solusi: jalankan dummy query saat startup supaya engine sudah ready
+  // sebelum traffic masuk. Tidak block listen — async fire-and-forget.
+  (async () => {
+    try {
+      const { prisma } = await import("./lib/prisma");
+      await prisma.$queryRawUnsafe("SELECT 1");
+      console.log("[startup] ✅ Prisma engine warmed up.");
+    } catch (err: any) {
+      console.error("[startup] ⚠️ Prisma warmup gagal:", err?.message ?? err);
+    }
+  })();
+
   // Bootstrap async di background — TIDAK boleh block listen
   console.log("[startup] Starting database bootstrap in background...");
   bootstrapDatabase()
