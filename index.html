@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Preconnect ke Google Fonts CDN — hindari handshake serial saat
+         CSS @import discover font URL. Hemat ~100-300ms TTFB font woff2.
+         crossorigin perlu untuk preconnect fonts.gstatic.com (CORS). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
     <title>Memuat...</title>
   </head>
   <body>

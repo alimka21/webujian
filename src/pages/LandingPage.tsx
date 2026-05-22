@@ -340,17 +340,22 @@ export default function LandingPage() {
 
             {(cfg.sejarah?.trim() || cfg.profilImageUrl?.trim()) && (
               <div className="grid md:grid-cols-2 gap-10 items-center">
-                {cfg.profilImageUrl ? (
-                  <img
-                    src={cfg.profilImageUrl}
-                    alt={`Profil ${cfg.namaSekolah}`}
-                    className="w-full h-auto rounded-2xl object-cover border border-outline-variant shadow-sm"
-                  />
-                ) : (
-                  <div className="w-full aspect-[4/3] rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center">
-                    <BookOpen className="w-16 h-16 text-outline-variant" />
-                  </div>
-                )}
+                {/* Aspect-ratio container — reserve height sebelum image load,
+                    hindari CLS dari h-auto yg bergantung natural size image */}
+                <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden border border-outline-variant shadow-sm bg-surface-container">
+                  {cfg.profilImageUrl ? (
+                    <img
+                      src={cfg.profilImageUrl}
+                      alt={`Profil ${cfg.namaSekolah}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <BookOpen className="w-16 h-16 text-outline-variant" />
+                    </div>
+                  )}
+                </div>
                 <div>
                   <h3 className="text-headline-sm text-on-surface mb-3">Sejarah Singkat</h3>
                   <p className="text-on-surface-variant leading-relaxed whitespace-pre-wrap">

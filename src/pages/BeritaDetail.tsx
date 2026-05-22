@@ -138,10 +138,11 @@ export default function BeritaDetail() {
           </div>
         </div>
 
-        {/* Hero image */}
+        {/* Hero image — aspect-ratio container reserve height sebelum
+            image load, hindari CLS dari max-h-[500px] yg height implicit */}
         {berita.imageUrl && (
-          <div className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest mb-10">
-            <img src={berita.imageUrl} alt={berita.judul} className="w-full object-cover max-h-[500px]" />
+          <div className="w-full aspect-[16/9] overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest mb-10">
+            <img src={berita.imageUrl} alt={berita.judul} className="w-full h-full object-cover" />
           </div>
         )}
 
