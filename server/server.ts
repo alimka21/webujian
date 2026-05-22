@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
@@ -213,22 +213,45 @@ app.use(compression({
 let bootstrapDone = false;
 
 // ── CORS dinamis: dev + production ────────────────────
+// FRONTEND_URL dukung multi-domain dipisah koma: "https://a.com,https://b.com"
+const envOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  process.env.FRONTEND_URL,
-].filter((x): x is string => !!x);
+  ...envOrigins,
+];
+
+// Domain Hostinger sekolah ini: main custom + preview subdomain
+const ALLOWED_DOMAIN_SUFFIXES = [
+  '.hostingersite.com',     // Hostinger preview subdomain (rosybrown-crab-*, dst)
+  'smknegeriayamaru.sch.id', // Production custom domain
+];
+
+function isOriginAllowed(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return ALLOWED_DOMAIN_SUFFIXES.some(suffix =>
+      url.hostname === suffix || url.hostname.endsWith(suffix)
+    );
+  } catch {
+    return false;
+  }
+}
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow no-origin (Postman, curl) di development
-    if (!origin && process.env.NODE_ENV !== "production") {
-      return callback(null, true);
-    }
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS blocked for origin: ${origin}`));
+    // Allow no-origin (Postman, curl, same-origin) di semua env
+    if (!origin) return callback(null, true);
+    if (isOriginAllowed(origin)) return callback(null, true);
+    // Block silent (return false bukan throw) — hindari spam stack trace
+    // di log untuk preflight yg sah-sah saja di-reject.
+    console.warn(`[CORS] Block origin: ${origin}`);
+    callback(null, false);
   },
   credentials: true,
 }));
@@ -261,7 +284,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // Pre-login req.userId undefined → fallback ke IP (brute force protection)
-  keyGenerator: (req) => req.userId || req.ip || 'unknown',
+  keyGenerator: (req) => req.userId || ipKeyGenerator(req.ip || '0.0.0.0'),
 });
 app.use("/api/auth/login", authLimiter);
 
@@ -271,7 +294,7 @@ const generalLimiter = rateLimit({
   message: { error: "Terlalu banyak request. Coba lagi sebentar." },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.userId || req.ip || 'unknown',
+  keyGenerator: (req) => req.userId || ipKeyGenerator(req.ip || '0.0.0.0'),
   skip: (req) => req.path.includes("/assets"),
 });
 app.use("/api", generalLimiter);
@@ -286,7 +309,7 @@ const ujianLimiter = rateLimit({
   message: { error: "Aktivitas ujian terlalu cepat. Tunggu sebentar." },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.userId || req.ip || 'unknown',
+  keyGenerator: (req) => req.userId || ipKeyGenerator(req.ip || '0.0.0.0'),
 });
 app.use("/api/siswa/sesi", ujianLimiter);
 
