@@ -69,7 +69,24 @@ export const logger = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
+  // Trap Prisma engine panic / spawn EAGAIN — kasih user error message
+  // yang clean, tidak expose stack trace ratusan baris.
+  const msg = String(err?.message || '');
+  const isPrismaPanic =
+    err?.name === 'PrismaClientRustPanicError' ||
+    /timer has gone away/i.test(msg) ||
+    /PANIC/i.test(msg);
+  const isSpawnEagain = /spawn\b.*EAGAIN/i.test(msg);
+
+  if (isPrismaPanic || isSpawnEagain) {
+    console.error('[PRISMA ENGINE FAIL]', err?.name, msg.slice(0, 200));
+    return res.status(503).json({
+      error: 'Sistem database sedang mengalami gangguan. Mohon coba lagi dalam beberapa menit. Kalau berulang, hubungi admin.',
+      _internalCode: isPrismaPanic ? 'PRISMA_PANIC' : 'SPAWN_EAGAIN',
+    });
+  }
+
   console.error('[SERVER ERROR]', err);
   res.status(err.status || 500).json({ error: err.message || 'Terjadi kesalahan pada server.' });
 };
