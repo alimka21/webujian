@@ -5,17 +5,17 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  // binaryTargets MINIMUM yang BENAR-BENAR dipakai Hostinger:
+  // engineType=binary → query engine sebagai child process (spawn) bukan
+  // shared library di-load di Node process. Library engine (default) PANIC
+  // "timer has gone away" di Hostinger CloudLinux saat library start —
+  // engine internal Rust crash, tidak bisa di-recover. Binary engine
+  // pakai IPC ke spawned subprocess, lebih isolated dan stable di shared
+  // hosting multi-worker LiteSpeed FastCGI.
+  engineType    = "binary"
+  // binaryTargets:
   //   - native               → dev macOS/Linux (auto-detect)
-  //   - debian-openssl-1.1.x → Hostinger CloudLinux (detect distro="undefined"
-  //                            → fallback ke "debian" walau aslinya rhel-based)
-  //
-  // CATATAN: rhel-openssl-1.1.x TIDAK dipakai walaupun Hostinger CloudLinux
-  // aslinya rhel — Prisma get-platform tidak bisa detect distro Hostinger,
-  // jadi pilih debian sebagai fallback. Lihat log "Distro is 'undefined'.
-  // Falling back to Prisma engines built for 'debian'."
-  //
-  // Sebelumnya 5 target = ~250 MB. Dipangkas jadi 2 = ~100 MB.
+  //   - debian-openssl-1.1.x → Hostinger CloudLinux (Prisma detect
+  //                            distro="undefined" → fallback ke "debian")
   binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
