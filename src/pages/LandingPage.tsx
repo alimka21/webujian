@@ -80,13 +80,23 @@ export default function LandingPage() {
     return merged;
   }, [siteConfig]);
 
+  // Loading flags — track per-fetch supaya bisa render placeholder spesifik
+  // dan hindari layout shift (CLS) saat konten muncul mendadak.
+  const [isLoadingBerita, setIsLoadingBerita] = useState(true);
+  const [isLoadingAlumni, setIsLoadingAlumni] = useState(true);
+  // siteConfig hook tidak expose isLoaded flag — derive dari presence
+  // namaSekolah (selalu ada di config valid, undefined saat init kosong).
+  const isCfgLoaded = !!(siteConfig as any).namaSekolah;
+
   useEffect(() => {
     Promise.all([
       api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
       api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
     ]).then(([resBerita, resAlumni]) => {
       setBerita(resBerita.data || []);
+      setIsLoadingBerita(false);
       setAlumniStats(resAlumni.perStatus || {});
+      setIsLoadingAlumni(false);
     });
   }, []);
 
@@ -176,7 +186,17 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-7 text-label-md font-medium text-on-surface-variant">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-primary transition-colors">Beranda</button>
-            {showProfil && <button onClick={() => scrollTo('profil')} className="hover:text-primary transition-colors">Profil</button>}
+            {/* Always render — opacity toggle hindari layout shift saat cfg loading */}
+            <button
+              onClick={() => scrollTo('profil')}
+              aria-hidden={!(isCfgLoaded && showProfil)}
+              tabIndex={isCfgLoaded && showProfil ? 0 : -1}
+              className={`hover:text-primary transition-opacity duration-200 ${
+                isCfgLoaded && showProfil ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              Profil
+            </button>
             <button onClick={() => scrollTo('fitur')} className="hover:text-primary transition-colors">Fitur</button>
             <button onClick={() => scrollTo('berita')} className="hover:text-primary transition-colors">Berita</button>
             <button onClick={() => scrollTo('alumni')} className="hover:text-primary transition-colors">Alumni</button>
@@ -264,7 +284,11 @@ export default function LandingPage() {
       </section>
 
       {/* ═════════════════ 2.5 SAMBUTAN KEPALA SEKOLAH ═════════════════ */}
-      {showSambutan && (
+      {/* Placeholder min-h saat cfg loading — hindari shift kalau section muncul.
+          Setelah cfg loaded: render section asli kalau ada konten, null kalau kosong. */}
+      {!isCfgLoaded ? (
+        <div className="bg-surface min-h-[500px]" aria-hidden="true" />
+      ) : showSambutan && (
         <section id="sambutan" className="bg-surface px-4 sm:px-6 py-20">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
@@ -304,7 +328,9 @@ export default function LandingPage() {
       )}
 
       {/* ═════════════════ 2.6 PROFIL SEKOLAH (Sejarah + Visi/Misi/Tujuan) ═════════════════ */}
-      {showProfil && (
+      {!isCfgLoaded ? (
+        <div className="bg-surface-container-low border-y border-outline-variant min-h-[700px]" aria-hidden="true" />
+      ) : showProfil && (
         <section id="profil" className="bg-surface-container-low border-y border-outline-variant px-4 sm:px-6 py-20">
           <div className="max-w-7xl mx-auto space-y-12">
             <div className="text-center max-w-2xl mx-auto">
@@ -391,7 +417,7 @@ export default function LandingPage() {
               { icon: Users,         label: cfg.statSiswaLabel  || 'Siswa Aktif',     value: cfg.statSiswaValue || '—' },
               { icon: GraduationCap, label: cfg.statGuruLabel   || 'Tenaga Pendidik', value: cfg.statGuruValue  || '—' },
               // Alumni AUTO dari API — real-time count dari DB
-              { icon: BookOpen,      label: cfg.statAlumniLabel || 'Alumni Terdata',  value: totalAlumni > 0 ? `${totalAlumni}+` : '—' },
+              { icon: BookOpen,      label: cfg.statAlumniLabel || 'Alumni Terdata',  value: isLoadingAlumni ? '—' : (totalAlumni > 0 ? `${totalAlumni}+` : '—') },
               { icon: Briefcase,     label: cfg.statTahunLabel  || 'Berdiri Sejak',   value: cfg.statTahunValue || '—' },
             ].map(({ icon: Icon, label, value }, i) => (
               <div key={i} className="space-y-2">
@@ -446,7 +472,27 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {berita.length === 0 ? (
+            {isLoadingBerita ? (
+              // Skeleton 3 card — ukuran match card berita asli (aspect-video img + 5p header/title/excerpt)
+              Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={`skel-${i}`}
+                  className="flex flex-col bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden"
+                  aria-hidden="true"
+                >
+                  <div className="aspect-video bg-surface-container animate-pulse" />
+                  <div className="p-5 flex flex-col flex-1 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-14 bg-surface-container animate-pulse rounded" />
+                      <div className="h-4 w-20 bg-surface-container animate-pulse rounded" />
+                    </div>
+                    <div className="h-5 bg-surface-container animate-pulse rounded w-3/4" />
+                    <div className="h-4 bg-surface-container animate-pulse rounded w-full" />
+                    <div className="h-4 bg-surface-container animate-pulse rounded w-5/6" />
+                  </div>
+                </div>
+              ))
+            ) : berita.length === 0 ? (
               <div className="md:col-span-3 py-16 text-center text-on-surface-variant border-2 border-dashed border-outline-variant rounded-xl bg-surface-container-lowest">
                 <Newspaper className="w-10 h-10 mx-auto text-outline-variant mb-2" />
                 Belum ada berita yang dipublikasikan.
@@ -539,7 +585,8 @@ export default function LandingPage() {
                   className="group bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex justify-between items-center hover:border-primary transition-all shadow-sm"
                 >
                   <div>
-                    <h4 className="text-3xl sm:text-4xl font-bold text-primary tabular-nums">{value}</h4>
+                    {/* "—" saat loading supaya tidak shift dari "0" ke number real */}
+                    <h4 className="text-3xl sm:text-4xl font-bold text-primary tabular-nums">{isLoadingAlumni ? '—' : value}</h4>
                     <p className="text-label-md text-on-surface-variant uppercase tracking-wider font-bold mt-1">{label}</p>
                   </div>
                   <Icon className="w-10 h-10 text-primary/20 group-hover:text-primary transition-colors" />
