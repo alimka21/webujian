@@ -2,7 +2,7 @@
 // Seed data awal: 1 admin, 2 guru, 3 kelas, 6 siswa, 1 ujian + soal, 3 berita, 4 alumni
 // Jalankan: npx prisma db seed
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client';
 import bcrypt from 'bcryptjs';
 
 // Bisa di-import dan dipanggil dari server.ts (pass prisma client),

@@ -13,6 +13,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/adapter-mariadb": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
@@ -32,6 +33,7 @@
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "mariadb": "^3.5.2",
     "node-cache": "^5.1.2",
     "pdfkit": "^0.18.0",
     "prisma": "^6.19.3",

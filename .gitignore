@@ -43,3 +43,6 @@ Thumbs.db
 # Misc
 .cache/
 .parcel-cache/
+
+# Prisma generated client (auto-regen via postinstall)
+server/generated/

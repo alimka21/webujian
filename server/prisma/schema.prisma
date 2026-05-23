@@ -4,20 +4,22 @@ datasource db {
 }
 
 generator client {
-  provider      = "prisma-client-js"
-  // engineType DEFAULT (library) — Prisma load query-engine sebagai shared
-  // library (.so) ke proses Node, bukan spawn subprocess. Binary engine
-  // (spawn) hit EAGAIN di Hostinger CloudLinux karena limit max-processes
-  // per-user shared hosting. Library engine SEBELUMNYA PANIC ("timer has
-  // gone away") — diduga karena binary corrupt akibat binaryTargets pernah
-  // tidak match. Setelah fresh install dgn binaryTargets benar (debian),
-  // library engine seharusnya OK.
+  // PRISMA NO-RUST MODE (engineType=client) — bypass Rust query engine
+  // sepenuhnya, pakai driver adapter Node.js native. Library/binary
+  // engine PANIC + EAGAIN di Hostinger CloudLinux shared hosting karena
+  // sandbox block syscall (clock_gettime) dan limit max-processes.
   //
-  // binaryTargets:
-  //   - native               → dev macOS/Linux (auto-detect)
-  //   - debian-openssl-1.1.x → Hostinger CloudLinux (Prisma detect
-  //                            distro="undefined" → fallback ke "debian")
-  binaryTargets = ["native", "debian-openssl-1.1.x"]
+  // Mode "client":
+  //  - Provider "prisma-client" (baru di Prisma 6, ESM-friendly, custom output)
+  //  - Output ke server/generated/prisma — bukan node_modules/.prisma
+  //  - Tidak ada binary engine .so yg di-download
+  //  - Query dialirkan via @prisma/adapter-mariadb → mariadb pure JS driver
+  //
+  // Trade-off: tidak ada Rust query engine optimization, tapi tetap dapat
+  // full Prisma client API (typesafe, schema, dst).
+  provider   = "prisma-client"
+  output     = "../generated/prisma"
+  engineType = "client"
 }
 
 model User {
