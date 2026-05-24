@@ -185,6 +185,9 @@ export default function TakeExam() {
     isCritical,
   } = useExamTimer({
     durationSeconds: sessionData ? sessionData.ujian.durasi * 60 : 3600,
+    // Absolute time dari backend — fixes bug "durasi diubah di admin
+    // tapi timer siswa tetap pakai cache lama".
+    startedAt: sessionData?.sesi?.mulaiAt ?? null,
     examSessionId: sessionId || '',
     onExpire: () => {
       if (!isSubmitting) submitExam('timeout');
@@ -458,10 +461,11 @@ export default function TakeExam() {
         key={soal.id}
         onClick={() => { setCurrentIndex(idx); onClick?.(); }}
         className={`relative h-10 w-full rounded-lg font-bold text-sm transition-all focus:outline-none ${cls}`}
-        aria-label={`Soal ${soal.nomor || idx + 1}${hasAnswer ? ' (sudah dijawab)' : ''}${isFlagged ? ' (ditandai)' : ''}`}
+        aria-label={`Soal ${idx + 1}${hasAnswer ? ' (sudah dijawab)' : ''}${isFlagged ? ' (ditandai)' : ''}`}
         aria-current={isActive ? 'true' : undefined}
       >
-        {soal.nomor || idx + 1}
+        {/* Selalu pakai idx+1 — kalau soal di-acak, nomor display tetap berurut */}
+        {idx + 1}
         {isFlagged && !isActive && (
           <Flag className="w-2.5 h-2.5 absolute top-1 right-1 fill-current" />
         )}
@@ -577,7 +581,7 @@ export default function TakeExam() {
               <div className="px-6 sm:px-8 py-5 border-b border-outline-variant flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <span className="bg-primary text-on-primary px-3 py-1 rounded-lg text-label-md font-bold uppercase tracking-wider">
-                    Soal {currentSoal?.nomor || currentIndex + 1}
+                    Soal {currentIndex + 1}
                   </span>
                   <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
                     {currentSoal?.tipe?.replace('_', ' ')}

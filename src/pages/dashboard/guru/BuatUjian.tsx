@@ -37,8 +37,9 @@ export default function BuatUjian() {
   const [tanggalSelesai, setTanggalSelesai] = useState('');
   const [acak, setAcak] = useState(true);
   const [acakOpsi, setAcakOpsi] = useState(false);
-  const [tampilkanPembahasan, setTampilkanPembahasan] = useState(true);
-  const [tampilkanNilai, setTampilkanNilai] = useState(true);
+  // tampilkanPembahasan + tampilkanNilai dihapus dari UI per request user
+  // (kebijakan: SELALU tampilkan nilai & pembahasan). Field masih ada di
+  // schema/backend untuk kompat, default true tetap dikirim.
   const [selectedKelas, setSelectedKelas] = useState<string[]>([]);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancelModalRef = useModalA11y<HTMLDivElement>(showCancelConfirm, () => setShowCancelConfirm(false));
@@ -137,8 +138,9 @@ export default function BuatUjian() {
         tanggalSelesai,
         acak,
         acakOpsi,
-        tampilkanPembahasan,
-        tampilkanNilai,
+        // Hardcoded true — toggle dihapus per kebijakan user (selalu tampil)
+        tampilkanPembahasan: true,
+        tampilkanNilai: true,
         kelasIds: selectedKelas,
         ...(isAdmin && guruId ? { guruId } : {}),
       });
@@ -368,8 +370,6 @@ export default function BuatUjian() {
                 {[
                   { id: 'acak', label: 'Acak Urutan Soal', desc: 'Urutan soal diacak untuk setiap siswa.', value: acak, set: setAcak },
                   { id: 'acakOpsi', label: 'Acak Opsi Pilihan Jawaban', desc: 'Urutan pilihan A/B/C/D di tiap soal juga diacak.', value: acakOpsi, set: setAcakOpsi },
-                  { id: 'tampilkanPembahasan', label: 'Tampilkan Pembahasan', desc: 'Siswa bisa melihat kunci jawaban di halaman hasil ujian.', value: tampilkanPembahasan, set: setTampilkanPembahasan },
-                  { id: 'tampilkanNilai', label: 'Tampilkan Nilai', desc: 'Siswa bisa melihat nilai akhir setelah submit. Matikan jika ingin pengumuman terpisah.', value: tampilkanNilai, set: setTampilkanNilai },
                 ].map(t => (
                   <div key={t.id} className="flex items-center justify-between gap-4">
                     <div>

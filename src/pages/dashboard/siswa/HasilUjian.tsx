@@ -143,26 +143,18 @@ export default function HasilUjian() {
         <p className="text-on-surface-variant mt-0.5">{data.ujian.mataPelajaran}</p>
       </div>
 
-      {/* Skor utama — sembunyikan jika guru menonaktifkan tampilkanNilai */}
-      {data.ujian.tampilkanNilai !== false ? (
-        <div className={`rounded-2xl border-2 p-8 text-center ${scoreBg}`}>
-          <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Nilai Anda</p>
-          <p className={`text-5xl sm:text-6xl md:text-7xl font-extrabold tabular-nums ${scoreColor}`}>{nilaiDisplay}</p>
-          <span className={`inline-block mt-3 text-sm font-semibold px-3 py-1 rounded-full ${
-            nilai >= 75 ? 'bg-secondary-container/60 text-on-secondary-container' :
-            nilai >= 60 ? 'bg-tertiary-fixed/70 text-on-tertiary-fixed' :
-            'bg-error-container text-error'
-          }`}>
-            {scoreLabel}
-          </span>
-        </div>
-      ) : (
-        <div className="rounded-2xl border-2 border-outline-variant bg-surface-container-low p-8 text-center">
-          <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Nilai Anda</p>
-          <p className="text-3xl font-bold text-on-surface-variant">Belum Diumumkan</p>
-          <p className="text-sm text-on-surface-variant mt-2">Guru belum membuka hasil nilai untuk ujian ini.</p>
-        </div>
-      )}
+      {/* Skor utama — selalu tampilkan (per kebijakan user) */}
+      <div className={`rounded-2xl border-2 p-8 text-center ${scoreBg}`}>
+        <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Nilai Anda</p>
+        <p className={`text-5xl sm:text-6xl md:text-7xl font-extrabold tabular-nums ${scoreColor}`}>{nilaiDisplay}</p>
+        <span className={`inline-block mt-3 text-sm font-semibold px-3 py-1 rounded-full ${
+          nilai >= 75 ? 'bg-secondary-container/60 text-on-secondary-container' :
+          nilai >= 60 ? 'bg-tertiary-fixed/70 text-on-tertiary-fixed' :
+          'bg-error-container text-error'
+        }`}>
+          {scoreLabel}
+        </span>
+      </div>
 
       {/* Statistik */}
       <div className="grid grid-cols-2 gap-4">
@@ -170,14 +162,10 @@ export default function HasilUjian() {
           <CheckCircle2 className="w-8 h-8 text-secondary shrink-0" />
           <div>
             <p className="text-xs text-on-surface-variant">Jawaban Benar</p>
-            {data.ujian.tampilkanNilai !== false ? (
-              <p className="text-xl font-bold text-on-surface">
-                {data.jumlahBenar}
-                <span className="text-sm font-normal text-outline-variant"> / {data.totalSoal}</span>
-              </p>
-            ) : (
-              <p className="text-sm font-semibold text-on-surface-variant">Belum diumumkan</p>
-            )}
+            <p className="text-xl font-bold text-on-surface">
+              {data.jumlahBenar}
+              <span className="text-sm font-normal text-outline-variant"> / {data.totalSoal}</span>
+            </p>
           </div>
         </div>
 
@@ -238,8 +226,8 @@ export default function HasilUjian() {
         </div>
       )}
 
-      {/* Review Jawaban (collapsible) — sembunyikan jika guru menonaktifkan tampilkanPembahasan */}
-      {data.ujian.tampilkanPembahasan !== false && data.jawaban && data.jawaban.length > 0 && (
+      {/* Review Jawaban (collapsible) — selalu tampilkan (per kebijakan user) */}
+      {data.jawaban && data.jawaban.length > 0 && (
         <div className="bg-white rounded-xl border border-outline-variant overflow-hidden">
           <button
             className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-container-low transition-colors"

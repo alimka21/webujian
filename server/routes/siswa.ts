@@ -174,6 +174,9 @@ router.get('/sesi/:sessionId', async (req, res, next) => {
       sesi: {
         id: sesi.id,
         status: sesi.status,
+        // mulaiAt → frontend timer pakai absolute time (mulaiAt + durasi)
+        // bukan countdown lokal. Cegah cache localStorage durasi lama.
+        mulaiAt: sesi.mulaiAt,
         terjawab: sesi.jawaban
       },
       ujian: {
