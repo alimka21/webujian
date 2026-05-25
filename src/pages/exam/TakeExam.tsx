@@ -282,27 +282,18 @@ export default function TakeExam() {
       setIsSubmitting(true);
 
       // ── Flush localStorage → server sebelum submit ──
-      // Auto-save di-debounce 500ms + silent-fail saat network error
-      // (cuma console.error). Sebelum scoring, kirim ulang semua
-      // jawaban dari localStorage supaya server punya state terkini.
-      // Berlaku untuk semua reason (manual/timeout/auto_cheat) — siswa
-      // berhak nilai dari yang sudah dikerjakan.
-      // Cap 5 detik supaya tidak menahan siswa kalau network lambat.
+      // Pakai endpoint batch (1 request, 1 transaction) supaya tidak spam
+      // N koneksi DB paralel yang bikin pool timeout. Cap 5 detik.
       try {
         const stored = localStorage.getItem(`exam_ans_${sessionId}`);
         if (stored) {
           const ansMap: Record<string, string[]> = JSON.parse(stored);
-          const entries = Object.entries(ansMap).filter(
-            ([, ids]) => Array.isArray(ids) && ids.length > 0
+          const hasAny = Object.values(ansMap).some(
+            ids => Array.isArray(ids) && ids.length > 0
           );
-          if (entries.length > 0) {
-            const flushPromise = Promise.allSettled(
-              entries.map(([soalId, opsiIds]) =>
-                api.post(`/api/siswa/sesi/${sessionId}/jawab`, { soalId, opsiIds })
-              )
-            );
+          if (hasAny) {
             await Promise.race([
-              flushPromise,
+              api.post(`/api/siswa/sesi/${sessionId}/jawab-batch`, { answers: ansMap }),
               new Promise(resolve => setTimeout(resolve, 5000)),
             ]);
           }
@@ -324,6 +315,17 @@ export default function TakeExam() {
 
       navigate(`/dashboard/siswa/hasil/${sessionId}`, { replace: true });
     } catch (err: any) {
+      // Saat waktu habis / pelanggaran, ujian HARUS keluar dari halaman exam.
+      // Backend punya autoSubmitExpiredSessions yang akan finalize sesi
+      // expired pada fetch berikutnya — jadi balik ke dashboard aman.
+      if (reason === 'timeout' || reason === 'auto_cheat') {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen().catch(() => {});
+        }
+        toast.info('Waktu ujian habis. Jawaban Anda akan dinilai otomatis.');
+        navigate('/dashboard/siswa/ujian', { replace: true });
+        return;
+      }
       toast.error(err.message || 'Gagal mengumpulkan ujian. Silakan coba lagi.');
       setIsSubmitting(false);
     }

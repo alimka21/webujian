@@ -204,6 +204,42 @@ router.get('/sesi/:sessionId', async (req, res, next) => {
   } catch(error) { next(error); }
 });
 
+/**
+ * Batch save — terima semua jawaban sekaligus dalam 1 transaction.
+ * Dipakai client saat submit (flush localStorage) supaya tidak spam
+ * N koneksi DB paralel yang bikin pool timeout.
+ */
+router.post('/sesi/:sessionId/jawab-batch', async (req, res, next) => {
+  try {
+    const sessionId = req.params.sessionId;
+    const answers = (req.body?.answers ?? {}) as Record<string, string[]>;
+    const entries = Object.entries(answers).filter(
+      ([, ids]) => Array.isArray(ids) && ids.length > 0
+    );
+    if (entries.length === 0) return res.json({ success: true, saved: 0 });
+
+    const soalIds = entries.map(([sid]) => sid);
+    const data = entries.flatMap(([soalId, opsiIds]) =>
+      (opsiIds as string[]).map((opsiId) => ({
+        sesiId: sessionId,
+        soalId,
+        opsiId,
+        isBenar: false,
+      }))
+    );
+
+    // Transaction → 1 koneksi pool, atomic per-session flush
+    await prisma.$transaction([
+      prisma.jawaban.deleteMany({
+        where: { sesiId: sessionId, soalId: { in: soalIds } },
+      }),
+      prisma.jawaban.createMany({ data }),
+    ]);
+
+    res.json({ success: true, saved: data.length });
+  } catch (error) { next(error); }
+});
+
 router.post('/sesi/:sessionId/jawab', async (req, res, next) => {
   try {
     const { soalId, opsiIds } = req.body;
