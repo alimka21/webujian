@@ -407,7 +407,20 @@ app.listen(PORT, () => {
   // sebelum traffic masuk. Tidak block listen — async fire-and-forget.
   (async () => {
     try {
-      const { prisma } = await import("./lib/prisma");
+      const { prisma, diagnoseConnection } = await import("./lib/prisma");
+
+      // Test raw mysql2 connection dulu — kalau gagal di sini, error
+      // sebenarnya (auth/host/port) muncul jelas, tidak di-swallow
+      // jadi generic "pool timeout" oleh adapter mariadb.
+      const diag = await diagnoseConnection();
+      if (diag) {
+        console.error("[startup] ❌ DIAGNOSTIC mysql2 GAGAL:", diag);
+        console.error("[startup] → Cek DATABASE_URL di env. Verifikasi user/password/host/database benar.");
+        console.error("[startup] → Hostinger: hostname biasanya 'localhost' (auto rewrite ke 127.0.0.1).");
+        return;
+      }
+      console.log("[startup] ✅ Diagnostic mysql2: koneksi raw OK.");
+
       await prisma.$queryRawUnsafe("SELECT 1");
       console.log("[startup] ✅ Prisma engine warmed up.");
     } catch (err: any) {
