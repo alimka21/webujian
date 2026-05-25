@@ -1,25 +1,27 @@
 // server/lib/prisma.ts
-// PRISMA NO-RUST MODE — query engine via driver adapter (no native binary).
-// Workaround Hostinger CloudLinux shared yang block Rust engine syscall.
+// PRISMA NO-RUST MODE — query engine via custom mysql2 driver adapter.
 //
-// Adapter parse koneksi dari DATABASE_URL → config object mariadb driver.
-// Singleton pattern: cegah multiple PrismaClient instance saat dev hot-reload
-// dan ensure 1 connection pool per worker production.
+// HISTORY:
+//   1. Awalnya pakai default Prisma engine (Rust binary). Block oleh
+//      Hostinger CloudLinux shared (syscall clock_gettime).
+//   2. Pindah ke @prisma/adapter-mariadb (driver `mariadb` npm package).
+//      Gagal di Hostinger — pool selalu active=0 idle=0, tidak bisa create
+//      koneksi baru (bug di paket `mariadb` npm dgn environment Hostinger).
+//   3. Sekarang: custom adapter pakai mysql2/promise. mysql2 sukses connect
+//      ke MySQL Hostinger dgn kredensial yg sama (terbukti via diagnostic).
 
 import { PrismaClient } from "../generated/prisma/client";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaMysql2 } from "./prisma-mysql2-adapter";
 
 function createPrismaClient(): PrismaClient {
   const raw = process.env.DATABASE_URL || "";
   if (!raw) {
     throw new Error("DATABASE_URL belum di-set di environment");
   }
-  // Parse mysql://user:pass@host:port/db?connection_limit=15&...
   const url = new URL(raw);
 
-  // CloudLinux/Hostinger: hostname "localhost" kadang trigger driver mariadb
-  // untuk coba Unix socket dulu (yg tidak ada di container Node.js).
-  // Paksa TCP dengan rewrite ke "127.0.0.1".
+  // Paksa TCP — localhost kadang trigger Unix socket attempt yg gagal di
+  // CloudLinux container.
   let host = url.hostname;
   if (host === "localhost") {
     host = "127.0.0.1";
@@ -29,20 +31,16 @@ function createPrismaClient(): PrismaClient {
   const port = url.port ? Number(url.port) : 3306;
   const user = decodeURIComponent(url.username);
   const database = url.pathname.slice(1);
-
   const connectionLimit = Number(url.searchParams.get("connection_limit") || 10);
   const connectTimeoutMs =
     Number(url.searchParams.get("connect_timeout") || 10) * 1000;
-  const acquireTimeoutMs =
-    Number(url.searchParams.get("pool_timeout") || 30) * 1000;
 
-  // Log config (tanpa password) supaya gampang verifikasi di log production
   console.log(
-    `[prisma] connect → mysql://${user}:***@${host}:${port}/${database} ` +
-    `(pool=${connectionLimit}, acquire=${acquireTimeoutMs}ms, connect=${connectTimeoutMs}ms)`
+    `[prisma] connect (mysql2) → mysql://${user}:***@${host}:${port}/${database} ` +
+    `(pool=${connectionLimit}, connect=${connectTimeoutMs}ms)`
   );
 
-  const adapter = new PrismaMariaDb({
+  const adapter = new PrismaMysql2({
     host,
     port,
     user,
@@ -50,17 +48,7 @@ function createPrismaClient(): PrismaClient {
     database,
     connectionLimit,
     connectTimeout: connectTimeoutMs,
-    acquireTimeout: acquireTimeoutMs,
-    idleTimeout: 60,
-    minimumIdle: 0,
-    resetAfterUse: false,
-    // MySQL 8 caching_sha2_password fallback tanpa SSL — Hostinger sering
-    // pakai MySQL 8 dengan auth plugin baru ini.
-    allowPublicKeyRetrieval: true,
-  } as any, {
-    onConnectionError: (err) => {
-      console.error("[prisma/mariadb] connection error:", err?.code, err?.message);
-    },
+    multipleStatements: true,
   });
 
   return new PrismaClient({
@@ -78,10 +66,8 @@ export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 /**
- * Diagnostic — test koneksi raw lewat mysql2 (terpisah dari Prisma pool).
- * Dipakai saat startup untuk ungkap error sebenarnya yg di-swallow oleh
- * adapter mariadb (auth, host tidak reachable, dll).
- * Return null kalau sukses, error message kalau gagal.
+ * Diagnostic — test koneksi raw lewat mysql2 (terpisah dari Prisma adapter).
+ * Dipakai saat startup untuk verifikasi kredensial & jaringan OK.
  */
 export async function diagnoseConnection(): Promise<string | null> {
   try {
