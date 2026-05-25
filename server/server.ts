@@ -7,6 +7,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
+import { readFile as fsReadFile } from "fs/promises";
 import os from "os";
 
 // ── Load .env from multiple possible locations ───────
@@ -402,17 +403,66 @@ if (process.env.NODE_ENV === "production") {
   // SPA fallback — HANYA untuk route navigasi (tanpa file extension).
   // Kalau request asset (.js/.css/.png/dll) yg tidak ditemukan, return
   // 404 supaya browser tidak salah parse HTML sbg JavaScript module.
-  // (Bug ini bikin "blank putih" setelah re-deploy: HTML cached browser
-  // refer ke hash lama yg sudah tidak ada → fallback ke index.html →
-  // browser parse HTML sbg JS → MIME type error → React tidak load.)
-  app.get("*", (req, res) => {
+  // Saat serve index.html, inject meta tag SEO (OG/Twitter) dari SiteConfig
+  // supaya bot WhatsApp/Google/Facebook baca nama sekolah + tagline secara
+  // langsung tanpa perlu eksekusi JavaScript.
+  const indexHtmlPath = path.join(frontendDist, "index.html");
+  const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let siteMetaCache: { tags: string; expireAt: number } | null = null;
+
+  async function buildMetaTags(): Promise<string> {
+    const now = Date.now();
+    if (siteMetaCache && now < siteMetaCache.expireAt) return siteMetaCache.tags;
+    try {
+      const { prisma } = await import("./lib/prisma");
+      const cfg = await prisma.siteConfig.findFirst();
+      const nama = escHtml(cfg?.namaSekolah || "Website Sekolah");
+      const tagline = escHtml(cfg?.tagline || "Website Resmi Sekolah");
+      const deskripsi = escHtml(cfg?.deskripsi || tagline);
+      const siteUrl = process.env.FRONTEND_URL || "";
+      const logo = cfg?.logoUrl && !cfg.logoUrl.startsWith("data:")
+        ? escHtml(cfg.logoUrl)
+        : `${siteUrl}/favicon.ico`;
+      const tags = `
+    <!-- SEO & Open Graph — di-inject server-side supaya terbaca bot -->
+    <title>${nama} — ${tagline}</title>
+    <meta name="description" content="${deskripsi}" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${nama}" />
+    <meta property="og:title" content="${nama} — ${tagline}" />
+    <meta property="og:description" content="${deskripsi}" />
+    <meta property="og:url" content="${siteUrl}/" />
+    <meta property="og:image" content="${logo}" />
+    <meta property="og:locale" content="id_ID" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${nama} — ${tagline}" />
+    <meta name="twitter:description" content="${deskripsi}" />
+    <meta name="twitter:image" content="${logo}" />`;
+      siteMetaCache = { tags, expireAt: now + 5 * 60 * 1000 };
+      return tags;
+    } catch {
+      return "";
+    }
+  }
+
+  app.get("*", async (req, res) => {
     if (/\.[a-zA-Z0-9]+$/.test(req.path)) {
       return res.status(404).send("Not found");
     }
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-    res.sendFile(path.join(frontendDist, "index.html"));
+    try {
+      const [html, metaTags] = await Promise.all([
+        fsReadFile(indexHtmlPath, "utf-8"),
+        buildMetaTags(),
+      ]);
+      const injected = html.replace("<!--META_INJECT-->", metaTags);
+      res.type("html").send(injected);
+    } catch {
+      res.sendFile(indexHtmlPath);
+    }
   });
 }
 
