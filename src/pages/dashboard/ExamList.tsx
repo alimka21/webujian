@@ -31,6 +31,18 @@ export default function ExamList() {
     fetchData();
   }, [activeTab]);
 
+  // Auto-refetch saat user balik ke tab — skenario: admin reset sesi
+  // siswa di tab lain, atau siswa pindah app sebentar. Refresh otomatis
+  // supaya status ujian (sudah selesai / belum) sinkron dgn server.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') fetchData();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   const fetchData = async () => {
     try {
       setIsLoading(true);

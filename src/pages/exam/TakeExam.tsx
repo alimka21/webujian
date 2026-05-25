@@ -153,6 +153,18 @@ export default function TakeExam() {
         const storedFlags = localStorage.getItem(`exam_flags_${sessionId}`);
         if (storedFlags) setFlagged(JSON.parse(storedFlags));
       } catch (err: any) {
+        // 404 = sesi dihapus (admin reset). Bersihkan localStorage stale
+        // supaya saat siswa mulai ujian lagi tidak ada konflik state.
+        if (err?.status === 404 || /tidak ditemukan|akses ditolak/i.test(err?.message || '')) {
+          try {
+            localStorage.removeItem(`exam_ans_${sessionId}`);
+            localStorage.removeItem(`exam_flags_${sessionId}`);
+            localStorage.removeItem(`exam_timer_${sessionId}`);
+          } catch { /* ignore */ }
+          toast.info('Sesi ujian Anda di-reset oleh admin/guru. Silakan mulai lagi dari daftar ujian.');
+          navigate('/dashboard/siswa/ujian', { replace: true });
+          return;
+        }
         toast.error(err.message || 'Gagal memuat sesi ujian');
         navigate('/dashboard/siswa');
       } finally {

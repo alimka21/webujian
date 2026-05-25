@@ -63,6 +63,11 @@ router.get('/ujian-aktif', async (req, res, next) => {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
     const now = new Date();
 
+    // Auto-submit sesi yg past-deadline (siswa tutup browser saat hampir
+    // habis, atau admin reset → siswa start lagi). selesaiAt = exact
+    // deadline supaya waktu tercatat pas.
+    if (siswa) await autoSubmitExpiredSessions(siswa.id);
+
     const records = await prisma.ujianKelas.findMany({
       where: {
         kelasId: siswa?.kelasId,
@@ -96,6 +101,9 @@ router.post('/ujian/:ujianId/mulai', async (req, res, next) => {
   try {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
     if(!siswa) return res.status(404).json({error: 'Siswa not found'});
+
+    // Auto-submit sesi siswa yg past-deadline sebelum start ujian baru
+    await autoSubmitExpiredSessions(siswa.id);
 
     const ujian = await prisma.ujian.findUnique({ where: { id: req.params.ujianId } });
     if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
@@ -220,73 +228,123 @@ router.post('/sesi/:sessionId/jawab', async (req, res, next) => {
   } catch(error) { next(error); }
 });
 
+/**
+ * Compute nilai + update SesiUjian → SELESAI/AUTO_SUBMIT.
+ * Dipakai oleh route POST /submit dan auto-submit expired (timeout).
+ *
+ * @param sesiId   ID sesi yg disubmit
+ * @param reason   'manual' | 'timeout' | 'auto_cheat'
+ * @param overrideSelesaiAt  kalau ada, pakai timestamp ini (untuk auto-
+ *                            submit expired pakai exact deadline mulaiAt+durasi)
+ */
+async function computeAndSaveSubmit(
+  sesiId: string,
+  reason: string,
+  overrideSelesaiAt?: Date,
+) {
+  const sesi = await prisma.sesiUjian.findUnique({
+    where: { id: sesiId },
+    include: {
+      ujian: { include: { soal: { include: { opsi: true } } } },
+      jawaban: true,
+    },
+  });
+  if (!sesi) return { ok: false, error: 'Sesi tidak ditemukan' as const };
+  if (sesi.status === 'SELESAI' || sesi.status === 'AUTO_SUBMIT') {
+    return { ok: false, error: 'Sesi sudah disubmit' as const };
+  }
+
+  let totalPoin = 0;
+  let poinBenar = 0;
+  const soalBenarIds: string[] = [];
+
+  for (const soal of sesi.ujian.soal) {
+    totalPoin += soal.poin;
+    const jawabanUser = sesi.jawaban.filter(j => j.soalId === soal.id).map(j => j.opsiId);
+    const opsiBenar = soal.opsi.filter(o => o.benar).map(o => o.id);
+
+    let isBenar = false;
+    if (soal.tipe === 'PILIHAN_GANDA' || soal.tipe === 'BENAR_SALAH') {
+      isBenar = jawabanUser.length === 1 && jawabanUser[0] === opsiBenar[0];
+    } else if (soal.tipe === 'PG_KOMPLEKS') {
+      const setBenar = new Set(opsiBenar);
+      const setJawab = new Set(jawabanUser.filter(Boolean) as string[]);
+      isBenar = setBenar.size === setJawab.size && [...setBenar].every(id => setJawab.has(id));
+    }
+    if (isBenar) {
+      poinBenar += soal.poin;
+      soalBenarIds.push(soal.id);
+    }
+  }
+
+  const nilaiAkhir = totalPoin > 0 ? (poinBenar / totalPoin) * 100 : 0;
+  // AUTO_SUBMIT untuk timeout (waktu habis) atau pelanggaran (auto_cheat)
+  const finalStatus =
+    reason === 'auto_cheat' || reason === 'timeout' ? 'AUTO_SUBMIT' : 'SELESAI';
+
+  if (soalBenarIds.length > 0) {
+    await prisma.jawaban.updateMany({
+      where: { sesiId: sesi.id, soalId: { in: soalBenarIds } },
+      data: { isBenar: true },
+    });
+  }
+
+  await prisma.sesiUjian.update({
+    where: { id: sesi.id },
+    data: {
+      status: finalStatus,
+      selesaiAt: overrideSelesaiAt ?? new Date(),
+      nilaiRaw: poinBenar,
+      nilaiAkhir: Math.round(nilaiAkhir * 100) / 100,
+      submitReason: reason || 'manual',
+    },
+  });
+
+  return { ok: true, nilaiAkhir, poinBenar, totalPoin };
+}
+
+/**
+ * Auto-submit sesi siswa yg sudah past-deadline (mulaiAt + durasi*60s < now).
+ * Dipanggil sebelum list/mulai ujian supaya:
+ *   1. Sesi yg siswa tutup browser sebelum deadline tetap tersubmit
+ *   2. selesaiAt = exact deadline (bukan now), supaya "waktu tercatat pas"
+ *   3. nilai berdasarkan jawaban yg sempat tersimpan
+ */
+async function autoSubmitExpiredSessions(siswaId: string) {
+  const now = new Date();
+  const expired = await prisma.sesiUjian.findMany({
+    where: {
+      siswaId,
+      status: { in: ['BELUM_MULAI', 'SEDANG_BERLANGSUNG'] },
+      mulaiAt: { not: null },
+    },
+    include: { ujian: { select: { durasi: true } } },
+  });
+
+  for (const s of expired) {
+    if (!s.mulaiAt) continue;
+    const deadlineMs = s.mulaiAt.getTime() + s.ujian.durasi * 60 * 1000;
+    if (deadlineMs <= now.getTime()) {
+      // submit otomatis dgn selesaiAt = exact deadline
+      await computeAndSaveSubmit(s.id, 'timeout', new Date(deadlineMs));
+    }
+  }
+}
+
 router.post('/sesi/:sessionId/submit', async (req, res, next) => {
   try {
     const reason = (req.query.reason as string) || req.body.reason || 'manual';
-    const sesi = await prisma.sesiUjian.findUnique({
-      where: { id: req.params.sessionId },
-      include: {
-        ujian: { include: { soal: { include: { opsi: true } } } },
-        jawaban: true
-      }
+    const result = await computeAndSaveSubmit(req.params.sessionId, reason);
+    if (!result.ok) {
+      const status = result.error === 'Sesi tidak ditemukan' ? 404 : 400;
+      return res.status(status).json({ error: result.error });
+    }
+    res.json({
+      success: true,
+      nilaiAkhir: result.nilaiAkhir,
+      benar: result.poinBenar,
+      total: result.totalPoin,
     });
-
-    if (!sesi) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
-    if (sesi.status === "SELESAI" || sesi.status === "AUTO_SUBMIT") {
-      return res.status(400).json({ error: "Sesi sudah disubmit" });
-    }
-
-    let totalPoin = 0;
-    let poinBenar = 0;
-    const soalBenarIds: string[] = [];
-
-    for (const soal of sesi.ujian.soal) {
-      totalPoin += soal.poin;
-      const jawabanUser = sesi.jawaban.filter(j => j.soalId === soal.id).map(j => j.opsiId);
-      const opsiBenar = soal.opsi.filter(o => o.benar).map(o => o.id);
-
-      let isBenar = false;
-
-      if (soal.tipe === "PILIHAN_GANDA" || soal.tipe === "BENAR_SALAH") {
-        isBenar = jawabanUser.length === 1 && jawabanUser[0] === opsiBenar[0];
-      } else if (soal.tipe === "PG_KOMPLEKS") {
-        const setBenar = new Set(opsiBenar);
-        const setJawab = new Set(jawabanUser.filter(Boolean) as string[]);
-        isBenar = setBenar.size === setJawab.size && [...setBenar].every(id => setJawab.has(id));
-      }
-
-      if (isBenar) {
-        poinBenar += soal.poin;
-        soalBenarIds.push(soal.id);
-      }
-    }
-
-    const nilaiAkhir = totalPoin > 0 ? (poinBenar / totalPoin) * 100 : 0;
-    const finalStatus = reason === "auto_cheat" ? "AUTO_SUBMIT" : "SELESAI";
-
-    // Update flag isBenar di Jawaban supaya endpoint /hasil bisa kasih
-    // jumlahBenar yang konsisten dengan nilaiAkhir. Sebelumnya tabel ini
-    // tidak pernah diupdate dari false → frontend tampil "0 benar" tapi
-    // nilai > 0 (yang membingungkan user).
-    if (soalBenarIds.length > 0) {
-      await prisma.jawaban.updateMany({
-        where: { sesiId: sesi.id, soalId: { in: soalBenarIds } },
-        data: { isBenar: true },
-      });
-    }
-
-    await prisma.sesiUjian.update({
-      where: { id: sesi.id },
-      data: {
-        status: finalStatus,
-        selesaiAt: new Date(),
-        nilaiRaw: poinBenar,
-        nilaiAkhir: Math.round(nilaiAkhir * 100) / 100,
-        submitReason: reason || "manual"
-      }
-    });
-
-    res.json({ success: true, nilaiAkhir, benar: poinBenar, total: totalPoin });
   } catch(error) { next(error); }
 });
 

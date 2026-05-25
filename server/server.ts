@@ -331,6 +331,12 @@ app.use("/api/siswa/sesi", (_req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
   next();
 });
+// 2b. Override: list ujian aktif siswa — admin reset sesi siswa harus
+// langsung terlihat (siswa dapat list fresh). 30s default terlalu lama.
+app.use("/api/siswa/ujian-aktif", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  next();
+});
 // 3. Auth → no cache
 app.use("/api/auth", (_req, res, next) => {
   res.set("Cache-Control", "no-store");
