@@ -382,12 +382,36 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // ── Serve frontend (production only) ─────────────────
 if (process.env.NODE_ENV === "production") {
   const frontendDist = path.join(__dirname, "../../dist");
+
+  // Asset hash-filename: aman cache 1 tahun (Vite gen hash per build).
+  // index.html DI-EXCLUDE via setHeaders — harus selalu fresh supaya
+  // browser dapat referensi filename hash terbaru setelah re-deploy.
   app.use(express.static(frontendDist, {
-    maxAge: "1y",     // Vite hash filename, aman cache 1 tahun
+    maxAge: "1y",
     immutable: true,
     etag: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("index.html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    },
   }));
-  app.get("*", (_req, res) => {
+
+  // SPA fallback — HANYA untuk route navigasi (tanpa file extension).
+  // Kalau request asset (.js/.css/.png/dll) yg tidak ditemukan, return
+  // 404 supaya browser tidak salah parse HTML sbg JavaScript module.
+  // (Bug ini bikin "blank putih" setelah re-deploy: HTML cached browser
+  // refer ke hash lama yg sudah tidak ada → fallback ke index.html →
+  // browser parse HTML sbg JS → MIME type error → React tidak load.)
+  app.get("*", (req, res) => {
+    if (/\.[a-zA-Z0-9]+$/.test(req.path)) {
+      return res.status(404).send("Not found");
+    }
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 }
