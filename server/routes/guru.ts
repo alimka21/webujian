@@ -405,11 +405,11 @@ router.get('/ujian/:id/soal', async (req, res, next) => {
 router.post('/ujian/:id/soal', async (req, res, next) => {
   try {
     const { teks, imageUrl, tipe, opsi, poin } = req.body;
-    
+
     if (!teks?.trim()) return res.status(400).json({ error: "Teks soal tidak boleh kosong" });
     if (!opsi || opsi.length < 2) return res.status(400).json({ error: "Minimal 2 opsi jawaban" });
     if (!opsi.some((o: any) => o.benar)) return res.status(400).json({ error: "Pilih minimal satu jawaban benar" });
-    
+
     const count = await prisma.soal.count({ where: { ujianId: req.params.id } });
     const soal = await prisma.soal.create({
       data: {
@@ -426,6 +426,179 @@ router.post('/ujian/:id/soal', async (req, res, next) => {
     });
     res.status(201).json(soal);
   } catch(error) { next(error); }
+});
+
+// ── Bulk Import Soal: template Excel ───────────────────────────
+// Format: tipe | teks | poin | opsiA | opsiB | opsiC | opsiD | opsiE | kunci
+// Tipe: PILIHAN_GANDA | PG_KOMPLEKS | BENAR_SALAH
+// Kunci PG       : huruf A/B/C/D/E (1 huruf)
+// Kunci PG_KOMP  : multi huruf "AC", "BCD"
+// Kunci BENAR_SALAH: "BENAR" atau "SALAH" (opsi A-E diabaikan)
+router.get('/ujian/:id/soal/import-template', async (_req, res, next) => {
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Template Soal');
+    ws.columns = [
+      { header: 'tipe',  key: 'tipe',  width: 18 },
+      { header: 'teks',  key: 'teks',  width: 60 },
+      { header: 'poin',  key: 'poin',  width: 8 },
+      { header: 'opsiA', key: 'opsiA', width: 25 },
+      { header: 'opsiB', key: 'opsiB', width: 25 },
+      { header: 'opsiC', key: 'opsiC', width: 25 },
+      { header: 'opsiD', key: 'opsiD', width: 25 },
+      { header: 'opsiE', key: 'opsiE', width: 25 },
+      { header: 'kunci', key: 'kunci', width: 12 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
+
+    // Contoh baris
+    ws.addRow({ tipe: 'PILIHAN_GANDA', teks: 'Berapa hasil 2 + 2?', poin: 10,
+      opsiA: '3', opsiB: '4', opsiC: '5', opsiD: '6', opsiE: '', kunci: 'B' });
+    ws.addRow({ tipe: 'PG_KOMPLEKS', teks: 'Pilih bilangan prima di bawah ini', poin: 10,
+      opsiA: '2', opsiB: '4', opsiC: '7', opsiD: '9', opsiE: '11', kunci: 'ACE' });
+    ws.addRow({ tipe: 'BENAR_SALAH', teks: 'Matahari terbit di sebelah timur', poin: 5,
+      opsiA: '', opsiB: '', opsiC: '', opsiD: '', opsiE: '', kunci: 'BENAR' });
+
+    // Sheet panduan
+    const info = wb.addWorksheet('Panduan');
+    info.addRow(['Cara mengisi template import soal']);
+    info.addRow([]);
+    info.addRow(['Kolom', 'Keterangan']);
+    info.addRow(['tipe', 'Salah satu: PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH']);
+    info.addRow(['teks', 'Pertanyaan soal']);
+    info.addRow(['poin', 'Bobot nilai per soal (angka)']);
+    info.addRow(['opsiA-opsiE', 'Pilihan jawaban (untuk BENAR_SALAH dikosongkan)']);
+    info.addRow(['kunci', 'PG: huruf A-E (1 huruf). PG_KOMPLEKS: multi huruf misal "AC" atau "BCD". BENAR_SALAH: "BENAR" atau "SALAH".']);
+    info.getColumn(1).width = 16;
+    info.getColumn(2).width = 80;
+    info.getRow(1).font = { bold: true, size: 14 };
+    info.getRow(3).font = { bold: true };
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="template-import-soal.xlsx"');
+    res.send(Buffer.from(buf));
+  } catch (error) { next(error); }
+});
+
+// ── Bulk Import Soal: terima parsed items dari frontend ────────
+router.post('/ujian/:id/soal/import', async (req, res, next) => {
+  try {
+    const ujianId = req.params.id;
+    const { items } = req.body as { items?: any[] };
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Tidak ada data baris yang ter-baca' });
+    }
+    if (items.length > 200) {
+      return res.status(400).json({ error: 'Maksimal 200 soal per import' });
+    }
+
+    // Pastikan ujian milik guru (atau admin)
+    const ujian = await prisma.ujian.findUnique({ where: { id: ujianId } });
+    if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+
+    const VALID_TIPE = new Set(['PILIHAN_GANDA', 'PG_KOMPLEKS', 'BENAR_SALAH']);
+    const LETTERS = ['A', 'B', 'C', 'D', 'E'];
+
+    let created = 0;
+    const failed: { row: number; message: string }[] = [];
+    let startNomor = (await prisma.soal.count({ where: { ujianId } })) + 1;
+
+    for (let i = 0; i < items.length; i++) {
+      const row = items[i];
+      const rowNumber = i + 2; // header = row 1
+      const tipe = String(row.tipe ?? '').trim().toUpperCase();
+      const teks = String(row.teks ?? '').trim();
+      const poin = Number(row.poin ?? 1);
+      const kunci = String(row.kunci ?? '').trim().toUpperCase();
+
+      if (!VALID_TIPE.has(tipe)) {
+        failed.push({ row: rowNumber, message: `Tipe "${tipe}" tidak valid` });
+        continue;
+      }
+      if (!teks) {
+        failed.push({ row: rowNumber, message: 'Teks soal kosong' });
+        continue;
+      }
+      if (!Number.isFinite(poin) || poin <= 0) {
+        failed.push({ row: rowNumber, message: 'Poin tidak valid (harus angka > 0)' });
+        continue;
+      }
+
+      // Build opsi[] berdasarkan tipe
+      let opsi: { teks: string; benar: boolean }[] = [];
+
+      if (tipe === 'BENAR_SALAH') {
+        if (kunci !== 'BENAR' && kunci !== 'SALAH') {
+          failed.push({ row: rowNumber, message: 'Kunci BENAR_SALAH harus "BENAR" atau "SALAH"' });
+          continue;
+        }
+        opsi = [
+          { teks: 'Benar', benar: kunci === 'BENAR' },
+          { teks: 'Salah', benar: kunci === 'SALAH' },
+        ];
+      } else {
+        // PILIHAN_GANDA / PG_KOMPLEKS — kumpulkan opsiA-E
+        const opsiTexts: string[] = [];
+        for (const letter of LETTERS) {
+          const v = String(row[`opsi${letter}`] ?? '').trim();
+          if (v) opsiTexts.push(v);
+        }
+        if (opsiTexts.length < 2) {
+          failed.push({ row: rowNumber, message: `Minimal 2 opsi diisi (opsiA-E)` });
+          continue;
+        }
+        // Parse kunci
+        if (!kunci || !/^[A-E]+$/.test(kunci)) {
+          failed.push({ row: rowNumber, message: `Kunci "${kunci}" tidak valid (huruf A-E)` });
+          continue;
+        }
+        const benarSet = new Set(kunci.split(''));
+        if (tipe === 'PILIHAN_GANDA' && benarSet.size !== 1) {
+          failed.push({ row: rowNumber, message: 'PILIHAN_GANDA hanya boleh 1 kunci jawaban' });
+          continue;
+        }
+        // Validate kunci letter ada di opsi range
+        const maxLetter = LETTERS[opsiTexts.length - 1];
+        const invalidLetter = [...benarSet].find(l => l > maxLetter);
+        if (invalidLetter) {
+          failed.push({ row: rowNumber, message: `Kunci ${invalidLetter} di luar opsi (max ${maxLetter})` });
+          continue;
+        }
+        opsi = opsiTexts.map((teks, idx) => ({
+          teks,
+          benar: benarSet.has(LETTERS[idx]),
+        }));
+      }
+
+      try {
+        await prisma.soal.create({
+          data: {
+            ujianId,
+            nomor: startNomor++,
+            teks,
+            tipe,
+            poin,
+            opsi: {
+              create: opsi.map((o, idx) => ({
+                teks: o.teks,
+                urutan: idx + 1,
+                benar: o.benar,
+              })),
+            },
+          },
+        });
+        created++;
+      } catch (err: any) {
+        startNomor--; // rollback counter
+        failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+      }
+    }
+
+    res.json({ created, failed });
+  } catch (error) { next(error); }
 });
 
 router.patch('/soal/:id', async (req, res, next) => {

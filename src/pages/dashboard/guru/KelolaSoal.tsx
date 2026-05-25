@@ -1,11 +1,12 @@
 import { toast } from 'sonner';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import ExcelJS from 'exceljs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input, Label } from '../../../components/ui/input';
 import { Badge } from '../../../components/ui/badge';
-import { ArrowLeft, Plus, Save, Trash2, Edit, CheckCircle2, Copy, XCircle, RefreshCw, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2, Edit, CheckCircle2, Copy, XCircle, RefreshCw, FileText, Upload, Download, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { useSiteConfig, defaultPgOpsiCount } from '../../../hooks/useSiteConfig';
 
@@ -38,6 +39,11 @@ export default function KelolaSoal() {
   const [soalList, setSoalList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Bulk import state
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<null | { created: number; failed: { row: number; message: string }[] }>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form state
   const [isEditing, setIsEditing] = useState(false);
@@ -253,6 +259,97 @@ export default function KelolaSoal() {
     );
   }
 
+  // ── Bulk Import Soal ────────────────────────────────────────
+  const handleDownloadTemplate = async () => {
+    try {
+      let token = localStorage.getItem('token');
+      if (!token) {
+        try { const raw = localStorage.getItem('auth-storage'); if (raw) token = JSON.parse(raw)?.state?.token; } catch { /* ignore */ }
+      }
+      const resp = await fetch(`/api/guru/ujian/${ujianId}/soal/import-template`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error('Gagal mengunduh template');
+      const blob = await resp.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = 'template-import-soal.xlsx';
+      a.click();
+      URL.revokeObjectURL(href);
+      toast.success('Template berhasil diunduh');
+    } catch (e: any) {
+      toast.error(e.message || 'Gagal mengunduh template');
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setIsImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error('Sheet pertama tidak ditemukan di file');
+
+      const headers: string[] = [];
+      ws.getRow(1).eachCell((cell, col) => {
+        headers[col] = String(cell.value ?? '').toLowerCase().trim();
+      });
+
+      const items: any[] = [];
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const obj: Record<string, any> = {};
+        row.eachCell((cell, col) => {
+          const key = headers[col];
+          if (!key) return;
+          // Normalisasi header → key konsisten
+          let normalized = key;
+          if (key === 'tipe') normalized = 'tipe';
+          else if (key === 'teks') normalized = 'teks';
+          else if (key === 'poin') normalized = 'poin';
+          else if (key === 'opsia' || key === 'opsi a') normalized = 'opsiA';
+          else if (key === 'opsib' || key === 'opsi b') normalized = 'opsiB';
+          else if (key === 'opsic' || key === 'opsi c') normalized = 'opsiC';
+          else if (key === 'opsid' || key === 'opsi d') normalized = 'opsiD';
+          else if (key === 'opsie' || key === 'opsi e') normalized = 'opsiE';
+          else if (key === 'kunci' || key === 'jawaban') normalized = 'kunci';
+          obj[normalized] = cell.value;
+        });
+        if (Object.values(obj).every(v => v == null || String(v).trim() === '')) return;
+        items.push(obj);
+      });
+
+      if (items.length === 0) {
+        toast.error('Tidak ada data baris yang ter-baca dari file');
+        return;
+      }
+      if (items.length > 200) {
+        toast.error('Maksimal 200 soal per import');
+        return;
+      }
+
+      // 60s timeout — insert 100+ soal dgn opsi nested bisa lama
+      const result = await api.post(`/api/guru/ujian/${ujianId}/soal/import`, { items }, 60_000);
+      setImportResult(result);
+      if (result.created > 0) {
+        toast.success(`${result.created} soal berhasil di-import`);
+        fetchData();
+      }
+      if (result.failed?.length > 0) {
+        toast.warning(`${result.failed.length} baris gagal, lihat detail`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memproses file');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
@@ -405,16 +502,44 @@ export default function KelolaSoal() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardHeader className="flex flex-row items-center justify-between pb-4 gap-3 flex-wrap">
             <div>
               <CardTitle>Daftar Soal</CardTitle>
               <CardDescription>
                 Total {soalList.length} soal &bull; {soalList.reduce((a, s) => a + s.poin, 0)} poin
               </CardDescription>
             </div>
-            <Button onClick={handleAddNew} className="gap-2 shrink-0">
-              <Plus className="w-4 h-4" /> Tambah Soal
-            </Button>
+            <div className="flex gap-2 shrink-0 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                className="gap-2"
+                title="Unduh template Excel untuk import soal"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Template</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="gap-2"
+                title="Import soal dari file Excel"
+              >
+                <Upload className="w-4 h-4" />
+                {isImporting ? 'Mengunggah...' : 'Import Excel'}
+              </Button>
+              <Button onClick={handleAddNew} className="gap-2">
+                <Plus className="w-4 h-4" /> Tambah Soal
+              </Button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
           </CardHeader>
           <CardContent>
             {soalList.length === 0 ? (
@@ -495,6 +620,65 @@ export default function KelolaSoal() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal hasil import */}
+      {importResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm"
+          onClick={() => setImportResult(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-result-title"
+            className="w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+              <h3 id="import-result-title" className="font-bold text-on-surface text-lg">
+                Hasil Import Soal
+              </h3>
+              <button
+                onClick={() => setImportResult(null)}
+                className="p-1.5 rounded hover:bg-surface-container-low text-on-surface-variant"
+                aria-label="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-secondary-container/30 border border-secondary/20 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-secondary">{importResult.created}</p>
+                  <p className="text-sm text-on-secondary-container mt-1">Berhasil di-import</p>
+                </div>
+                <div className="bg-error-container border border-error/20 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-error">{importResult.failed.length}</p>
+                  <p className="text-sm text-on-error-container mt-1">Gagal</p>
+                </div>
+              </div>
+
+              {importResult.failed.length > 0 && (
+                <div>
+                  <p className="font-semibold text-on-surface text-sm mb-2">Detail baris gagal:</p>
+                  <div className="max-h-64 overflow-y-auto border border-outline-variant rounded-lg divide-y divide-outline-variant">
+                    {importResult.failed.map((f, i) => (
+                      <div key={i} className="px-4 py-2 text-sm flex gap-3">
+                        <span className="font-bold text-error shrink-0">Baris {f.row}</span>
+                        <span className="text-on-surface-variant">{f.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setImportResult(null)}>Tutup</Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
