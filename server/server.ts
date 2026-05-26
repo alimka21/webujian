@@ -391,13 +391,11 @@ if (process.env.NODE_ENV === "production") {
     maxAge: "1y",
     immutable: true,
     etag: true,
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith("index.html")) {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
+    // index: false — supaya request "/" tidak langsung di-serve index.html
+    // oleh express.static (melewati handler meta-inject kita). Semua
+    // navigasi SPA — termasuk root "/" — ditangani app.get("*") di bawah
+    // yg inject og:title, og:description, dll dari SiteConfig.
+    index: false,
   }));
 
   // SPA fallback — HANYA untuk route navigasi (tanpa file extension).
