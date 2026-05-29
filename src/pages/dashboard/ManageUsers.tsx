@@ -89,6 +89,7 @@ export default function ManageUsers() {
   const [showKelasModal, setShowKelasModal] = useState(false);
   const [editingKelasId, setEditingKelasId] = useState<string | null>(null);
   const [kelasForm, setKelasForm] = useState({ nama: '', tingkat: String(tingkatList[0] ?? 1), tahunAjaran: '2025/2026', guruId: '' });
+  const [kelasTeacherIds, setKelasTeacherIds] = useState<string[]>([]);
   const [kelasErrors, setKelasErrors] = useState<Record<string, string>>({});
   const [isSubmittingKelas, setIsSubmittingKelas] = useState(false);
 
@@ -307,9 +308,11 @@ export default function ManageUsers() {
     if (k) {
       setEditingKelasId(k.id);
       setKelasForm({ nama: k.nama, tingkat: k.tingkat, tahunAjaran: k.tahunAjaran, guruId: k.guruId });
+      setKelasTeacherIds((k as any).guruKelas?.map((gk: any) => gk.guruId) ?? []);
     } else {
       setEditingKelasId(null);
       setKelasForm({ nama: '', tingkat: String(tingkatList[0] ?? 1), tahunAjaran: '2025/2026', guruId: guruList[0]?.guru?.id || '' });
+      setKelasTeacherIds([]);
     }
     setShowKelasModal(true);
   };
@@ -324,12 +327,19 @@ export default function ManageUsers() {
 
     try {
       setIsSubmittingKelas(true);
+      let savedId = editingKelasId;
       if (editingKelasId) {
         await api.patch(`/api/admin/kelas/${editingKelasId}`, kelasForm);
         toast.success('Kelas berhasil diperbarui');
       } else {
-        await api.post('/api/admin/kelas', kelasForm);
+        const res = await api.post('/api/admin/kelas', kelasForm);
+        savedId = res.id;
         toast.success('Kelas berhasil ditambahkan');
+      }
+      // Sync daftar guru pengajar (exclude wali kelas agar tidak duplikasi di GuruKelas)
+      if (savedId) {
+        const teacherIdsWithoutWali = kelasTeacherIds.filter(id => id !== kelasForm.guruId);
+        await api.put(`/api/admin/kelas/${savedId}/guru`, { teacherIds: teacherIdsWithoutWali });
       }
       setShowKelasModal(false);
       fetchKelas();
@@ -769,17 +779,30 @@ export default function ManageUsers() {
                         <th className="px-4 py-3 font-semibold">Tingkat</th>
                         <th className="px-4 py-3 font-semibold">Tahun Ajaran</th>
                         <th className="px-4 py-3 font-semibold">Wali Kelas</th>
+                        <th className="px-4 py-3 font-semibold">Guru Pengajar</th>
                         <th className="px-4 py-3 font-semibold text-center">Siswa</th>
                         <th className="px-4 py-3 font-semibold text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {paginatedKelas.map(k => (
+                      {paginatedKelas.map(k => {
+                        const guruPengajar = (k as any).guruKelas ?? [];
+                        const totalPengajar = guruPengajar.length + 1; // +1 wali kelas
+                        const namaPengajar = [
+                          k.guru?.nama,
+                          ...guruPengajar.map((gk: any) => gk.guru?.nama).filter(Boolean)
+                        ].join(', ');
+                        return (
                         <tr key={k.id} className="hover:bg-surface-container-low/50 transition-colors">
                           <td className="px-4 py-3 font-semibold text-on-surface">{k.nama}</td>
                           <td className="px-4 py-3"><Badge variant="outline">{k.tingkat}</Badge></td>
                           <td className="px-4 py-3 text-on-surface-variant">{k.tahunAjaran}</td>
                           <td className="px-4 py-3 text-on-surface-variant">{k.guru?.nama || '-'}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-on-surface-variant" title={namaPengajar}>
+                              {totalPengajar} guru
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-center">
                             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface-container font-semibold text-on-surface text-sm">{k._count.siswa}</span>
                           </td>
@@ -790,7 +813,8 @@ export default function ManageUsers() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                   <Pagination
@@ -959,6 +983,38 @@ export default function ManageUsers() {
                     {guruList.map(u => <option key={u.guru.id} value={u.guru.id}>{u.guru.nama} — {u.guru.mataPelajaran}</option>)}
                   </Select>
                   <FieldError msg={kelasErrors.guruId} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Guru Pengajar <span className="text-on-surface-variant font-normal text-xs">(wali kelas otomatis termasuk)</span></Label>
+                  <div className="border border-outline-variant rounded-lg max-h-44 overflow-y-auto divide-y divide-outline-variant/40">
+                    {guruList.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-on-surface-variant">Belum ada guru.</p>
+                    ) : guruList.map(u => {
+                      const gid = u.guru.id;
+                      const isWali = gid === kelasForm.guruId;
+                      const checked = isWali || kelasTeacherIds.includes(gid);
+                      return (
+                        <label key={gid} className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-sm transition-colors ${checked ? 'bg-primary-container/10' : 'hover:bg-surface-container-low'} ${isWali ? 'opacity-60' : ''}`}>
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-primary"
+                            checked={checked}
+                            disabled={isWali}
+                            onChange={e => {
+                              setKelasTeacherIds(prev =>
+                                e.target.checked ? [...prev, gid] : prev.filter(id => id !== gid)
+                              );
+                            }}
+                          />
+                          <span className="flex-1 font-medium">{u.guru.nama}</span>
+                          <span className="text-xs text-on-surface-variant">{u.guru.mataPelajaran}</span>
+                          {isWali && <span className="text-xs text-primary font-semibold">Wali</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-on-surface-variant">Centang guru yang mengajar di kelas ini.</p>
                 </div>
               </div>
               <div className="px-6 pb-6 flex justify-end gap-3">

@@ -94,6 +94,8 @@ export const api = {
     request<T>(url, { method: "GET" }, timeoutMs),
   post:   <T = any>(url: string, body?: any, timeoutMs?: number) =>
     request<T>(url, { method: "POST", body: body ? JSON.stringify(body) : undefined }, timeoutMs),
+  put:    <T = any>(url: string, body?: any, timeoutMs?: number) =>
+    request<T>(url, { method: "PUT", body: body ? JSON.stringify(body) : undefined }, timeoutMs),
   patch:  <T = any>(url: string, body?: any, timeoutMs?: number) =>
     request<T>(url, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }, timeoutMs),
   delete: <T = any>(url: string, timeoutMs?: number) =>

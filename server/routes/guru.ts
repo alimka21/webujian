@@ -14,29 +14,59 @@ const router = Router();
 // admin (lihat semua) vs guru (hanya milik sendiri).
 router.use(requireAuth, requireRole(['GURU', 'SUPER_ADMIN']));
 
-/**
- * Resolve scope berdasarkan role:
- * - admin → { isAdmin: true, guruId: null }; queries jangan filter by guruId
- * - guru  → { isAdmin: false, guruId: '<id>' }; queries filter by guruId
- * Untuk endpoint yang butuh guruId (POST ujian, POST presensi), admin
- * wajib kirim guruId di body atau query.
- */
-async function resolveScope(req: any): Promise<{ isAdmin: boolean; guruId: string | null }> {
-  const role = req.user?.role;
-  if (role === 'SUPER_ADMIN') return { isAdmin: true, guruId: null };
-  const guru = await prisma.guru.findUnique({ where: { userId: req.user.userId } });
-  return { isAdmin: false, guruId: guru?.id ?? null };
+interface Scope {
+  isAdmin: boolean;
+  guruId: string | null;
+  /** Kelas di mana guru ini adalah wali kelas */
+  waliKelasIds: string[];
+  /** Semua kelas yang boleh diakses guru: union(waliKelas + GuruKelas) */
+  teachingKelasIds: string[];
 }
 
 /**
- * Cek apakah ujian boleh diakses user. Admin → selalu boleh. Guru → hanya
- * miliknya. Cegah guru A melihat/edit/hapus ujian + kunci jawaban guru B.
+ * Resolve scope berdasarkan role:
+ * - admin → isAdmin true, semua kelas
+ * - guru  → isAdmin false, hanya kelas yang dia ajar atau dia wali kelasnya
+ *
+ * Wali kelas otomatis dianggap mengajar di kelasnya (tidak perlu duplikasi
+ * di tabel GuruKelas — digabung di sini via union).
  */
-async function canAccessUjian(req: any, ujianId: string): Promise<boolean> {
+async function resolveScope(req: any): Promise<Scope> {
+  const role = req.user?.role;
+  if (role === 'SUPER_ADMIN') return { isAdmin: true, guruId: null, waliKelasIds: [], teachingKelasIds: [] };
+  const guru = await prisma.guru.findUnique({
+    where: { userId: req.user.userId },
+    include: {
+      kelas: { select: { id: true } },       // kelas di mana guru = wali kelas
+      guruKelas: { select: { kelasId: true } } // kelas eksplisit pengajar
+    }
+  });
+  const guruId = guru?.id ?? null;
+  const waliKelasIds = guru?.kelas.map(k => k.id) ?? [];
+  const guruKelasIds = guru?.guruKelas.map(gk => gk.kelasId) ?? [];
+  const teachingKelasIds = [...new Set([...waliKelasIds, ...guruKelasIds])];
+  return { isAdmin: false, guruId, waliKelasIds, teachingKelasIds };
+}
+
+/**
+ * Cek akses ujian.
+ * mode='write' (default): hanya pemilik ujian & admin.
+ * mode='read': pemilik + wali kelas dari kelas yang ujian tersebut ditugaskan.
+ */
+async function canAccessUjian(req: any, ujianId: string, mode: 'read' | 'write' = 'write'): Promise<boolean> {
   const scope = await resolveScope(req);
   if (scope.isAdmin) return true;
-  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { guruId: true } });
-  return !!ujian && ujian.guruId === scope.guruId;
+  const ujian = await prisma.ujian.findUnique({
+    where: { id: ujianId },
+    select: { guruId: true, kelas: { select: { kelasId: true } } }
+  });
+  if (!ujian) return false;
+  if (ujian.guruId === scope.guruId) return true;
+  // Wali kelas: baca-saja semua ujian di kelas wali-nya
+  if (mode === 'read' && scope.waliKelasIds.length > 0) {
+    return ujian.kelas.some(k => scope.waliKelasIds.includes(k.kelasId));
+  }
+  return false;
 }
 
 /**
@@ -98,17 +128,17 @@ router.get('/stats', async (req, res, next) => {
 router.get('/kelas', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);
-    // Cache hanya untuk guru (per-id). Admin (isAdmin) skip cache karena
-    // satu key "guru:kelas:__admin__" akan tabrakan dgn scope yg berbeda.
     const cacheKey = scope.isAdmin ? null : `guru:kelas:${scope.guruId ?? '__none__'}`;
     const fetcher = async () => {
-      const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
+      // Admin: semua kelas. Guru: hanya kelas yang dia ajar (wali + GuruKelas).
+      const where = scope.isAdmin ? {} : { id: { in: scope.teachingKelasIds } };
       return prisma.kelas.findMany({
         where,
         include: {
           _count: { select: { siswa: true } },
           guru: { select: { id: true, nama: true } },
         },
+        orderBy: [{ tingkat: 'asc' }, { nama: 'asc' }],
       });
     };
     const kelas = cacheKey ? await withCache(cacheKey, 120, fetcher) : await fetcher();
@@ -229,8 +259,23 @@ router.delete('/siswa/:id', async (req, res, next) => {
 router.get('/ujian', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);
-    const where = scope.isAdmin ? {} : { guruId: scope.guruId ?? '__none__' };
     const { page, limit, skip } = getPaginationParams(req.query);
+
+    let where: any;
+    if (scope.isAdmin) {
+      where = {};
+    } else if (scope.waliKelasIds.length > 0) {
+      // Wali kelas: ujian milik sendiri ATAU ujian di kelas yang dia wali
+      where = {
+        OR: [
+          { guruId: scope.guruId ?? '__none__' },
+          { kelas: { some: { kelasId: { in: scope.waliKelasIds } } } },
+        ]
+      };
+    } else {
+      where = { guruId: scope.guruId ?? '__none__' };
+    }
+
     const [ujianList, total] = await prisma.$transaction([
       prisma.ujian.findMany({
         where,
@@ -244,7 +289,14 @@ router.get('/ujian', async (req, res, next) => {
       }),
       prisma.ujian.count({ where }),
     ]);
-    res.json(buildPaginatedResult(ujianList, total, page, limit));
+
+    // Tandai isOwner — wali kelas yg melihat ujian guru lain tidak bisa edit/hapus
+    const enriched = ujianList.map(u => ({
+      ...u,
+      isOwner: scope.isAdmin || u.guruId === scope.guruId,
+    }));
+
+    res.json(buildPaginatedResult(enriched, total, page, limit));
   } catch(error) { next(error); }
 });
 
@@ -279,6 +331,14 @@ router.post('/ujian', async (req, res, next) => {
       });
     }
 
+    // Guru biasa: validasi hanya boleh menugaskan ke kelas yang dia ajar
+    if (!scope.isAdmin && kelasIds && Array.isArray(kelasIds)) {
+      const invalid = (kelasIds as string[]).filter(id => !scope.teachingKelasIds.includes(id));
+      if (invalid.length > 0) {
+        return res.status(403).json({ error: 'Anda tidak terdaftar sebagai pengajar di salah satu kelas yang dipilih' });
+      }
+    }
+
     const ujian = await prisma.ujian.create({
       data: {
         judul, mataPelajaran, tipeUjian,
@@ -303,7 +363,7 @@ router.post('/ujian', async (req, res, next) => {
 
 router.get('/ujian/:id', async (req, res, next) => {
   try {
-    if (!(await canAccessUjian(req, req.params.id))) {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
       return res.status(404).json({ error: "Not found" });
     }
     const ujian = await prisma.ujian.findUnique({
@@ -444,7 +504,7 @@ router.post('/ujian/:id/duplikat', async (req, res, next) => {
 // Soal routes
 router.get('/ujian/:id/soal', async (req, res, next) => {
   try {
-    if (!(await canAccessUjian(req, req.params.id))) {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
       return res.status(404).json({ error: "Ujian tidak ditemukan" });
     }
     const soal = await prisma.soal.findMany({ where: { ujianId: req.params.id }, include: { opsi: true }, orderBy: {nomor: 'asc'} });
@@ -713,7 +773,7 @@ router.delete('/soal/:id', async (req, res, next) => {
 
 router.get('/ujian/:id/hasil', async (req, res, next) => {
   try {
-    if (!(await canAccessUjian(req, req.params.id))) {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
       return res.status(404).json({ error: 'Not found' });
     }
     const ujian = await prisma.ujian.findUnique({
@@ -784,7 +844,7 @@ router.delete('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
 
 router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
   try {
-    if (!(await canAccessUjian(req, req.params.id))) {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
       return res.status(404).json({ error: 'Sesi tidak ditemukan' });
     }
     const sesi = await prisma.sesiUjian.findUnique({
@@ -843,7 +903,7 @@ router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
 // Export Excel / PDF
 router.get('/ujian/:id/export', async (req, res, next) => {
   try {
-    if (!(await canAccessUjian(req, req.params.id))) {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
       return res.status(404).json({ error: 'Ujian tidak ditemukan' });
     }
     const ujian = await prisma.ujian.findUnique({
@@ -1060,6 +1120,12 @@ router.post('/presensi', async (req, res, next) => {
     if (!guru) return res.status(400).json({ error: 'Hanya guru yang bisa mencatat presensi' });
     const { kelasId, tanggal, presensi } = req.body;
 
+    // Validasi: guru hanya boleh input presensi di kelas yang dia ajar
+    const scope = await resolveScope(req);
+    if (!scope.isAdmin && !scope.teachingKelasIds.includes(kelasId)) {
+      return res.status(403).json({ error: 'Anda tidak terdaftar sebagai pengajar di kelas ini' });
+    }
+
     const tgl = new Date(tanggal);
     tgl.setHours(0, 0, 0, 0);
 
@@ -1094,9 +1160,17 @@ router.get('/presensi', async (req, res, next) => {
     const tgl = new Date(String(tanggal));
     tgl.setHours(0, 0, 0, 0);
 
+    const scope = await resolveScope(req);
+    // Wali kelas & admin: lihat semua presensi di kelas (semua guru).
+    // Guru biasa: hanya presensi miliknya sendiri.
+    const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
+    const where = isWaliOrAdmin
+      ? { kelasId: String(kelasId), tanggal: tgl }
+      : { kelasId: String(kelasId), tanggal: tgl, guruId: guru.id };
+
     const records = await prisma.presensi.findMany({
-      where: { kelasId: String(kelasId), tanggal: tgl, guruId: guru.id },
-      include: { siswa: true }
+      where,
+      include: { siswa: true, guru: { select: { id: true, nama: true, mataPelajaran: true } } }
     });
 
     res.json(records);
@@ -1111,14 +1185,16 @@ router.get('/presensi/rekap', async (req, res, next) => {
     if (!guru) return res.json([]);
 
     const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
-    const endObj = new Date(Number(tahun), Number(bulan), 1); // exclusive upper bound
+    const endObj = new Date(Number(tahun), Number(bulan), 1);
+
+    const scope = await resolveScope(req);
+    const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
+    const whereBase = isWaliOrAdmin
+      ? { kelasId: String(kelasId), tanggal: { gte: startObj, lt: endObj } }
+      : { kelasId: String(kelasId), guruId: guru.id, tanggal: { gte: startObj, lt: endObj } };
 
     const records = await prisma.presensi.findMany({
-      where: {
-        kelasId: String(kelasId),
-        guruId: guru.id,
-        tanggal: { gte: startObj, lt: endObj }
-      },
+      where: whereBase,
       include: { siswa: { select: { id: true, nama: true, nis: true } } }
     });
 

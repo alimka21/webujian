@@ -64,9 +64,10 @@ model Guru {
   mataPelajaran String
   fotoUrl       String?
 
-  kelas    Kelas[]
-  ujian    Ujian[]
-  presensi Presensi[]
+  kelas     Kelas[]
+  guruKelas GuruKelas[]
+  ujian     Ujian[]
+  presensi  Presensi[]
 }
 
 model Kelas {
@@ -78,8 +79,24 @@ model Kelas {
   guru        Guru   @relation(fields: [guruId], references: [id])
 
   siswa      Siswa[]
+  guruKelas  GuruKelas[]
   kelasUjian UjianKelas[]
   presensi   Presensi[]
+}
+
+// Guru pengajar per kelas (many-to-many Guru ↔ Kelas).
+// Wali kelas (Kelas.guruId) otomatis dianggap mengajar di kelasnya —
+// tidak perlu duplikasi data di sini, logika ada di resolveScope backend.
+model GuruKelas {
+  id      String @id @default(uuid())
+  guruId  String
+  guru    Guru   @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  kelasId String
+  kelas   Kelas  @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+
+  @@unique([guruId, kelasId])
+  @@index([kelasId])
+  @@index([guruId])
 }
 
 model Siswa {

@@ -516,11 +516,34 @@ router.get('/kelas', async (req, res, next) => {
     const kelas = await prisma.kelas.findMany({
       include: {
         guru: { select: { id: true, nama: true } },
+        guruKelas: { include: { guru: { select: { id: true, nama: true, mataPelajaran: true } } } },
         _count: { select: { siswa: true } }
       },
       orderBy: [{ tingkat: 'asc' }, { nama: 'asc' }]
     });
     res.json(kelas);
+  } catch (error) { next(error); }
+});
+
+// Set daftar guru pengajar di kelas (sync penuh — replace all)
+router.put('/kelas/:id/guru', async (req, res, next) => {
+  try {
+    const { teacherIds } = req.body as { teacherIds: string[] };
+    if (!Array.isArray(teacherIds)) {
+      return res.status(400).json({ error: 'teacherIds wajib berupa array' });
+    }
+    // Sync: hapus semua GuruKelas lama untuk kelas ini, lalu buat yang baru
+    await prisma.$transaction(async (tx) => {
+      await tx.guruKelas.deleteMany({ where: { kelasId: req.params.id } });
+      if (teacherIds.length > 0) {
+        await tx.guruKelas.createMany({
+          data: teacherIds.map(guruId => ({ guruId, kelasId: req.params.id })),
+          skipDuplicates: true,
+        });
+      }
+    });
+    invalidateByPrefix('guru:kelas:');
+    res.json({ success: true });
   } catch (error) { next(error); }
 });
 

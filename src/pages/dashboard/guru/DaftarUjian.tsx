@@ -298,7 +298,12 @@ export default function DaftarUjian() {
                     return (
                       <tr key={ujian.id} className="hover:bg-surface-container-low/50 transition-colors">
                         <td className="px-4 py-4">
-                          <div className="font-semibold text-on-surface mb-1">{ujian.judul}</div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-on-surface">{ujian.judul}</span>
+                            {ujian.isOwner === false && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-tertiary-fixed/40 text-on-tertiary-fixed">Lihat Saja</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1 mb-1">
                             <Badge variant="outline" className="text-[10px] uppercase font-medium">{ujian.tipeUjian}</Badge>
                             <span className="text-xs text-on-surface-variant">&bull; {ujian.mataPelajaran}</span>
@@ -306,6 +311,11 @@ export default function DaftarUjian() {
                           <div className="text-xs text-on-surface-variant">
                             Kelas: {ujian.kelas.map((k: any) => k.kelas.nama).join(', ') || '-'}
                           </div>
+                          {ujian.isOwner === false && ujian.guru && (
+                            <div className="text-xs text-on-surface-variant mt-0.5">
+                              Oleh: {ujian.guru.nama}
+                            </div>
+                          )}
                           {hasParticipants(ujian) && (
                             <div className="flex items-center gap-1 mt-1.5 text-xs text-outline-variant">
                               <Users className="w-3 h-3" />
@@ -344,18 +354,20 @@ export default function DaftarUjian() {
                                 variant="outline" size="sm"
                                 onClick={() => navigate(`/dashboard/guru/ujian/${ujian.id}/soal`)}
                                 className="bg-white h-8 px-2.5 gap-1 text-xs"
-                                title="Kelola Soal"
+                                title={ujian.isOwner === false ? 'Lihat Soal' : 'Kelola Soal'}
                               >
                                 <BookOpen className="w-3.5 h-3.5 text-primary" /> Soal
                               </Button>
-                              <Button
-                                variant="outline" size="sm"
-                                onClick={() => handleOpenEdit(ujian)}
-                                className="bg-white h-8 px-2.5 gap-1 text-xs"
-                                title="Edit Info Ujian"
-                              >
-                                <Edit className="w-3.5 h-3.5 text-on-surface-variant" /> Edit
-                              </Button>
+                              {ujian.isOwner !== false && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  onClick={() => handleOpenEdit(ujian)}
+                                  className="bg-white h-8 px-2.5 gap-1 text-xs"
+                                  title="Edit Info Ujian"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-on-surface-variant" /> Edit
+                                </Button>
+                              )}
                             </div>
                             <div className="flex gap-1.5">
                               {(status === 'SELESAI' || status === 'BERLANGSUNG') && (
@@ -368,26 +380,30 @@ export default function DaftarUjian() {
                                   <Eye className="w-3.5 h-3.5 text-secondary" /> Hasil
                                 </Button>
                               )}
-                              <Button
-                                variant="outline" size="sm"
-                                onClick={() => handleDuplikat(ujian.id)}
-                                disabled={isDuplicating === ujian.id}
-                                className="bg-white h-8 px-2 text-xs"
-                                title="Duplikat Ujian"
-                              >
-                                {isDuplicating === ujian.id
-                                  ? <div className="w-3.5 h-3.5 border-2 border-outline/40 border-t-slate-500 rounded-full animate-spin" />
-                                  : <Copy className="w-3.5 h-3.5 text-on-surface-variant" />
-                                }
-                              </Button>
-                              <Button
-                                variant="outline" size="sm"
-                                onClick={() => handleOpenDelete(ujian)}
-                                className="bg-white hover:bg-error-container hover:border-error/20 h-8 px-2"
-                                title="Hapus Ujian"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-error" />
-                              </Button>
+                              {ujian.isOwner !== false && (
+                                <>
+                                  <Button
+                                    variant="outline" size="sm"
+                                    onClick={() => handleDuplikat(ujian.id)}
+                                    disabled={isDuplicating === ujian.id}
+                                    className="bg-white h-8 px-2 text-xs"
+                                    title="Duplikat Ujian"
+                                  >
+                                    {isDuplicating === ujian.id
+                                      ? <div className="w-3.5 h-3.5 border-2 border-outline/40 border-t-slate-500 rounded-full animate-spin" />
+                                      : <Copy className="w-3.5 h-3.5 text-on-surface-variant" />
+                                    }
+                                  </Button>
+                                  <Button
+                                    variant="outline" size="sm"
+                                    onClick={() => handleOpenDelete(ujian)}
+                                    className="bg-white hover:bg-error-container hover:border-error/20 h-8 px-2"
+                                    title="Hapus Ujian"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-error" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </td>
