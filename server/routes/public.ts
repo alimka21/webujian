@@ -135,4 +135,15 @@ router.get('/alumni/stats', async (req, res, next) => {
   } catch(error) { next(error); }
 });
 
+// Statistik publik: jumlah siswa aktif (role SISWA). Cache 60s.
+router.get('/stats', async (req, res, next) => {
+  try {
+    const stats = await withCache('pub:stats', 60, async () => {
+      const totalSiswa = await prisma.user.count({ where: { role: 'SISWA' } });
+      return { totalSiswa };
+    });
+    res.json(stats);
+  } catch(error) { next(error); }
+});
+
 export default router;

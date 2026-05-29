@@ -68,6 +68,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [berita, setBerita] = useState<any[]>([]);
   const [alumniStats, setAlumniStats] = useState<Record<string, number>>({});
+  const [totalSiswa, setTotalSiswa] = useState<number | null>(null);
   // Site config via shared hook (dedupe — semua komponen share 1 fetch)
   const siteConfig = useSiteConfig();
 
@@ -84,6 +85,7 @@ export default function LandingPage() {
   // dan hindari layout shift (CLS) saat konten muncul mendadak.
   const [isLoadingBerita, setIsLoadingBerita] = useState(true);
   const [isLoadingAlumni, setIsLoadingAlumni] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   // siteConfig hook tidak expose isLoaded flag — derive dari presence
   // namaSekolah (selalu ada di config valid, undefined saat init kosong).
   const isCfgLoaded = !!(siteConfig as any).namaSekolah;
@@ -92,21 +94,26 @@ export default function LandingPage() {
     Promise.all([
       api.get('/api/berita?limit=3').catch(() => ({ data: [] })),
       api.get('/api/alumni/stats').catch(() => ({ perStatus: {} })),
-    ]).then(([resBerita, resAlumni]) => {
+      api.get('/api/stats').catch(() => ({ totalSiswa: null })),
+    ]).then(([resBerita, resAlumni, resStats]) => {
       setBerita(resBerita.data || []);
       setIsLoadingBerita(false);
       setAlumniStats(resAlumni.perStatus || {});
       setIsLoadingAlumni(false);
+      setTotalSiswa(resStats.totalSiswa ?? null);
+      setIsLoadingStats(false);
     });
   }, []);
 
-  // Auto-refresh alumni stats saat user kembali ke tab — supaya angka real-time
-  // setelah admin verify/add alumni di tab lain. Cache server 30s tetap berlaku.
+  // Auto-refresh stats saat user kembali ke tab. Cache server tetap berlaku.
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === 'visible') {
         api.get('/api/alumni/stats')
           .then((r: any) => setAlumniStats(r?.perStatus || {}))
+          .catch(() => { /* abaikan */ });
+        api.get('/api/stats')
+          .then((r: any) => setTotalSiswa(r?.totalSiswa ?? null))
           .catch(() => { /* abaikan */ });
       }
     };
@@ -407,7 +414,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { icon: Users,         label: cfg.statSiswaLabel  || 'Siswa Aktif',     value: cfg.statSiswaValue || '—' },
+              { icon: Users,         label: cfg.statSiswaLabel  || 'Siswa Aktif',     value: isLoadingStats ? '—' : (totalSiswa !== null && totalSiswa > 0 ? `${totalSiswa}+` : (cfg.statSiswaValue || '—')) },
               { icon: GraduationCap, label: cfg.statGuruLabel   || 'Tenaga Pendidik', value: cfg.statGuruValue  || '—' },
               // Alumni AUTO dari API — real-time count dari DB
               { icon: BookOpen,      label: cfg.statAlumniLabel || 'Alumni Terdata',  value: isLoadingAlumni ? '—' : (totalAlumni > 0 ? `${totalAlumni}+` : '—') },
