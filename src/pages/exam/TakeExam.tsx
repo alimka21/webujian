@@ -95,6 +95,7 @@ export default function TakeExam() {
   const [soalList, setSoalList] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,6 +151,10 @@ export default function TakeExam() {
         if (storedAns) setAnswers(JSON.parse(storedAns));
         else setAnswers({});
 
+        const storedText = localStorage.getItem(`exam_text_${sessionId}`);
+        if (storedText) setTextAnswers(JSON.parse(storedText));
+        else setTextAnswers({});
+
         const storedFlags = localStorage.getItem(`exam_flags_${sessionId}`);
         if (storedFlags) setFlagged(JSON.parse(storedFlags));
       } catch (err: any) {
@@ -158,6 +163,7 @@ export default function TakeExam() {
         if (err?.status === 404 || /tidak ditemukan|akses ditolak/i.test(err?.message || '')) {
           try {
             localStorage.removeItem(`exam_ans_${sessionId}`);
+            localStorage.removeItem(`exam_text_${sessionId}`);
             localStorage.removeItem(`exam_flags_${sessionId}`);
             localStorage.removeItem(`exam_timer_${sessionId}`);
           } catch { /* ignore */ }
@@ -206,17 +212,13 @@ export default function TakeExam() {
     }
   });
 
-  // Save answer to server (debounced)
+  // Save opsi answer to server (debounced)
   const saveAnswerToServer = useDebounce(async (soalId: string, opsiIds: string[]) => {
     if (!sessionId) return;
     setSaveStatus('saving');
     try {
-      await api.post(`/api/siswa/sesi/${sessionId}/jawab`, {
-        soalId,
-        opsiIds
-      });
+      await api.post(`/api/siswa/sesi/${sessionId}/jawab`, { soalId, opsiIds });
       setSaveStatus('saved');
-      // Auto-revert ke idle setelah 2 detik supaya badge "Tersimpan" tidak persisten
       setTimeout(() => {
         setSaveStatus(prev => (prev === 'saved' ? 'idle' : prev));
       }, 2000);
@@ -225,6 +227,25 @@ export default function TakeExam() {
       setSaveStatus('error');
     }
   }, 500);
+
+  // Save text answer (uraian/esai) to server (debounced 800ms)
+  const saveTextAnswerToServer = useDebounce(async (soalId: string, teks: string) => {
+    if (!sessionId) return;
+    setSaveStatus('saving');
+    try {
+      await api.post(`/api/siswa/sesi/${sessionId}/jawab-batch`, {
+        answers: {},
+        textAnswers: { [soalId]: teks },
+      });
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setSaveStatus(prev => (prev === 'saved' ? 'idle' : prev));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to save text answer', err);
+      setSaveStatus('error');
+    }
+  }, 800);
 
   // Online/offline listener — sinyal cepat saat browser deteksi koneksi putus.
   // Tidak block input (siswa tetap bisa jawab via localStorage, sync saat submit).
@@ -265,6 +286,15 @@ export default function TakeExam() {
     });
   };
 
+  const handleTextChange = (soalId: string, teks: string) => {
+    setTextAnswers(prev => {
+      const next = { ...prev, [soalId]: teks };
+      localStorage.setItem(`exam_text_${sessionId}`, JSON.stringify(next));
+      saveTextAnswerToServer(soalId, teks);
+      return next;
+    });
+  };
+
   const toggleFlag = () => {
     const currentSoal = soalList[currentIndex];
     if (!currentSoal) return;
@@ -286,17 +316,16 @@ export default function TakeExam() {
       // N koneksi DB paralel yang bikin pool timeout. Cap 5 detik.
       try {
         const stored = localStorage.getItem(`exam_ans_${sessionId}`);
-        if (stored) {
-          const ansMap: Record<string, string[]> = JSON.parse(stored);
-          const hasAny = Object.values(ansMap).some(
-            ids => Array.isArray(ids) && ids.length > 0
-          );
-          if (hasAny) {
-            await Promise.race([
-              api.post(`/api/siswa/sesi/${sessionId}/jawab-batch`, { answers: ansMap }),
-              new Promise(resolve => setTimeout(resolve, 5000)),
-            ]);
-          }
+        const storedText = localStorage.getItem(`exam_text_${sessionId}`);
+        const ansMap: Record<string, string[]> = stored ? JSON.parse(stored) : {};
+        const textMap: Record<string, string> = storedText ? JSON.parse(storedText) : {};
+        const hasOpsi = Object.values(ansMap).some(ids => Array.isArray(ids) && ids.length > 0);
+        const hasTeks = Object.values(textMap).some(t => t.trim().length > 0);
+        if (hasOpsi || hasTeks) {
+          await Promise.race([
+            api.post(`/api/siswa/sesi/${sessionId}/jawab-batch`, { answers: ansMap, textAnswers: textMap }),
+            new Promise(resolve => setTimeout(resolve, 5000)),
+          ]);
         }
       } catch (flushErr) {
         // Best-effort — backend tetap submit dgn state DB apa adanya.
@@ -307,6 +336,7 @@ export default function TakeExam() {
 
       localStorage.removeItem(`exam_timer_${sessionId}`);
       localStorage.removeItem(`exam_ans_${sessionId}`);
+      localStorage.removeItem(`exam_text_${sessionId}`);
       localStorage.removeItem(`exam_flags_${sessionId}`);
 
       if (document.fullscreenElement) {
@@ -386,7 +416,10 @@ export default function TakeExam() {
   }
 
   const currentSoal = soalList[currentIndex];
-  const answeredCount = Object.keys(answers).filter(k => answers[k] && answers[k].length > 0).length;
+  const answeredCount = soalList.filter(s => {
+    if (s.tipe === 'URAIAN_SINGKAT' || s.tipe === 'ESAI') return !!textAnswers[s.id]?.trim();
+    return answers[s.id] && answers[s.id].length > 0;
+  }).length;
   const flaggedCount = Object.values(flagged).filter(v => v).length;
   const unansweredCount = soalList.length - answeredCount;
   const progressPercent = soalList.length > 0 ? (answeredCount / soalList.length) * 100 : 0;
@@ -462,7 +495,10 @@ export default function TakeExam() {
   // ── Question navigator buttons (dipakai sidebar & mobile drawer) ──
   const renderNavButton = (soal: any, idx: number, onClick?: () => void) => {
     const isActive = idx === currentIndex;
-    const hasAnswer = answers[soal.id] && answers[soal.id].length > 0;
+    const isUraian = soal.tipe === 'URAIAN_SINGKAT' || soal.tipe === 'ESAI';
+    const hasAnswer = isUraian
+      ? !!textAnswers[soal.id]?.trim()
+      : answers[soal.id] && answers[soal.id].length > 0;
     const isFlagged = flagged[soal.id];
 
     let cls = 'border border-outline-variant text-on-surface-variant hover:bg-surface-container-high bg-surface-container-lowest';
@@ -635,45 +671,66 @@ export default function TakeExam() {
                   </div>
                 )}
 
-                <div className="space-y-3 mt-8">
-                  {currentSoal?.opsi.map((opsi: any, i: number) => {
-                    const cAns = answers[currentSoal.id] || [];
-                    const isSelected = cAns.includes(opsi.id);
-                    const isMulti = currentSoal.tipe === 'PG_KOMPLEKS';
-                    const letter = String.fromCharCode(65 + i);
+                {(currentSoal?.tipe === 'URAIAN_SINGKAT' || currentSoal?.tipe === 'ESAI') ? (
+                  <div className="mt-6 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <span>{currentSoal.tipe === 'URAIAN_SINGKAT' ? '✏️ Uraian Singkat' : '📝 Esai'}</span>
+                      <span className="text-amber-600">— Ketik jawaban Anda di bawah ini</span>
+                    </div>
+                    <textarea
+                      className={`w-full p-4 rounded-xl border border-outline-variant bg-surface-container-lowest text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 resize-y ${
+                        currentSoal.tipe === 'ESAI' ? 'min-h-[240px]' : 'min-h-[100px]'
+                      }`}
+                      placeholder={currentSoal.tipe === 'ESAI'
+                        ? 'Tulis jawaban esai Anda di sini secara lengkap dan jelas...'
+                        : 'Tulis jawaban singkat Anda di sini...'}
+                      value={textAnswers[currentSoal.id] || ''}
+                      onChange={e => handleTextChange(currentSoal.id, e.target.value)}
+                    />
+                    <p className="text-xs text-on-surface-variant text-right">
+                      {(textAnswers[currentSoal.id] || '').length} karakter
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 mt-8">
+                    {currentSoal?.opsi.map((opsi: any, i: number) => {
+                      const cAns = answers[currentSoal.id] || [];
+                      const isSelected = cAns.includes(opsi.id);
+                      const isMulti = currentSoal.tipe === 'PG_KOMPLEKS';
+                      const letter = String.fromCharCode(65 + i);
 
-                    return (
-                      <button
-                        type="button"
-                        key={opsi.id}
-                        onClick={() => handleAnswerSelect(opsi.id)}
-                        aria-pressed={isSelected}
-                        className={`relative w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                          isSelected
-                            ? 'border-secondary bg-secondary-container/30'
-                            : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 flex items-center justify-center border-2 font-bold shrink-0 transition-colors ${
-                          isMulti ? 'rounded-lg' : 'rounded-full'
-                        } ${
-                          isSelected
-                            ? 'border-secondary bg-secondary-container text-on-secondary-container'
-                            : 'border-outline-variant text-on-surface-variant bg-surface-container-lowest'
-                        }`}>
-                          {isMulti && isSelected ? <CheckSquare className="w-5 h-5" /> : letter}
-                        </div>
-                        <span className={`flex-1 text-base ${isSelected ? 'font-semibold text-on-surface' : 'text-on-surface'}`}>
-                          {opsi.teks}
-                        </span>
-                        {/* Border overlay saat selected, biar lebih tegas */}
-                        {isSelected && (
-                          <div className="absolute inset-0 border-2 border-secondary rounded-xl pointer-events-none" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                      return (
+                        <button
+                          type="button"
+                          key={opsi.id}
+                          onClick={() => handleAnswerSelect(opsi.id)}
+                          aria-pressed={isSelected}
+                          className={`relative w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                            isSelected
+                              ? 'border-secondary bg-secondary-container/30'
+                              : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 flex items-center justify-center border-2 font-bold shrink-0 transition-colors ${
+                            isMulti ? 'rounded-lg' : 'rounded-full'
+                          } ${
+                            isSelected
+                              ? 'border-secondary bg-secondary-container text-on-secondary-container'
+                              : 'border-outline-variant text-on-surface-variant bg-surface-container-lowest'
+                          }`}>
+                            {isMulti && isSelected ? <CheckSquare className="w-5 h-5" /> : letter}
+                          </div>
+                          <span className={`flex-1 text-base ${isSelected ? 'font-semibold text-on-surface' : 'text-on-surface'}`}>
+                            {opsi.teks}
+                          </span>
+                          {isSelected && (
+                            <div className="absolute inset-0 border-2 border-secondary rounded-xl pointer-events-none" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -233,30 +233,42 @@ router.post('/sesi/:sessionId/jawab-batch', async (req, res, next) => {
     }
 
     const answers = (req.body?.answers ?? {}) as Record<string, string[]>;
-    const entries = Object.entries(answers).filter(
+    const textAnswers = (req.body?.textAnswers ?? {}) as Record<string, string>;
+
+    const opsiEntries = Object.entries(answers).filter(
       ([, ids]) => Array.isArray(ids) && ids.length > 0
     );
-    if (entries.length === 0) return res.json({ success: true, saved: 0 });
-
-    const soalIds = entries.map(([sid]) => sid);
-    const data = entries.flatMap(([soalId, opsiIds]) =>
-      (opsiIds as string[]).map((opsiId) => ({
-        sesiId: sessionId,
-        soalId,
-        opsiId,
-        isBenar: false,
-      }))
+    const teksEntries = Object.entries(textAnswers).filter(
+      ([, teks]) => typeof teks === 'string' && teks.trim().length > 0
     );
 
-    // Transaction → 1 koneksi pool, atomic per-session flush
+    if (opsiEntries.length === 0 && teksEntries.length === 0) {
+      return res.json({ success: true, saved: 0 });
+    }
+
+    const allSoalIds = [
+      ...opsiEntries.map(([sid]) => sid),
+      ...teksEntries.map(([sid]) => sid),
+    ];
+
+    const opsiData = opsiEntries.flatMap(([soalId, opsiIds]) =>
+      (opsiIds as string[]).map((opsiId) => ({
+        sesiId: sessionId, soalId, opsiId, isBenar: false,
+      }))
+    );
+    const teksData = teksEntries.map(([soalId, teks]) => ({
+      sesiId: sessionId, soalId, opsiId: null, isBenar: false,
+      jawabanTeks: teks.trim(),
+    }));
+
     await prisma.$transaction([
       prisma.jawaban.deleteMany({
-        where: { sesiId: sessionId, soalId: { in: soalIds } },
+        where: { sesiId: sessionId, soalId: { in: allSoalIds } },
       }),
-      prisma.jawaban.createMany({ data }),
+      prisma.jawaban.createMany({ data: [...opsiData, ...teksData] }),
     ]);
 
-    res.json({ success: true, saved: data.length });
+    res.json({ success: true, saved: opsiData.length + teksData.length });
   } catch (error) { next(error); }
 });
 
@@ -323,6 +335,19 @@ async function computeAndSaveSubmit(
 
   for (const soal of sesi.ujian.soal) {
     totalPoin += soal.poin;
+    const isUraian = soal.tipe === 'URAIAN_SINGKAT' || soal.tipe === 'ESAI';
+
+    if (isUraian) {
+      // Uraian/esai tidak di-auto-score saat submit — tunggu koreksi guru.
+      // nilaiUraian akan diisi guru via endpoint koreksi, lalu nilaiAkhir
+      // di-recompute. Sementara itu, poin uraian dianggap 0.
+      const jwb = sesi.jawaban.find(j => j.soalId === soal.id);
+      if (jwb?.nilaiUraian != null) {
+        poinBenar += (jwb.nilaiUraian / 10) * soal.poin;
+      }
+      continue;
+    }
+
     const jawabanUser = sesi.jawaban.filter(j => j.soalId === soal.id).map(j => j.opsiId);
     const opsiBenar = soal.opsi.filter(o => o.benar).map(o => o.id);
 
@@ -467,7 +492,7 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
           },
         },
         pelanggaran: { orderBy: { timestamp: 'asc' } },
-        jawaban: { include: { opsi: true } },
+        jawaban: { include: { opsi: true }, orderBy: { soalId: 'asc' } },
       }
     });
 
@@ -495,26 +520,52 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
 
     const jawabanDetail = soalList.map(soal => {
       const jwbList = jawabanBySoal.get(soal.id) || [];
+      const isUraian = soal.tipe === 'URAIAN_SINGKAT' || soal.tipe === 'ESAI';
+
+      if (isUraian) {
+        const jwb = jwbList[0];
+        return {
+          nomor: soal.nomor,
+          teks: soal.teks,
+          tipe: soal.tipe,
+          poin: soal.poin,
+          jawabanTeks: jwb?.jawabanTeks ?? null,
+          nilaiUraian: jwb?.nilaiUraian ?? null,
+          catatanGuru: jwb?.catatanGuru ?? null,
+          tidakDijawab: !jwb?.jawabanTeks,
+          // Tidak ada isBenar untuk uraian
+          opsiDipilih: null, opsiBenar: null, opsiDipilihList: [], opsiBenarList: [],
+          isBenar: false,
+        };
+      }
+
       const opsiBenarList = soal.opsi.filter(o => o.benar);
       const opsiDipilihList = jwbList
         .map(j => j.opsi ? { teks: j.opsi.teks } : null)
         .filter((x): x is { teks: string } => x !== null);
-      // isBenar konsisten antar row (di-set bareng saat submit) → ambil dari row pertama
       const isBenar = jwbList.length > 0 ? jwbList[0].isBenar : false;
       return {
         nomor: soal.nomor,
         teks: soal.teks,
         tipe: soal.tipe,
-        // Untuk kompat backward — single-opsi tetap tampilkan opsiDipilih
+        poin: soal.poin,
         opsiDipilih: opsiDipilihList[0] || null,
         opsiBenar: opsiBenarList[0] ? { teks: opsiBenarList[0].teks } : null,
-        // Field baru untuk PG_KOMPLEKS (array semua opsi)
         opsiDipilihList,
         opsiBenarList: opsiBenarList.map(o => ({ teks: o.teks })),
         isBenar,
         tidakDijawab: jwbList.length === 0,
+        jawabanTeks: null, nilaiUraian: null, catatanGuru: null,
       };
     });
+
+    const adaUraian = soalList.some(s => s.tipe === 'URAIAN_SINGKAT' || s.tipe === 'ESAI');
+    const semuaUraianDinilai = adaUraian && soalList
+      .filter(s => s.tipe === 'URAIAN_SINGKAT' || s.tipe === 'ESAI')
+      .every(s => {
+        const jwb = (jawabanBySoal.get(s.id) || [])[0];
+        return jwb?.nilaiUraian != null;
+      });
 
     res.json({
       id: sesi.id,
@@ -525,6 +576,8 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
       selesaiAt: sesi.selesaiAt,
       jumlahBenar: jawabanDetail.filter(j => j.isBenar).length,
       totalSoal: soalList.length,
+      adaUraian,
+      semuaUraianDinilai: adaUraian ? semuaUraianDinilai : null,
       siswa: sesi.siswa,
       ujian: sesi.ujian,
       pelanggaran: sesi.pelanggaran,

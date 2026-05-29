@@ -290,10 +290,21 @@ router.get('/ujian', async (req, res, next) => {
       prisma.ujian.count({ where }),
     ]);
 
+    // Cek ujian mana yang punya soal uraian/esai — untuk tampilkan tombol Koreksi
+    const ujianIds = ujianList.map(u => u.id);
+    const uraianSoal = ujianIds.length > 0
+      ? await prisma.soal.findMany({
+          where: { ujianId: { in: ujianIds }, tipe: { in: ['URAIAN_SINGKAT', 'ESAI'] } },
+          select: { ujianId: true },
+        })
+      : [];
+    const ujianWithUraian = new Set(uraianSoal.map(s => s.ujianId));
+
     // Tandai isOwner — wali kelas yg melihat ujian guru lain tidak bisa edit/hapus
     const enriched = ujianList.map(u => ({
       ...u,
       isOwner: scope.isAdmin || u.guruId === scope.guruId,
+      adaUraian: ujianWithUraian.has(u.id),
     }));
 
     res.json(buildPaginatedResult(enriched, total, page, limit));
@@ -897,6 +908,149 @@ router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
       },
       detail
     });
+  } catch(error) { next(error); }
+});
+
+// ── Koreksi Uraian / Esai ──────────────────────────────────────────────────
+
+// Hitung ulang nilaiAkhir sesi setelah guru input nilaiUraian.
+async function recomputeNilaiSesi(sesiId: string) {
+  const sesi = await prisma.sesiUjian.findUnique({
+    where: { id: sesiId },
+    include: {
+      ujian: { include: { soal: true } },
+      jawaban: true,
+    },
+  });
+  if (!sesi) return;
+
+  let totalPoin = 0;
+  let poinDidapat = 0;
+
+  for (const soal of sesi.ujian.soal) {
+    totalPoin += soal.poin;
+    const isUraian = soal.tipe === 'URAIAN_SINGKAT' || soal.tipe === 'ESAI';
+    if (isUraian) {
+      const jwb = sesi.jawaban.find(j => j.soalId === soal.id);
+      if (jwb?.nilaiUraian != null) {
+        poinDidapat += (jwb.nilaiUraian / 10) * soal.poin;
+      }
+    } else {
+      const jwb = sesi.jawaban.find(j => j.soalId === soal.id && j.isBenar);
+      if (jwb) poinDidapat += soal.poin;
+    }
+  }
+
+  const nilaiAkhir = totalPoin > 0 ? (poinDidapat / totalPoin) * 100 : 0;
+  await prisma.sesiUjian.update({
+    where: { id: sesiId },
+    data: { nilaiRaw: poinDidapat, nilaiAkhir: Math.round(nilaiAkhir * 100) / 100 },
+  });
+}
+
+// Daftar sesi + jawaban uraian/esai yang perlu/sudah dikoreksi guru
+router.get('/ujian/:id/koreksi', async (req, res, next) => {
+  try {
+    if (!(await canAccessUjian(req, req.params.id, 'read'))) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
+
+    const soalUraian = await prisma.soal.findMany({
+      where: { ujianId: req.params.id, tipe: { in: ['URAIAN_SINGKAT', 'ESAI'] } },
+      orderBy: { nomor: 'asc' },
+    });
+    if (soalUraian.length === 0) return res.json({ soal: [], sesi: [] });
+
+    const sesiList = await prisma.sesiUjian.findMany({
+      where: {
+        ujianId: req.params.id,
+        status: { in: ['SELESAI', 'AUTO_SUBMIT'] },
+      },
+      include: {
+        siswa: { select: { id: true, nama: true, nis: true }, include: { kelas: { select: { nama: true } } } },
+        jawaban: {
+          where: { soalId: { in: soalUraian.map(s => s.id) } },
+          select: { id: true, soalId: true, jawabanTeks: true, nilaiUraian: true, catatanGuru: true },
+        },
+      },
+      orderBy: { selesaiAt: 'asc' },
+    });
+
+    const result = sesiList.map(sesi => {
+      const jawabanMap = new Map(sesi.jawaban.map(j => [j.soalId, j]));
+      const sudahDinilai = soalUraian.every(s => jawabanMap.get(s.id)?.nilaiUraian != null);
+      return {
+        sesiId: sesi.id,
+        siswa: sesi.siswa,
+        nilaiAkhir: sesi.nilaiAkhir,
+        selesaiAt: sesi.selesaiAt,
+        sudahDinilai,
+        jawaban: soalUraian.map(soal => {
+          const jwb = jawabanMap.get(soal.id);
+          return {
+            jawabanId: jwb?.id ?? null,
+            soalId: soal.id,
+            nomor: soal.nomor,
+            tipe: soal.tipe,
+            poin: soal.poin,
+            jawabanTeks: jwb?.jawabanTeks ?? null,
+            nilaiUraian: jwb?.nilaiUraian ?? null,
+            catatanGuru: jwb?.catatanGuru ?? null,
+          };
+        }),
+      };
+    });
+
+    res.json({ soal: soalUraian.map(s => ({ id: s.id, nomor: s.nomor, tipe: s.tipe, teks: s.teks, poin: s.poin })), sesi: result });
+  } catch(error) { next(error); }
+});
+
+// Simpan penilaian uraian untuk 1 sesi, lalu hitung ulang nilaiAkhir
+router.post('/ujian/:id/koreksi/sesi/:sesiId', async (req, res, next) => {
+  try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(403).json({ error: 'Akses ditolak' });
+    }
+    const { penilaian } = req.body as {
+      penilaian: { jawabanId: string; nilaiUraian: number; catatanGuru?: string }[];
+    };
+    if (!Array.isArray(penilaian) || penilaian.length === 0) {
+      return res.status(400).json({ error: 'Data penilaian kosong' });
+    }
+
+    for (const p of penilaian) {
+      if (p.nilaiUraian < 1 || p.nilaiUraian > 10) {
+        return res.status(400).json({ error: 'Nilai harus antara 1 dan 10' });
+      }
+    }
+
+    // Pastikan semua jawabanId milik sesi ini
+    const jawabanIds = penilaian.map(p => p.jawabanId);
+    const owned = await prisma.jawaban.findMany({
+      where: { id: { in: jawabanIds }, sesiId: req.params.sesiId },
+      select: { id: true },
+    });
+    if (owned.length !== jawabanIds.length) {
+      return res.status(400).json({ error: 'Jawaban tidak valid' });
+    }
+
+    await prisma.$transaction(
+      penilaian.map(p =>
+        prisma.jawaban.update({
+          where: { id: p.jawabanId },
+          data: { nilaiUraian: p.nilaiUraian, catatanGuru: p.catatanGuru ?? null },
+        })
+      )
+    );
+
+    await recomputeNilaiSesi(req.params.sesiId);
+    invalidateByPrefix('guru:stats:');
+
+    const updated = await prisma.sesiUjian.findUnique({
+      where: { id: req.params.sesiId },
+      select: { nilaiAkhir: true, nilaiRaw: true },
+    });
+    res.json({ success: true, nilaiAkhir: updated?.nilaiAkhir });
   } catch(error) { next(error); }
 });
 

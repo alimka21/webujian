@@ -19,10 +19,12 @@ interface OpsiInput {
 interface SoalForm {
   teks: string;
   imageUrl: string;
-  tipe: 'PILIHAN_GANDA' | 'PG_KOMPLEKS' | 'BENAR_SALAH';
+  tipe: 'PILIHAN_GANDA' | 'PG_KOMPLEKS' | 'BENAR_SALAH' | 'URAIAN_SINGKAT' | 'ESAI';
   poin: number;
   opsi: OpsiInput[];
 }
+
+const isUraianTipe = (tipe: string) => tipe === 'URAIAN_SINGKAT' || tipe === 'ESAI';
 
 // Default 4 opsi PG — bisa di-override jadi 5 untuk SMA/SMK via SiteConfig.jenjang.
 const makeDefaultOpsi = (count: number): OpsiInput[] =>
@@ -145,7 +147,11 @@ export default function KelolaSoal() {
 
   const handleTypeChange = (newTipe: SoalForm['tipe']) => {
     setFormData(prev => {
-      let newOpsi = [...prev.opsi];
+      // Uraian/Esai tidak butuh opsi
+      if (isUraianTipe(newTipe)) {
+        return { ...prev, tipe: newTipe, poin: prev.poin === 1 ? 10 : prev.poin, opsi: [] };
+      }
+      let newOpsi = isUraianTipe(prev.tipe) ? makeDefaultOpsi(pgOpsiCount) : [...prev.opsi];
       if (newTipe === 'BENAR_SALAH') {
         newOpsi = [{ teks: 'Benar', benar: true }, { teks: 'Salah', benar: false }];
       } else if (prev.tipe === 'BENAR_SALAH') {
@@ -198,17 +204,19 @@ export default function KelolaSoal() {
       toast.error('Teks soal tidak boleh kosong');
       return;
     }
-    if (formData.tipe !== 'BENAR_SALAH' && formData.opsi.some(o => !o.teks.trim())) {
-      toast.error('Semua opsi jawaban harus diisi');
-      return;
-    }
-    if (formData.opsi.length < 2) {
-      toast.error('Minimal harus ada 2 opsi jawaban');
-      return;
-    }
-    if (!formData.opsi.some(o => o.benar)) {
-      toast.error('Harus ada minimal satu jawaban yang benar');
-      return;
+    if (!isUraianTipe(formData.tipe)) {
+      if (formData.tipe !== 'BENAR_SALAH' && formData.opsi.some(o => !o.teks.trim())) {
+        toast.error('Semua opsi jawaban harus diisi');
+        return;
+      }
+      if (formData.opsi.length < 2) {
+        toast.error('Minimal harus ada 2 opsi jawaban');
+        return;
+      }
+      if (!formData.opsi.some(o => o.benar)) {
+        toast.error('Harus ada minimal satu jawaban yang benar');
+        return;
+      }
     }
 
     try {
@@ -378,8 +386,10 @@ export default function KelolaSoal() {
               <div className="flex flex-wrap gap-2">
                 {[
                   { value: 'PILIHAN_GANDA', label: 'Pilihan Ganda' },
-                  { value: 'PG_KOMPLEKS', label: 'PG Kompleks (Multi Jawaban)' },
+                  { value: 'PG_KOMPLEKS', label: 'PG Kompleks' },
                   { value: 'BENAR_SALAH', label: 'Benar / Salah' },
+                  { value: 'URAIAN_SINGKAT', label: 'Uraian Singkat' },
+                  { value: 'ESAI', label: 'Esai' },
                 ].map((t) => (
                   <Button
                     key={t.value}
@@ -428,63 +438,79 @@ export default function KelolaSoal() {
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-outline-variant">
-              <div className="flex items-center justify-between">
-                <Label>Opsi Jawaban <span className="text-error">*</span></Label>
-                {formData.tipe !== 'BENAR_SALAH' && formData.opsi.length < 6 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={addOpsi} className="text-primary h-8">
-                    + Tambah Opsi
-                  </Button>
-                )}
+            {isUraianTipe(formData.tipe) ? (
+              <div className="pt-4 border-t border-outline-variant rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+                <p className="text-sm font-medium text-amber-800">
+                  {formData.tipe === 'URAIAN_SINGKAT' ? '✏️ Uraian Singkat' : '📝 Esai'} — Jawaban Teks Bebas
+                </p>
+                <p className="text-xs text-amber-700">
+                  Siswa akan mengetik jawaban secara langsung.
+                  {formData.tipe === 'URAIAN_SINGKAT'
+                    ? ' Cocok untuk jawaban pendek (1–3 kalimat).'
+                    : ' Cocok untuk jawaban panjang dan uraian mendalam.'}
+                  {' '}Guru menilai secara manual dengan memberikan nilai <strong>1–10</strong> per soal.
+                  Nilai akhir = (nilai guru ÷ 10) × bobot poin soal.
+                </p>
               </div>
+            ) : (
+              <div className="space-y-4 pt-4 border-t border-outline-variant">
+                <div className="flex items-center justify-between">
+                  <Label>Opsi Jawaban <span className="text-error">*</span></Label>
+                  {formData.tipe !== 'BENAR_SALAH' && formData.opsi.length < 6 && (
+                    <Button type="button" variant="ghost" size="sm" onClick={addOpsi} className="text-primary h-8">
+                      + Tambah Opsi
+                    </Button>
+                  )}
+                </div>
 
-              <div className="space-y-3">
-                {formData.opsi.map((opsi, idx) => {
-                  const isBenarSalah = formData.tipe === 'BENAR_SALAH';
-                  return (
-                    <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${opsi.benar ? 'border-secondary/40 bg-secondary-container/30' : 'border-outline-variant bg-white'}`}>
-                      <div className="flex items-center h-10 w-10 shrink-0 justify-center">
-                        {formData.tipe === 'PG_KOMPLEKS' ? (
-                          <input
-                            type="checkbox"
-                            className="w-5 h-5 text-secondary rounded border-outline-variant focus:ring-green-600"
-                            checked={opsi.benar}
-                            onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
+                <div className="space-y-3">
+                  {formData.opsi.map((opsi, idx) => {
+                    const isBenarSalah = formData.tipe === 'BENAR_SALAH';
+                    return (
+                      <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${opsi.benar ? 'border-secondary/40 bg-secondary-container/30' : 'border-outline-variant bg-white'}`}>
+                        <div className="flex items-center h-10 w-10 shrink-0 justify-center">
+                          {formData.tipe === 'PG_KOMPLEKS' ? (
+                            <input
+                              type="checkbox"
+                              className="w-5 h-5 text-secondary rounded border-outline-variant focus:ring-green-600"
+                              checked={opsi.benar}
+                              onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
+                            />
+                          ) : (
+                            <input
+                              type="radio"
+                              name="radio-opsi"
+                              className="w-5 h-5 text-secondary border-outline-variant focus:ring-green-600"
+                              checked={opsi.benar}
+                              onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <Input
+                            value={opsi.teks}
+                            onChange={e => handleOpsiTeksChange(idx, e.target.value)}
+                            placeholder={`Opsi ${idx + 1}`}
+                            disabled={isBenarSalah}
+                            className={`bg-white ${opsi.benar ? 'font-medium' : ''}`}
                           />
-                        ) : (
-                          <input
-                            type="radio"
-                            name="radio-opsi"
-                            className="w-5 h-5 text-secondary border-outline-variant focus:ring-green-600"
-                            checked={opsi.benar}
-                            onChange={e => handleOpsiBenarChange(idx, e.target.checked)}
-                          />
+                        </div>
+                        {!isBenarSalah && formData.opsi.length > 2 && (
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeOpsi(idx)} className="text-outline-variant hover:text-error shrink-0">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <Input
-                          value={opsi.teks}
-                          onChange={e => handleOpsiTeksChange(idx, e.target.value)}
-                          placeholder={`Opsi ${idx + 1}`}
-                          disabled={isBenarSalah}
-                          className={`bg-white ${opsi.benar ? 'font-medium' : ''}`}
-                        />
-                      </div>
-                      {!isBenarSalah && formData.opsi.length > 2 && (
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeOpsi(idx)} className="text-outline-variant hover:text-error shrink-0">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-on-surface-variant mt-2">
+                  {formData.tipe === 'PG_KOMPLEKS'
+                    ? 'Centang semua opsi yang merupakan jawaban benar.'
+                    : 'Pilih radio/centang di kiri untuk menentukan jawaban benar.'}
+                </p>
               </div>
-              <p className="text-xs text-on-surface-variant mt-2">
-                {formData.tipe === 'PG_KOMPLEKS'
-                  ? 'Centang semua opsi yang merupakan jawaban benar.'
-                  : 'Pilih radio/centang di kiri untuk menentukan jawaban benar.'}
-              </p>
-            </div>
+            )}
           </CardContent>
           <CardFooter className="bg-surface-container-low p-4 border-t border-outline-variant flex justify-end gap-3 rounded-b-xl">
             <Button variant="outline" onClick={() => { setIsEditing(false); setEditingId(null); }} disabled={isSaving}>
@@ -559,7 +585,14 @@ export default function KelolaSoal() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap gap-2 mb-2">
-                            <Badge variant="secondary" className="text-[10px]">{soal.tipe.replace(/_/g, ' ')}</Badge>
+                            <Badge variant="secondary" className={`text-[10px] ${isUraianTipe(soal.tipe) ? 'bg-amber-100 text-amber-800 border-amber-200' : ''}`}>
+                              {soal.tipe === 'PILIHAN_GANDA' ? 'Pilihan Ganda'
+                                : soal.tipe === 'PG_KOMPLEKS' ? 'PG Kompleks'
+                                : soal.tipe === 'BENAR_SALAH' ? 'Benar / Salah'
+                                : soal.tipe === 'URAIAN_SINGKAT' ? 'Uraian Singkat'
+                                : soal.tipe === 'ESAI' ? 'Esai'
+                                : soal.tipe}
+                            </Badge>
                             <Badge variant="outline" className="text-[10px]">{soal.poin} Poin</Badge>
                           </div>
                           <p className="text-on-surface font-medium leading-relaxed whitespace-pre-wrap">{soal.teks}</p>

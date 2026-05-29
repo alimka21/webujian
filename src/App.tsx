@@ -29,6 +29,7 @@ const StatsAdmin = lazy(() => import('./pages/dashboard/StatsAdmin'));
 const GuruDashboard = lazy(() => import('./pages/dashboard/guru/GuruDashboard'));
 const BuatUjian = lazy(() => import('./pages/dashboard/guru/BuatUjian'));
 const KelolaSoal = lazy(() => import('./pages/dashboard/guru/KelolaSoal'));
+const KoreksiUraian = lazy(() => import('./pages/dashboard/guru/KoreksiUraian'));
 const DaftarUjian = lazy(() => import('./pages/dashboard/guru/DaftarUjian'));
 const Students = lazy(() => import('./pages/dashboard/Students'));
 const Attendance = lazy(() => import('./pages/dashboard/Attendance'));
@@ -160,6 +161,11 @@ export default function App() {
               <Route path="ujian/:id/soal" element={
                 <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                   <KelolaSoal />
+                </ProtectedRoute>
+              } />
+              <Route path="ujian/:id/koreksi" element={
+                <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
+                  <KoreksiUraian />
                 </ProtectedRoute>
               } />
               <Route path="siswa" element={

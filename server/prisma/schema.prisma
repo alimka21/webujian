@@ -158,7 +158,7 @@ model Soal {
   nomor    Int
   teks     String  @db.Text
   imageUrl String?
-  tipe     String // PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH
+  tipe     String // PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH, URAIAN_SINGKAT, ESAI
   poin     Float
 
   opsi    Opsi[]
@@ -204,14 +204,17 @@ model SesiUjian {
 }
 
 model Jawaban {
-  id      String    @id @default(uuid())
-  sesiId  String
-  sesi    SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
-  soalId  String
-  soal    Soal      @relation(fields: [soalId], references: [id], onDelete: Cascade)
-  opsiId  String?
-  opsi    Opsi?     @relation(fields: [opsiId], references: [id], onDelete: Cascade)
-  isBenar Boolean   @default(false)
+  id          String    @id @default(uuid())
+  sesiId      String
+  sesi        SesiUjian @relation(fields: [sesiId], references: [id], onDelete: Cascade)
+  soalId      String
+  soal        Soal      @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  opsiId      String?
+  opsi        Opsi?     @relation(fields: [opsiId], references: [id], onDelete: Cascade)
+  isBenar     Boolean   @default(false)
+  jawabanTeks String?   @db.Text   // untuk URAIAN_SINGKAT / ESAI
+  nilaiUraian Float?               // 1-10, diisi guru saat koreksi
+  catatanGuru String?   @db.Text   // catatan opsional dari guru
 
   // Tidak boleh @@unique — PG_KOMPLEKS butuh multiple row per (sesi, soal),
   // satu row per opsi yang dipilih siswa. Index biasa cukup untuk query.

@@ -8,7 +8,7 @@ import { Select } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
 import {
   Plus, Edit, Eye, Trash2, Calendar, Clock, FileText,
-  Copy, Search, Users, AlertTriangle, BookOpen, CheckCircle2
+  Copy, Search, Users, AlertTriangle, BookOpen, CheckCircle2, PenLine
 } from 'lucide-react';
 import api from '../../../lib/api';
 import { formatDate } from '../../../lib/utils';
@@ -378,6 +378,16 @@ export default function DaftarUjian() {
                                   title="Lihat Hasil"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-secondary" /> Hasil
+                                </Button>
+                              )}
+                              {ujian.adaUraian && (status === 'SELESAI' || status === 'BERLANGSUNG') && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  onClick={() => navigate(`/dashboard/guru/ujian/${ujian.id}/koreksi`)}
+                                  className="bg-white h-8 px-2.5 gap-1 text-xs border-amber-300 hover:bg-amber-50"
+                                  title="Koreksi Jawaban Uraian/Esai"
+                                >
+                                  <PenLine className="w-3.5 h-3.5 text-amber-600" /> Koreksi
                                 </Button>
                               )}
                               {ujian.isOwner !== false && (
