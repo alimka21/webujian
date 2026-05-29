@@ -26,7 +26,7 @@ interface GuruUser {
   id: string;
   email: string;
   isActive: boolean;
-  guru: { id: string; nama: string; nip: string; mataPelajaran: string };
+  guru: { id: string; nama: string; nip: string; mataPelajaran: string; guruMataPelajaran?: { id: string; nama: string }[] };
 }
 
 interface KelasItem {
@@ -81,7 +81,9 @@ export default function ManageUsers() {
   // ── Guru Modal ──
   const [showGuruModal, setShowGuruModal] = useState(false);
   const [editingGuruId, setEditingGuruId] = useState<string | null>(null);
-  const [guruForm, setGuruForm] = useState({ nip: '', nama: '', email: '', mataPelajaran: '', password: '' });
+  const [guruForm, setGuruForm] = useState({ nip: '', nama: '', email: '', password: '' });
+  const [guruMapelList, setGuruMapelList] = useState<string[]>([]);
+  const [guruMapelInput, setGuruMapelInput] = useState('');
   const [guruErrors, setGuruErrors] = useState<Record<string, string>>({});
   const [isSubmittingGuru, setIsSubmittingGuru] = useState(false);
 
@@ -257,15 +259,26 @@ export default function ManageUsers() {
   };
 
   // ── Guru Handlers ──
+  const addGuruMapel = () => {
+    const val = guruMapelInput.trim();
+    if (!val || guruMapelList.includes(val)) return;
+    setGuruMapelList(prev => [...prev, val]);
+    setGuruMapelInput('');
+  };
+
   const openGuruModal = (u?: GuruUser) => {
     setGuruErrors({});
     if (u) {
       setEditingGuruId(u.id);
-      setGuruForm({ nip: u.guru.nip || '', nama: u.guru.nama, email: u.email, mataPelajaran: u.guru.mataPelajaran, password: '' });
+      setGuruForm({ nip: u.guru.nip || '', nama: u.guru.nama, email: u.email, password: '' });
+      const existing = u.guru.guruMataPelajaran?.map(m => m.nama) ?? (u.guru.mataPelajaran ? [u.guru.mataPelajaran] : []);
+      setGuruMapelList(existing);
     } else {
       setEditingGuruId(null);
-      setGuruForm({ nip: '', nama: '', email: '', mataPelajaran: '', password: '' });
+      setGuruForm({ nip: '', nama: '', email: '', password: '' });
+      setGuruMapelList([]);
     }
+    setGuruMapelInput('');
     setShowGuruModal(true);
   };
 
@@ -274,7 +287,7 @@ export default function ManageUsers() {
     const errs: Record<string, string> = {};
     if (!guruForm.nama.trim()) errs.nama = 'Nama wajib diisi';
     if (!guruForm.email.trim()) errs.email = 'Email wajib diisi';
-    if (!guruForm.mataPelajaran.trim()) errs.mataPelajaran = 'Mata pelajaran wajib diisi';
+    if (guruMapelList.length === 0) errs.mataPelajaran = 'Minimal 1 mata pelajaran wajib diisi';
     if (!editingGuruId && !guruForm.password.trim()) errs.password = 'Password wajib diisi';
     if (Object.keys(errs).length) { setGuruErrors(errs); return; }
 
@@ -282,7 +295,8 @@ export default function ManageUsers() {
       setIsSubmittingGuru(true);
       if (editingGuruId) {
         await api.patch(`/api/admin/users/${editingGuruId}`, {
-          email: guruForm.email, nama: guruForm.nama, nip: guruForm.nip, mataPelajaran: guruForm.mataPelajaran
+          email: guruForm.email, nama: guruForm.nama, nip: guruForm.nip,
+          mataPelajaranList: guruMapelList,
         });
         toast.success('Data guru berhasil diperbarui');
       } else {
@@ -292,7 +306,7 @@ export default function ManageUsers() {
           password: guruForm.password,
           nama: guruForm.nama,
           nip: guruForm.nip || crypto.randomUUID(),
-          mataPelajaran: guruForm.mataPelajaran
+          mataPelajaranList: guruMapelList,
         });
         toast.success('Guru berhasil ditambahkan');
       }
@@ -713,7 +727,11 @@ export default function ManageUsers() {
                           <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{u.guru?.nip || '-'}</td>
                           <td className="px-4 py-3 font-medium text-on-surface">{u.guru?.nama}</td>
                           <td className="px-4 py-3 text-on-surface-variant">{u.email}</td>
-                          <td className="px-4 py-3 text-on-surface-variant">{u.guru?.mataPelajaran}</td>
+                          <td className="px-4 py-3 text-on-surface-variant">
+                            {(u.guru?.guruMataPelajaran && u.guru.guruMataPelajaran.length > 0)
+                              ? u.guru.guruMataPelajaran.map(m => m.nama).join(', ')
+                              : u.guru?.mataPelajaran || '—'}
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
                               <Button variant="ghost" size="sm" onClick={() => openGuruModal(u)} className="h-8 px-2 text-primary hover:bg-primary-container/15" aria-label={`Edit ${u.guru?.nama}`}><Pencil className="w-4 h-4" /></Button>
@@ -908,16 +926,41 @@ export default function ManageUsers() {
                   <Input id="g-email" type="email" value={guruForm.email} onChange={e => setGuruForm(f => ({ ...f, email: e.target.value }))} placeholder="guru@sekolah.sch.id" />
                   <FieldError msg={guruErrors.email} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="g-nip">NIP <span className="text-outline-variant font-normal">(opsional)</span></Label>
-                    <Input id="g-nip" value={guruForm.nip} onChange={e => setGuruForm(f => ({ ...f, nip: e.target.value }))} placeholder="NIP" />
+                <div className="space-y-1.5">
+                  <Label htmlFor="g-nip">NIP <span className="text-outline-variant font-normal">(opsional)</span></Label>
+                  <Input id="g-nip" value={guruForm.nip} onChange={e => setGuruForm(f => ({ ...f, nip: e.target.value }))} placeholder="NIP" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Mata Pelajaran <span className="text-error">*</span></Label>
+                  {/* Tag list */}
+                  {guruMapelList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {guruMapelList.map(m => (
+                        <span key={m} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-container/40 text-primary text-xs font-medium border border-primary/20">
+                          {m}
+                          <button type="button" onClick={() => setGuruMapelList(l => l.filter(x => x !== m))} className="hover:text-error ml-0.5" aria-label={`Hapus ${m}`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      id="g-mapel"
+                      value={guruMapelInput}
+                      onChange={e => setGuruMapelInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGuruMapel(); } }}
+                      placeholder="Ketik mata pelajaran, lalu Enter"
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={addGuruMapel}
+                      className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 shrink-0"
+                    >
+                      + Tambah
+                    </button>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="g-mapel">Mata Pelajaran <span className="text-error">*</span></Label>
-                    <Input id="g-mapel" value={guruForm.mataPelajaran} onChange={e => setGuruForm(f => ({ ...f, mataPelajaran: e.target.value }))} placeholder="Matematika" />
-                    <FieldError msg={guruErrors.mataPelajaran} />
-                  </div>
+                  <FieldError msg={guruErrors.mataPelajaran} />
                 </div>
                 {!editingGuruId && (
                   <div className="space-y-1.5">

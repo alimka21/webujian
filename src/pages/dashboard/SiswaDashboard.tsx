@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ClipboardList, TrendingUp, ArrowRight, Sparkles } from 'lucide-react';
+import { FileText, ClipboardList, TrendingUp, ArrowRight, Sparkles, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../lib/api';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -136,6 +136,19 @@ export default function SiswaDashboard() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-on-surface group-hover:text-primary transition-colors">Riwayat Nilai</h3>
                 <p className="text-sm text-on-surface-variant">Histori nilai dari ujian yang sudah diselesaikan.</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:text-primary transition-colors" />
+            </Link>
+            <Link
+              to="/dashboard/siswa/riwayat-nilai"
+              className="group flex items-center gap-4 p-4 rounded-lg border border-outline-variant bg-surface-container-lowest hover:border-primary hover:bg-primary-container/10 transition-all"
+            >
+              <div className="w-10 h-10 bg-tertiary-fixed/30 text-on-tertiary-fixed rounded-lg flex items-center justify-center shrink-0 group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-on-surface group-hover:text-primary transition-colors">Rekap per Mata Pelajaran</h3>
+                <p className="text-sm text-on-surface-variant">Nilai rata-rata dan daftar ujian per mapel.</p>
               </div>
               <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:text-primary transition-colors" />
             </Link>

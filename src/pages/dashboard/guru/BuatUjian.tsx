@@ -20,8 +20,9 @@ export default function BuatUjian() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'SUPER_ADMIN';
   const [kelasList, setKelasList] = useState<any[]>([]);
-  const [guruList, setGuruList] = useState<{ id: string; nama: string; mataPelajaran: string }[]>([]);
+  const [guruList, setGuruList] = useState<{ id: string; nama: string; mataPelajaran: string; mapelList: string[] }[]>([]);
   const [guruId, setGuruId] = useState<string>('');
+  const [mapelList, setMapelList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,20 +67,36 @@ export default function BuatUjian() {
     };
     fetchKelas();
 
-    // Admin perlu pilih guru pemilik ujian
     if (isAdmin) {
-      // Endpoint sekarang paginated — ambil 100 (cukup untuk dropdown sekolah typical).
       api.get('/api/admin/users?role=GURU&limit=100')
         .then((res: any) => {
           const users = res?.data ?? [];
           const list = users
             .filter((u: any) => u.guru)
-            .map((u: any) => ({ id: u.guru.id, nama: u.guru.nama, mataPelajaran: u.guru.mataPelajaran }));
+            .map((u: any) => ({
+              id: u.guru.id,
+              nama: u.guru.nama,
+              mataPelajaran: u.guru.mataPelajaran,
+              mapelList: u.guru.guruMataPelajaran?.map((m: any) => m.nama) ?? (u.guru.mataPelajaran ? [u.guru.mataPelajaran] : []),
+            }));
           setGuruList(list);
         })
         .catch(() => toast.error('Gagal memuat daftar guru'));
+    } else {
+      // Guru biasa: ambil mapel milik sendiri
+      api.get('/api/guru/mapel')
+        .then((res: any) => setMapelList(Array.isArray(res) ? res : []))
+        .catch(() => {});
     }
   }, [isAdmin]);
+
+  // Saat admin ganti guru, update mapelList dan reset mataPelajaran
+  const handleGuruChange = (id: string) => {
+    setGuruId(id);
+    const guru = guruList.find(g => g.id === id);
+    setMapelList(guru?.mapelList ?? []);
+    setMataPelajaran('');
+  };
 
   const toggleKelas = (id: string) => {
     setSelectedKelas(prev => 
@@ -197,7 +214,7 @@ export default function BuatUjian() {
                   <Select
                     id="guruId"
                     value={guruId}
-                    onChange={e => setGuruId(e.target.value)}
+                    onChange={e => handleGuruChange(e.target.value)}
                     className={errors.guruId ? 'border-error' : 'bg-white'}
                   >
                     <option value="">-- Pilih guru pemilik ujian --</option>
@@ -222,13 +239,26 @@ export default function BuatUjian() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mataPelajaran">Mata Pelajaran <span className="text-error">*</span></Label>
-                <Input
-                  id="mataPelajaran"
-                  placeholder="Contoh: Matematika Peminatan"
-                  value={mataPelajaran}
-                  onChange={e => setMataPelajaran(e.target.value)}
-                  className={errors.mataPelajaran ? 'border-error' : ''}
-                />
+                {mapelList.length > 0 ? (
+                  <Select
+                    id="mataPelajaran"
+                    value={mataPelajaran}
+                    onChange={e => setMataPelajaran(e.target.value)}
+                    className={errors.mataPelajaran ? 'border-error' : 'bg-white'}
+                  >
+                    <option value="">-- Pilih mata pelajaran --</option>
+                    {mapelList.map(m => <option key={m} value={m}>{m}</option>)}
+                  </Select>
+                ) : (
+                  <Input
+                    id="mataPelajaran"
+                    placeholder={isAdmin && !guruId ? 'Pilih guru terlebih dahulu' : 'Contoh: Matematika Peminatan'}
+                    value={mataPelajaran}
+                    onChange={e => setMataPelajaran(e.target.value)}
+                    disabled={isAdmin && !guruId}
+                    className={errors.mataPelajaran ? 'border-error' : ''}
+                  />
+                )}
                 <FieldError msg={errors.mataPelajaran} />
               </div>
 

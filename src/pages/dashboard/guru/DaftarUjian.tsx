@@ -57,6 +57,9 @@ export default function DaftarUjian() {
   // Duplicate
   const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
 
+  // Mapel list untuk edit modal
+  const [mapelList, setMapelList] = useState<string[]>([]);
+
   // Modal a11y
   const editModalRef = useModalA11y<HTMLDivElement>(editModalOpen, () => setEditModalOpen(false));
   const deleteModalRef = useModalA11y<HTMLDivElement>(deleteModalOpen, () => { setDeleteModalOpen(false); setDeletingUjian(null); });
@@ -92,6 +95,7 @@ export default function DaftarUjian() {
   useEffect(() => {
     fetchData();
     fetchKelas();
+    api.get('/api/guru/mapel').then((res: any) => setMapelList(Array.isArray(res) ? res : [])).catch(() => {});
   }, []);
 
   const getStatus = (ujian: any) => {
@@ -458,12 +462,24 @@ export default function DaftarUjian() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-mapel">Mata Pelajaran <span className="text-error">*</span></Label>
-                    <Input
-                      id="edit-mapel"
-                      value={editForm.mataPelajaran}
-                      onChange={e => setEditForm({ ...editForm, mataPelajaran: e.target.value })}
-                      className={editErrors.mataPelajaran ? 'border-error' : ''}
-                    />
+                    {mapelList.length > 0 ? (
+                      <Select
+                        id="edit-mapel"
+                        value={editForm.mataPelajaran}
+                        onChange={e => setEditForm({ ...editForm, mataPelajaran: e.target.value })}
+                        className={editErrors.mataPelajaran ? 'border-error' : ''}
+                      >
+                        <option value="">-- Pilih Mata Pelajaran --</option>
+                        {mapelList.map(m => <option key={m} value={m}>{m}</option>)}
+                      </Select>
+                    ) : (
+                      <Input
+                        id="edit-mapel"
+                        value={editForm.mataPelajaran}
+                        onChange={e => setEditForm({ ...editForm, mataPelajaran: e.target.value })}
+                        className={editErrors.mataPelajaran ? 'border-error' : ''}
+                      />
+                    )}
                     <FieldError msg={editErrors.mataPelajaran} />
                   </div>
                   <div className="space-y-2">

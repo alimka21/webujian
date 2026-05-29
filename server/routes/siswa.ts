@@ -586,6 +586,52 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
   } catch(error) { next(error); }
 });
 
+router.get('/riwayat-nilai', async (req, res, next) => {
+  try {
+    const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
+    if (!siswa) return res.json([]);
+
+    const sesiList = await prisma.sesiUjian.findMany({
+      where: { siswaId: siswa.id, status: { in: ['SELESAI', 'AUTO_SUBMIT'] } },
+      include: {
+        ujian: {
+          select: {
+            judul: true, mataPelajaran: true, tipeUjian: true,
+            soal: { select: { tipe: true } },
+          },
+        },
+      },
+      orderBy: { selesaiAt: 'desc' },
+    });
+
+    // Kelompokkan per mata pelajaran
+    const byMapel: Record<string, any[]> = {};
+    for (const sesi of sesiList) {
+      const mapel = sesi.ujian.mataPelajaran;
+      if (!byMapel[mapel]) byMapel[mapel] = [];
+      const adaUraian = sesi.ujian.soal.some((s: any) => s.tipe === 'URAIAN_SINGKAT' || s.tipe === 'ESAI');
+      byMapel[mapel].push({
+        sesiId: sesi.id,
+        ujianJudul: sesi.ujian.judul,
+        tipeUjian: sesi.ujian.tipeUjian,
+        nilaiAkhir: sesi.nilaiAkhir,
+        selesaiAt: sesi.selesaiAt,
+        adaUraian,
+      });
+    }
+
+    const result = Object.entries(byMapel).map(([mataPelajaran, ujian]) => {
+      const nilaiValid = ujian.filter(u => u.nilaiAkhir !== null && u.nilaiAkhir !== undefined);
+      const rataRata = nilaiValid.length > 0
+        ? Math.round((nilaiValid.reduce((a: number, u: any) => a + u.nilaiAkhir, 0) / nilaiValid.length) * 100) / 100
+        : null;
+      return { mataPelajaran, rataRata, jumlahUjian: ujian.length, ujian };
+    });
+
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
 router.get('/hasil', async (req, res, next) => {
   try {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });

@@ -54,7 +54,7 @@ router.get('/users', async (req, res, next) => {
           isActive: true,
           createdAt: true,
           admin: { select: { id: true, nama: true } },
-          guru:  { select: { id: true, nama: true, nip: true, mataPelajaran: true, fotoUrl: true } },
+          guru:  { select: { id: true, nama: true, nip: true, mataPelajaran: true, fotoUrl: true, guruMataPelajaran: { select: { id: true, nama: true }, orderBy: { nama: 'asc' } } } },
           siswa: { select: { id: true, nama: true, nis: true, kelas: { select: { id: true, nama: true, tingkat: true } } } },
         },
         orderBy: { createdAt: 'desc' },
@@ -70,14 +70,13 @@ router.get('/users', async (req, res, next) => {
 
 router.post('/users', async (req, res, next) => {
   try {
-    const { email, password, role, nama, nip, mataPelajaran, nis, kelasId } = req.body;
+    const { email, password, role, nama, nip, mataPelajaran, mataPelajaranList, nis, kelasId } = req.body;
 
     if (!email || !password || !role || !nama) {
       return res.status(400).json({ error: 'Data wajib tidak lengkap' });
     }
 
     // Cek dupe natural key sebelum insert supaya pesan error jelas
-    // ("NIS sudah dipakai siswa X") daripada P2002 dari Prisma yang generic.
     const emailExist = await prisma.user.findUnique({ where: { email } });
     if (emailExist) {
       return res.status(409).json({ error: `Email "${email}" sudah dipakai akun lain` });
@@ -97,13 +96,28 @@ router.post('/users', async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Normalisasi daftar mapel — gabung mataPelajaran (legacy) + mataPelajaranList
+    const mapelList: string[] = Array.isArray(mataPelajaranList)
+      ? mataPelajaranList.map((m: string) => m.trim()).filter(Boolean)
+      : mataPelajaran ? [String(mataPelajaran).trim()] : [];
+    const mapelLegacy = mapelList[0] || mataPelajaran || '';
+
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         role,
         ...(role === 'SUPER_ADMIN' ? { admin: { create: { nama } } } : {}),
-        ...(role === 'GURU' ? { guru: { create: { nama, nip, mataPelajaran } } } : {}),
+        ...(role === 'GURU' ? {
+          guru: {
+            create: {
+              nama, nip, mataPelajaran: mapelLegacy,
+              guruMataPelajaran: mapelList.length > 0
+                ? { create: mapelList.map(n => ({ nama: n })) }
+                : undefined,
+            },
+          },
+        } : {}),
         ...(role === 'SISWA' ? { siswa: { create: { nama, nis, kelasId } } } : {})
       }
     });
@@ -119,7 +133,7 @@ router.post('/users', async (req, res, next) => {
 
 router.patch('/users/:id', async (req, res, next) => {
   try {
-    const { email, isActive, nama, nis, nip, mataPelajaran, kelasId } = req.body;
+    const { email, isActive, nama, nis, nip, mataPelajaran, mataPelajaranList, kelasId } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
@@ -134,12 +148,29 @@ router.patch('/users/:id', async (req, res, next) => {
       });
 
       if (user.role === 'GURU') {
+        // Sync GuruMataPelajaran jika dikirim
+        if (Array.isArray(mataPelajaranList)) {
+          const mapelList = mataPelajaranList.map((m: string) => m.trim()).filter(Boolean);
+          const guru = await tx.guru.findUnique({ where: { userId: req.params.id }, select: { id: true } });
+          if (guru) {
+            await tx.guruMataPelajaran.deleteMany({ where: { guruId: guru.id } });
+            if (mapelList.length > 0) {
+              await tx.guruMataPelajaran.createMany({
+                data: mapelList.map((n: string) => ({ guruId: guru.id, nama: n })),
+                skipDuplicates: true,
+              });
+            }
+          }
+        }
+        const mapelLegacy = Array.isArray(mataPelajaranList) && mataPelajaranList.length > 0
+          ? mataPelajaranList[0]
+          : mataPelajaran;
         await tx.guru.update({
           where: { userId: req.params.id },
           data: {
             ...(nama && { nama }),
             ...(nip && { nip }),
-            ...(mataPelajaran && { mataPelajaran })
+            ...(mapelLegacy && { mataPelajaran: mapelLegacy }),
           }
         });
       } else if (user.role === 'SISWA') {
@@ -472,6 +503,18 @@ router.post('/users/import', async (req, res, next) => {
             skipDuplicates: true,
           });
           created = result.count;
+
+          // Seed GuruMataPelajaran dari kolom mapel
+          const newGurus = await prisma.guru.findMany({
+            where: { userId: { in: guruRows.map(g => g.userId) } },
+            select: { id: true, mataPelajaran: true },
+          });
+          if (newGurus.length > 0) {
+            await prisma.guruMataPelajaran.createMany({
+              data: newGurus.map(g => ({ guruId: g.id, nama: g.mataPelajaran })),
+              skipDuplicates: true,
+            });
+          }
         } catch (err: any) {
           for (const v of toInsert) {
             failed.push({ row: v.rowNumber, message: err.message ?? 'Gagal insert (bulk)' });

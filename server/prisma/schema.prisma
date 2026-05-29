@@ -61,13 +61,24 @@ model Guru {
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   nip           String  @unique
   nama          String
-  mataPelajaran String
+  mataPelajaran String  // legacy — dipertahankan untuk backward compat
   fotoUrl       String?
 
-  kelas     Kelas[]
-  guruKelas GuruKelas[]
-  ujian     Ujian[]
-  presensi  Presensi[]
+  kelas            Kelas[]
+  guruKelas        GuruKelas[]
+  ujian            Ujian[]
+  presensi         Presensi[]
+  guruMataPelajaran GuruMataPelajaran[]
+}
+
+model GuruMataPelajaran {
+  id     String @id @default(uuid())
+  guruId String
+  guru   Guru   @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  nama   String
+
+  @@unique([guruId, nama])
+  @@index([guruId])
 }
 
 model Kelas {

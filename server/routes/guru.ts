@@ -125,6 +125,27 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+// Daftar mata pelajaran milik guru yang login (atau semua jika admin)
+router.get('/mapel', async (req, res, next) => {
+  try {
+    const role = (req.user as any)?.role;
+    if (role === 'SUPER_ADMIN') {
+      // Admin: kembalikan daftar unik dari seluruh guru
+      const all = await prisma.guruMataPelajaran.findMany({
+        select: { nama: true },
+        distinct: ['nama'],
+        orderBy: { nama: 'asc' },
+      });
+      return res.json(all.map(m => m.nama));
+    }
+    const guru = await prisma.guru.findUnique({
+      where: { userId: (req.user as any).userId },
+      include: { guruMataPelajaran: { select: { nama: true }, orderBy: { nama: 'asc' } } },
+    });
+    res.json((guru?.guruMataPelajaran ?? []).map(m => m.nama));
+  } catch (error) { next(error); }
+});
+
 router.get('/kelas', async (req, res, next) => {
   try {
     const scope = await resolveScope(req);

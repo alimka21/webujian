@@ -40,6 +40,7 @@ const SiswaDashboard = lazy(() => import('./pages/dashboard/SiswaDashboard'));
 const ExamList = lazy(() => import('./pages/dashboard/ExamList'));
 const RiwayatNilaiSiswa = lazy(() => import('./pages/dashboard/RiwayatNilaiSiswa'));
 const HasilUjian = lazy(() => import('./pages/dashboard/siswa/HasilUjian'));
+const RiwayatNilaiMapel = lazy(() => import('./pages/dashboard/siswa/RiwayatNilai'));
 const TakeExam = lazy(() => import('./pages/exam/TakeExam'));
 
 // Suspense fallback global
@@ -205,6 +206,11 @@ export default function App() {
               <Route path="hasil/:sessionId" element={
                 <ProtectedRoute allowedRoles={['SISWA']}>
                   <HasilUjian />
+                </ProtectedRoute>
+              } />
+              <Route path="riwayat-nilai" element={
+                <ProtectedRoute allowedRoles={['SISWA']}>
+                  <RiwayatNilaiMapel />
                 </ProtectedRoute>
               } />
             </Route>
