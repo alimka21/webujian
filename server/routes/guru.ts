@@ -554,10 +554,11 @@ router.post('/ujian/:id/soal', async (req, res, next) => {
 
 // ── Bulk Import Soal: template Excel ───────────────────────────
 // Format: tipe | teks | poin | opsiA | opsiB | opsiC | opsiD | opsiE | kunci
-// Tipe: PILIHAN_GANDA | PG_KOMPLEKS | BENAR_SALAH
-// Kunci PG       : huruf A/B/C/D/E (1 huruf)
-// Kunci PG_KOMP  : multi huruf "AC", "BCD"
-// Kunci BENAR_SALAH: "BENAR" atau "SALAH" (opsi A-E diabaikan)
+// Tipe: PILIHAN_GANDA | PG_KOMPLEKS | BENAR_SALAH | URAIAN_SINGKAT | ESAI
+// Kunci PG          : huruf A/B/C/D/E (1 huruf)
+// Kunci PG_KOMPLEKS : multi huruf "AC", "BCD"
+// Kunci BENAR_SALAH : "BENAR" atau "SALAH"
+// Kunci URAIAN/ESAI : kosong (dinilai manual oleh guru)
 router.get('/ujian/:id/soal/import-template', async (_req, res, next) => {
   try {
     const wb = new ExcelJS.Workbook();
@@ -573,31 +574,51 @@ router.get('/ujian/:id/soal/import-template', async (_req, res, next) => {
       { header: 'opsiE', key: 'opsiE', width: 25 },
       { header: 'kunci', key: 'kunci', width: 12 },
     ];
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
 
-    // Contoh baris
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
+
+    // Warna latar baris uraian/esai agar terlihat beda
+    const yellowFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } };
+
+    // Contoh: soal pilihan ganda
     ws.addRow({ tipe: 'PILIHAN_GANDA', teks: 'Berapa hasil 2 + 2?', poin: 10,
       opsiA: '3', opsiB: '4', opsiC: '5', opsiD: '6', opsiE: '', kunci: 'B' });
+    // Contoh: PG kompleks
     ws.addRow({ tipe: 'PG_KOMPLEKS', teks: 'Pilih bilangan prima di bawah ini', poin: 10,
       opsiA: '2', opsiB: '4', opsiC: '7', opsiD: '9', opsiE: '11', kunci: 'ACE' });
+    // Contoh: benar/salah
     ws.addRow({ tipe: 'BENAR_SALAH', teks: 'Matahari terbit di sebelah timur', poin: 5,
       opsiA: '', opsiB: '', opsiC: '', opsiD: '', opsiE: '', kunci: 'BENAR' });
+    // Contoh: uraian singkat — opsi & kunci dikosongkan
+    const rowUraian = ws.addRow({ tipe: 'URAIAN_SINGKAT', teks: 'Sebutkan 3 contoh benda padat!', poin: 10,
+      opsiA: '', opsiB: '', opsiC: '', opsiD: '', opsiE: '', kunci: '' });
+    rowUraian.fill = yellowFill;
+    // Contoh: esai — opsi & kunci dikosongkan
+    const rowEsai = ws.addRow({ tipe: 'ESAI', teks: 'Jelaskan proses terjadinya hujan secara lengkap!', poin: 10,
+      opsiA: '', opsiB: '', opsiC: '', opsiD: '', opsiE: '', kunci: '' });
+    rowEsai.fill = yellowFill;
 
     // Sheet panduan
     const info = wb.addWorksheet('Panduan');
-    info.addRow(['Cara mengisi template import soal']);
+    info.columns = [{ width: 20 }, { width: 85 }];
+    info.addRow(['Cara Mengisi Template Import Soal']);
     info.addRow([]);
     info.addRow(['Kolom', 'Keterangan']);
-    info.addRow(['tipe', 'Salah satu: PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH']);
-    info.addRow(['teks', 'Pertanyaan soal']);
-    info.addRow(['poin', 'Bobot nilai per soal (angka)']);
-    info.addRow(['opsiA-opsiE', 'Pilihan jawaban (untuk BENAR_SALAH dikosongkan)']);
-    info.addRow(['kunci', 'PG: huruf A-E (1 huruf). PG_KOMPLEKS: multi huruf misal "AC" atau "BCD". BENAR_SALAH: "BENAR" atau "SALAH".']);
-    info.getColumn(1).width = 16;
-    info.getColumn(2).width = 80;
+    info.addRow(['tipe', 'Salah satu: PILIHAN_GANDA, PG_KOMPLEKS, BENAR_SALAH, URAIAN_SINGKAT, ESAI']);
+    info.addRow(['teks', 'Teks pertanyaan soal']);
+    info.addRow(['poin', 'Bobot nilai per soal (angka > 0). Disarankan 10 untuk uraian/esai.']);
+    info.addRow(['opsiA-opsiE', 'Pilihan jawaban. Kosongkan untuk BENAR_SALAH, URAIAN_SINGKAT, dan ESAI.']);
+    info.addRow(['kunci', 'PILIHAN_GANDA: 1 huruf A-E. PG_KOMPLEKS: multi huruf mis. "ACE". BENAR_SALAH: "BENAR" atau "SALAH". URAIAN_SINGKAT & ESAI: biarkan kosong (dinilai manual oleh guru).']);
+    info.addRow([]);
+    info.addRow(['Catatan URAIAN_SINGKAT & ESAI']);
+    info.addRow(['Kolom opsiA-opsiE dan kunci harus dikosongkan.']);
+    info.addRow(['Guru menilai secara manual dengan memberi nilai 1-10 di halaman Koreksi.']);
+    info.addRow(['Nilai akhir = (nilai guru ÷ 10) × poin soal.']);
     info.getRow(1).font = { bold: true, size: 14 };
     info.getRow(3).font = { bold: true };
+    info.getRow(10).font = { bold: true };
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -626,7 +647,7 @@ router.post('/ujian/:id/soal/import', async (req, res, next) => {
     const ujian = await prisma.ujian.findUnique({ where: { id: ujianId } });
     if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
 
-    const VALID_TIPE = new Set(['PILIHAN_GANDA', 'PG_KOMPLEKS', 'BENAR_SALAH']);
+    const VALID_TIPE = new Set(['PILIHAN_GANDA', 'PG_KOMPLEKS', 'BENAR_SALAH', 'URAIAN_SINGKAT', 'ESAI']);
     const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
     let created = 0;
@@ -656,6 +677,20 @@ router.post('/ujian/:id/soal/import', async (req, res, next) => {
 
       // Build opsi[] berdasarkan tipe
       let opsi: { teks: string; benar: boolean }[] = [];
+
+      // Uraian/esai tidak punya opsi — langsung simpan tanpa validasi opsi/kunci
+      if (tipe === 'URAIAN_SINGKAT' || tipe === 'ESAI') {
+        try {
+          await prisma.soal.create({
+            data: { ujianId, nomor: startNomor++, teks, tipe, poin, opsi: { create: [] } },
+          });
+          created++;
+        } catch (err: any) {
+          startNomor--;
+          failed.push({ row: rowNumber, message: err.message ?? 'Gagal insert' });
+        }
+        continue;
+      }
 
       if (tipe === 'BENAR_SALAH') {
         if (kunci !== 'BENAR' && kunci !== 'SALAH') {
