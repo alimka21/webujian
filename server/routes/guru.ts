@@ -205,8 +205,19 @@ router.patch('/siswa/:id', async (req, res, next) => {
 
 router.delete('/siswa/:id', async (req, res, next) => {
   try {
-    const siswa = await prisma.siswa.findUnique({ where: { id: req.params.id } });
-    if(siswa) await prisma.user.delete({ where: { id: siswa.userId } });
+    await prisma.$transaction(async (tx) => {
+      const siswa = await tx.siswa.findUnique({ where: { id: req.params.id } });
+      if (!siswa) return;
+      const sesiIds = (await tx.sesiUjian.findMany({ where: { siswaId: siswa.id }, select: { id: true } })).map(s => s.id);
+      if (sesiIds.length > 0) {
+        await tx.jawaban.deleteMany({ where: { sesiId: { in: sesiIds } } });
+        await tx.pelanggaran.deleteMany({ where: { sesiId: { in: sesiIds } } });
+        await tx.sesiUjian.deleteMany({ where: { id: { in: sesiIds } } });
+      }
+      await tx.presensi.deleteMany({ where: { siswaId: siswa.id } });
+      await tx.siswa.delete({ where: { id: siswa.id } });
+      if (siswa.userId) await tx.user.delete({ where: { id: siswa.userId } });
+    });
     invalidateByPrefix('guru:kelas:');
     invalidateByPrefix('guru:stats:');
     invalidateByPrefix('admin:stats');

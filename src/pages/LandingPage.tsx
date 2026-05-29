@@ -267,18 +267,6 @@ export default function LandingPage() {
                 </div>
               )}
             </div>
-            {/* Floating quick-access card */}
-            <div className="absolute -bottom-6 -left-6 bg-surface-container-lowest p-5 rounded-2xl shadow-xl hidden lg:block border border-outline-variant max-w-[240px]">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-primary-container/15 text-primary flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <span className="font-bold text-primary">Ujian Online</span>
-              </div>
-              <p className="text-label-sm text-on-surface-variant">
-                Akses portal ujian terpadu dengan sistem anti-curang.
-              </p>
-            </div>
           </div>
         </div>
       </section>

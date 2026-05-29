@@ -221,7 +221,7 @@ export default function AlumniRegister() {
               </p>
             </div>
 
-            <Button type="submit" disabled={isSubmitting} size="lg" className="w-full">
+            <Button type="submit" disabled={isSubmitting} size="lg" className="w-full text-white">
               {isSubmitting ? 'Mengirim...' : 'Kirim Data Alumni'}
             </Button>
           </form>

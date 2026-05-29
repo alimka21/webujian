@@ -165,11 +165,63 @@ router.patch('/users/:id', async (req, res, next) => {
 
 router.delete('/users/:id', async (req, res, next) => {
   try {
-    await prisma.user.delete({ where: { id: req.params.id } });
+    const user = await prisma.user.findUnique({ where: { id: req.params.id }, include: { siswa: true } });
+    if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
+
+    if (user.role === 'SISWA' && user.siswa) {
+      const siswaId = user.siswa.id;
+      await prisma.$transaction(async (tx) => {
+        const sesiIds = (await tx.sesiUjian.findMany({ where: { siswaId }, select: { id: true } })).map(s => s.id);
+        if (sesiIds.length > 0) {
+          await tx.jawaban.deleteMany({ where: { sesiId: { in: sesiIds } } });
+          await tx.pelanggaran.deleteMany({ where: { sesiId: { in: sesiIds } } });
+          await tx.sesiUjian.deleteMany({ where: { id: { in: sesiIds } } });
+        }
+        await tx.presensi.deleteMany({ where: { siswaId } });
+        await tx.siswa.delete({ where: { id: siswaId } });
+        await tx.user.delete({ where: { id: req.params.id } });
+      });
+    } else {
+      await prisma.user.delete({ where: { id: req.params.id } });
+    }
+
     invalidateByPrefix('admin:stats');
     invalidateByPrefix('guru:stats:');
     invalidateByPrefix('guru:kelas:');
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/users/bulk-delete', async (req, res, next) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids wajib diisi' });
+
+    await prisma.$transaction(async (tx) => {
+      const users = await tx.user.findMany({
+        where: { id: { in: ids } },
+        include: { siswa: true },
+      });
+      const siswaIds = users.filter(u => u.role === 'SISWA' && u.siswa).map(u => u.siswa!.id);
+      if (siswaIds.length > 0) {
+        const sesiIds = (await tx.sesiUjian.findMany({ where: { siswaId: { in: siswaIds } }, select: { id: true } })).map(s => s.id);
+        if (sesiIds.length > 0) {
+          await tx.jawaban.deleteMany({ where: { sesiId: { in: sesiIds } } });
+          await tx.pelanggaran.deleteMany({ where: { sesiId: { in: sesiIds } } });
+          await tx.sesiUjian.deleteMany({ where: { id: { in: sesiIds } } });
+        }
+        await tx.presensi.deleteMany({ where: { siswaId: { in: siswaIds } } });
+        await tx.siswa.deleteMany({ where: { id: { in: siswaIds } } });
+      }
+      await tx.user.deleteMany({ where: { id: { in: ids } } });
+    });
+
+    invalidateByPrefix('admin:stats');
+    invalidateByPrefix('guru:stats:');
+    invalidateByPrefix('guru:kelas:');
+    res.json({ success: true, deleted: ids.length });
   } catch (error) {
     next(error);
   }

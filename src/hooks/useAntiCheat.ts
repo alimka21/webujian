@@ -119,9 +119,22 @@ export function useAntiCheat({
   }, [sessionId, maxViolations, onViolation, onAutoSubmit, playAlarm]);
 
   useEffect(() => {
+    // Debounce timer refs — batalkan jika fokus/tab kembali dalam grace period.
+    // Mencegah false positive dari notifikasi OS, pop-up Meet, dialog izin
+    // kamera/mikrofon yang mencuri fokus sesaat lalu kembali sendiri.
+    const tabSwitchTimer = { id: 0 };
+    const blurTimer = { id: 0 };
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        triggerViolation('TAB_SWITCH', 'Terdeteksi berpindah tab atau meminimalkan browser.');
+        clearTimeout(tabSwitchTimer.id);
+        tabSwitchTimer.id = window.setTimeout(() => {
+          if (document.hidden) {
+            triggerViolation('TAB_SWITCH', 'Terdeteksi berpindah tab atau meminimalkan browser.');
+          }
+        }, 400);
+      } else {
+        clearTimeout(tabSwitchTimer.id);
       }
     };
 
@@ -134,11 +147,20 @@ export function useAntiCheat({
     };
 
     const handleWindowBlur = () => {
-      // Jika keluar dari aplikasi atau klik area di luar
       const isFull = !!document.fullscreenElement || !!(document as any).webkitFullscreenElement;
       if (!isFull) {
-        triggerViolation('WINDOW_BLUR', 'Aplikasi kehilangan fokus. Dilarang membuka aplikasi lain.');
+        clearTimeout(blurTimer.id);
+        blurTimer.id = window.setTimeout(() => {
+          const stillFull = !!document.fullscreenElement || !!(document as any).webkitFullscreenElement;
+          if (!stillFull) {
+            triggerViolation('WINDOW_BLUR', 'Aplikasi kehilangan fokus. Dilarang membuka aplikasi lain.');
+          }
+        }, 300);
       }
+    };
+
+    const handleWindowFocus = () => {
+      clearTimeout(blurTimer.id);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -168,6 +190,7 @@ export function useAntiCheat({
       document.addEventListener('fullscreenchange', handleFullscreenChange);
       document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
       window.addEventListener('blur', handleWindowBlur);
+      window.addEventListener('focus', handleWindowFocus);
     }
 
     document.addEventListener('keydown', handleKeyDown);
@@ -181,11 +204,14 @@ export function useAntiCheat({
     }
 
     return () => {
+      clearTimeout(tabSwitchTimer.id);
+      clearTimeout(blurTimer.id);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (isFullscreenSupported) {
         document.removeEventListener('fullscreenchange', handleFullscreenChange);
         document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
         window.removeEventListener('blur', handleWindowBlur);
+        window.removeEventListener('focus', handleWindowFocus);
       }
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('contextmenu', handleContextMenu);

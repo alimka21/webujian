@@ -424,6 +424,13 @@ router.post('/sesi/:sessionId/violation', async (req, res, next) => {
     const owned = await resolveOwnedSesi(req, req.params.sessionId);
     if (!owned) return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
 
+    // Tolak pelanggaran jika sesi sudah selesai — mencegah violation yang
+    // dikirim in-flight saat page navigasi keluar (setelah submit) dari
+    // tersimpan ke DB dan menyebabkan data tidak konsisten.
+    if (owned.status !== 'BERLANGSUNG') {
+      return res.json({ success: true, ignored: true });
+    }
+
     const { tipe, pesan } = req.body;
     await prisma.pelanggaran.create({
       data: {

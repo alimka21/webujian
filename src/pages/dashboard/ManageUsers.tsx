@@ -13,7 +13,7 @@ import { useSiteConfig, tingkatOptions } from '../../hooks/useSiteConfig';
 import { toast } from 'sonner';
 import api from '../../lib/api';
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 30;
 
 interface SiswaUser {
   id: string;
@@ -107,6 +107,14 @@ export default function ManageUsers() {
   useEffect(() => { setSiswaPage(1); }, [siswaSearch, siswaFilterKelas]);
   useEffect(() => { setGuruPage(1); }, [guruSearch]);
   useEffect(() => { setKelasPage(1); }, [kelasSearch]);
+
+  // ── Bulk select siswa ──
+  const [selectedSiswaIds, setSelectedSiswaIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  useEffect(() => { setSelectedSiswaIds(new Set()); }, [siswaSearch, siswaFilterKelas]);
+  const bulkDeleteModalRef = useModalA11y<HTMLDivElement>(showBulkDeleteConfirm, () => setShowBulkDeleteConfirm(false));
 
   // ── Modal a11y refs ──
   const siswaModalRef = useModalA11y<HTMLDivElement>(showSiswaModal, () => setShowSiswaModal(false));
@@ -329,6 +337,20 @@ export default function ManageUsers() {
     finally { setIsSubmittingKelas(false); }
   };
 
+  // ── Bulk delete siswa ──
+  const handleBulkDelete = async () => {
+    if (selectedSiswaIds.size === 0) return;
+    try {
+      setIsBulkDeleting(true);
+      await api.post('/api/admin/users/bulk-delete', { ids: Array.from(selectedSiswaIds) });
+      toast.success(`${selectedSiswaIds.size} siswa berhasil dihapus`);
+      setSelectedSiswaIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      fetchSiswa();
+    } catch (e: any) { toast.error(e.message || 'Gagal menghapus siswa'); }
+    finally { setIsBulkDeleting(false); }
+  };
+
   // ── Delete ──
   const handleDelete = async () => {
     if (!deleteConfirm) return;
@@ -538,6 +560,20 @@ export default function ManageUsers() {
             </div>
           </div>
 
+          {selectedSiswaIds.size > 0 && (
+            <div className="flex items-center gap-3 px-1 py-2">
+              <span className="text-sm text-on-surface-variant">{selectedSiswaIds.size} siswa dipilih</span>
+              <Button
+                variant="outline"
+                className="gap-2 border-error text-error hover:bg-error-container"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+              >
+                <Trash2 className="w-4 h-4" /> Hapus Terpilih ({selectedSiswaIds.size})
+              </Button>
+              <button className="text-xs text-on-surface-variant underline" onClick={() => setSelectedSiswaIds(new Set())}>Batalkan pilihan</button>
+            </div>
+          )}
+
           <Card>
             <CardContent className="p-0">
               {isLoadingSiswa ? (
@@ -549,6 +585,18 @@ export default function ManageUsers() {
                   <table className="w-full text-sm text-left">
                     <thead className="bg-surface-container-low border-b border-outline-variant text-on-surface-variant uppercase text-xs">
                       <tr>
+                        <th className="px-4 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-primary cursor-pointer"
+                            checked={filteredSiswa.length > 0 && filteredSiswa.every(u => selectedSiswaIds.has(u.id))}
+                            onChange={e => {
+                              if (e.target.checked) setSelectedSiswaIds(new Set(filteredSiswa.map(u => u.id)));
+                              else setSelectedSiswaIds(new Set());
+                            }}
+                            aria-label="Pilih semua siswa"
+                          />
+                        </th>
                         <th className="px-4 py-3 font-semibold">NIS</th>
                         <th className="px-4 py-3 font-semibold">Nama Siswa</th>
                         <th className="px-4 py-3 font-semibold">Kelas</th>
@@ -557,7 +605,20 @@ export default function ManageUsers() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedSiswa.map(u => (
-                        <tr key={u.id} className="hover:bg-surface-container-low/50 transition-colors">
+                        <tr key={u.id} className={`hover:bg-surface-container-low/50 transition-colors ${selectedSiswaIds.has(u.id) ? 'bg-primary-container/10' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                              checked={selectedSiswaIds.has(u.id)}
+                              onChange={e => {
+                                const next = new Set(selectedSiswaIds);
+                                if (e.target.checked) next.add(u.id); else next.delete(u.id);
+                                setSelectedSiswaIds(next);
+                              }}
+                              aria-label={`Pilih ${u.siswa?.nama}`}
+                            />
+                          </td>
                           <td className="px-4 py-3 font-mono font-medium text-on-surface">{u.siswa?.nis}</td>
                           <td className="px-4 py-3 font-medium text-on-surface">{u.siswa?.nama}</td>
                           <td className="px-4 py-3 text-on-surface-variant">{u.siswa?.kelas?.nama || '-'}</td>
@@ -646,6 +707,7 @@ export default function ManageUsers() {
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-1">
                               <Button variant="ghost" size="sm" onClick={() => openGuruModal(u)} className="h-8 px-2 text-primary hover:bg-primary-container/15" aria-label={`Edit ${u.guru?.nama}`}><Pencil className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setResetConfirm({ userId: u.id, nama: u.guru?.nama, resetTo: u.guru?.nip || '(NIP kosong, akan direset ke password123)' })} className="h-8 px-2 text-on-tertiary-fixed hover:bg-tertiary-fixed/50" aria-label={`Reset password ${u.guru?.nama}`}><KeyRound className="w-4 h-4" /></Button>
                               <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm({ id: u.id, nama: u.guru?.nama, type: 'GURU' })} className="h-8 px-2 text-error hover:bg-error-container" aria-label={`Hapus ${u.guru?.nama}`}><Trash2 className="w-4 h-4" /></Button>
                             </div>
                           </td>
@@ -938,6 +1000,35 @@ export default function ManageUsers() {
               <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeletingId !== null}>Batal</Button>
               <Button onClick={handleDelete} disabled={isDeletingId !== null} className="bg-error hover:bg-error/90 text-white">
                 {isDeletingId !== null ? <><Spinner />Menghapus...</> : 'Ya, Hapus'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ MODAL KONFIRMASI HAPUS BANYAK SISWA ════ */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
+          <div
+            ref={bulkDeleteModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-modal-title"
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 text-center space-y-4"
+          >
+            <div className="w-12 h-12 bg-error-container rounded-full flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6 text-error" />
+            </div>
+            <div>
+              <h3 id="bulk-delete-modal-title" className="font-bold text-on-surface text-lg">Hapus {selectedSiswaIds.size} Siswa?</h3>
+              <p className="text-on-surface-variant text-sm mt-1.5">
+                Semua data ujian dan presensi dari <span className="font-semibold text-on-surface">{selectedSiswaIds.size} siswa terpilih</span> juga akan terhapus. Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={isBulkDeleting}>Batal</Button>
+              <Button onClick={handleBulkDelete} disabled={isBulkDeleting} className="bg-error hover:bg-error/90 text-white">
+                {isBulkDeleting ? <><Spinner />Menghapus...</> : `Ya, Hapus ${selectedSiswaIds.size} Siswa`}
               </Button>
             </div>
           </div>
