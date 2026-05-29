@@ -7,6 +7,18 @@ import { requireAuth, requireRole } from '../middleware';
 const router = Router();
 router.use(requireAuth, requireRole(['SISWA']));
 
+/**
+ * Verifikasi sesi milik siswa yang login — 1 query via relasi siswa.userId.
+ * Return sesi { id, status } kalau valid, null kalau bukan milik siswa /
+ * tidak ada. Cegah siswa memanipulasi sesi siswa lain dgn tebak UUID.
+ */
+async function resolveOwnedSesi(req: any, sessionId: string) {
+  return prisma.sesiUjian.findFirst({
+    where: { id: sessionId, siswa: { userId: req.user.userId } },
+    select: { id: true, status: true },
+  });
+}
+
 router.get('/dashboard', async (req, res, next) => {
   try {
     const siswa = await prisma.siswa.findUnique({ where: { userId: (req.user as any).userId } });
@@ -212,6 +224,14 @@ router.get('/sesi/:sessionId', async (req, res, next) => {
 router.post('/sesi/:sessionId/jawab-batch', async (req, res, next) => {
   try {
     const sessionId = req.params.sessionId;
+
+    // Verifikasi kepemilikan + sesi masih aktif (tolak setelah submit)
+    const sesi = await resolveOwnedSesi(req, sessionId);
+    if (!sesi) return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+    if (sesi.status === 'SELESAI' || sesi.status === 'AUTO_SUBMIT') {
+      return res.status(409).json({ error: 'Ujian sudah selesai, jawaban tidak dapat diubah' });
+    }
+
     const answers = (req.body?.answers ?? {}) as Record<string, string[]>;
     const entries = Object.entries(answers).filter(
       ([, ids]) => Array.isArray(ids) && ids.length > 0
@@ -242,6 +262,13 @@ router.post('/sesi/:sessionId/jawab-batch', async (req, res, next) => {
 
 router.post('/sesi/:sessionId/jawab', async (req, res, next) => {
   try {
+    // Verifikasi kepemilikan + sesi masih aktif
+    const sesi = await resolveOwnedSesi(req, req.params.sessionId);
+    if (!sesi) return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+    if (sesi.status === 'SELESAI' || sesi.status === 'AUTO_SUBMIT') {
+      return res.status(409).json({ error: 'Ujian sudah selesai, jawaban tidak dapat diubah' });
+    }
+
     const { soalId, opsiIds } = req.body;
     if (!opsiIds || opsiIds.length === 0) return res.json({ success: true }); // No answer selected
 
@@ -369,6 +396,12 @@ async function autoSubmitExpiredSessions(siswaId: string) {
 
 router.post('/sesi/:sessionId/submit', async (req, res, next) => {
   try {
+    // Verifikasi kepemilikan sebelum submit — cegah siswa men-submit paksa
+    // sesi siswa lain. (computeAndSaveSubmit dipakai juga oleh auto-submit
+    // internal yg sudah ter-scope siswaId, jadi guard cukup di route ini.)
+    const owned = await resolveOwnedSesi(req, req.params.sessionId);
+    if (!owned) return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+
     const reason = (req.query.reason as string) || req.body.reason || 'manual';
     const result = await computeAndSaveSubmit(req.params.sessionId, reason);
     if (!result.ok) {
@@ -386,6 +419,11 @@ router.post('/sesi/:sessionId/submit', async (req, res, next) => {
 
 router.post('/sesi/:sessionId/violation', async (req, res, next) => {
   try {
+    // Verifikasi kepemilikan — cegah siswa menyuntik pelanggaran palsu ke
+    // sesi siswa lain (mis. menggugurkan nilai temannya).
+    const owned = await resolveOwnedSesi(req, req.params.sessionId);
+    if (!owned) return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+
     const { tipe, pesan } = req.body;
     await prisma.pelanggaran.create({
       data: {
@@ -428,6 +466,14 @@ router.get('/sesi/:sessionId/hasil', async (req, res, next) => {
 
     if (!sesi || sesi.siswaId !== siswa.id) {
       return res.status(404).json({ error: 'Sesi tidak ditemukan atau akses ditolak' });
+    }
+
+    // CRITICAL: hasil (termasuk kunci jawaban) HANYA boleh dibuka setelah
+    // ujian selesai. Tanpa guard ini siswa bisa fetch endpoint ini saat
+    // ujian masih berlangsung (sessionId ada di URL mereka) → lihat kunci
+    // jawaban → balik ke ujian & jawab benar semua.
+    if (sesi.status !== 'SELESAI' && sesi.status !== 'AUTO_SUBMIT') {
+      return res.status(403).json({ error: 'Hasil hanya bisa dilihat setelah ujian selesai' });
     }
 
     const soalList = sesi.ujian.soal;

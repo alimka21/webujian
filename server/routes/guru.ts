@@ -28,6 +28,30 @@ async function resolveScope(req: any): Promise<{ isAdmin: boolean; guruId: strin
   return { isAdmin: false, guruId: guru?.id ?? null };
 }
 
+/**
+ * Cek apakah ujian boleh diakses user. Admin → selalu boleh. Guru → hanya
+ * miliknya. Cegah guru A melihat/edit/hapus ujian + kunci jawaban guru B.
+ */
+async function canAccessUjian(req: any, ujianId: string): Promise<boolean> {
+  const scope = await resolveScope(req);
+  if (scope.isAdmin) return true;
+  const ujian = await prisma.ujian.findUnique({ where: { id: ujianId }, select: { guruId: true } });
+  return !!ujian && ujian.guruId === scope.guruId;
+}
+
+/**
+ * Sama seperti canAccessUjian tapi resolve via soal → ujian → guruId.
+ */
+async function canAccessSoal(req: any, soalId: string): Promise<boolean> {
+  const scope = await resolveScope(req);
+  if (scope.isAdmin) return true;
+  const soal = await prisma.soal.findUnique({
+    where: { id: soalId },
+    select: { ujian: { select: { guruId: true } } },
+  });
+  return !!soal && soal.ujian.guruId === scope.guruId;
+}
+
 router.get('/stats', async (req, res, next) => {
   try {
     const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
@@ -268,6 +292,9 @@ router.post('/ujian', async (req, res, next) => {
 
 router.get('/ujian/:id', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: "Not found" });
+    }
     const ujian = await prisma.ujian.findUnique({
       where: { id: req.params.id },
       include: { soal: { include: { opsi: true }, orderBy: { nomor: 'asc' } } }
@@ -279,6 +306,9 @@ router.get('/ujian/:id', async (req, res, next) => {
 
 router.patch('/ujian/:id', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: "Ujian tidak ditemukan" });
+    }
     const { judul, mataPelajaran, tipeUjian, durasi, tanggalMulai, tanggalSelesai,
             acak, acakOpsi, tampilkanPembahasan, tampilkanNilai, kelasIds } = req.body;
 
@@ -323,6 +353,9 @@ router.patch('/ujian/:id', async (req, res, next) => {
 router.delete('/ujian/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
+    if (!(await canAccessUjian(req, id))) {
+      return res.status(404).json({ error: "Ujian tidak ditemukan" });
+    }
     const sesiCount = await prisma.sesiUjian.count({
       where: { ujianId: id, status: { in: ["BERJALAN", "SEDANG_BERLANGSUNG", "SELESAI", "AUTO_SUBMIT"] } }
     });
@@ -343,6 +376,9 @@ router.post('/ujian/:id/duplikat', async (req, res, next) => {
     const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     if (!guru) return res.status(404).json({ error: 'Guru tidak ditemukan' });
 
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
     const source = await prisma.ujian.findUnique({
       where: { id: req.params.id },
       include: {
@@ -397,6 +433,9 @@ router.post('/ujian/:id/duplikat', async (req, res, next) => {
 // Soal routes
 router.get('/ujian/:id/soal', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: "Ujian tidak ditemukan" });
+    }
     const soal = await prisma.soal.findMany({ where: { ujianId: req.params.id }, include: { opsi: true }, orderBy: {nomor: 'asc'} });
     res.json(soal);
   } catch(e) { next(e); }
@@ -404,6 +443,9 @@ router.get('/ujian/:id/soal', async (req, res, next) => {
 
 router.post('/ujian/:id/soal', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: "Ujian tidak ditemukan" });
+    }
     const { teks, imageUrl, tipe, opsi, poin } = req.body;
 
     if (!teks?.trim()) return res.status(400).json({ error: "Teks soal tidak boleh kosong" });
@@ -496,6 +538,9 @@ router.post('/ujian/:id/soal/import', async (req, res, next) => {
     }
 
     // Pastikan ujian milik guru (atau admin)
+    if (!(await canAccessUjian(req, ujianId))) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
     const ujian = await prisma.ujian.findUnique({ where: { id: ujianId } });
     if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
 
@@ -603,6 +648,9 @@ router.post('/ujian/:id/soal/import', async (req, res, next) => {
 
 router.patch('/soal/:id', async (req, res, next) => {
   try {
+    if (!(await canAccessSoal(req, req.params.id))) {
+      return res.status(404).json({ error: "Soal tidak ditemukan" });
+    }
     const { teks, imageUrl, tipe, opsi, poin } = req.body;
     const updated = await prisma.$transaction(async (tx) => {
       // Hapus opsi lama
@@ -628,6 +676,9 @@ router.patch('/soal/:id', async (req, res, next) => {
 router.delete('/soal/:id', async (req, res, next) => {
   try {
     const soalId = req.params.id;
+    if (!(await canAccessSoal(req, soalId))) {
+      return res.status(404).json({ error: "Soal tidak ditemukan" });
+    }
     const soal = await prisma.soal.findUnique({ where: { id: soalId } });
     if (!soal) return res.status(404).json({ error: "Soal tidak ditemukan" });
 
@@ -651,8 +702,11 @@ router.delete('/soal/:id', async (req, res, next) => {
 
 router.get('/ujian/:id/hasil', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: 'Not found' });
+    }
     const ujian = await prisma.ujian.findUnique({
-      where: { id: req.params.id }, 
+      where: { id: req.params.id },
       include: { kelas: true }
     });
     if (!ujian) return res.status(404).json({ error: 'Not found' });
@@ -695,6 +749,9 @@ router.get('/ujian/:id/hasil', async (req, res, next) => {
 // Saat siswa klik Mulai Ujian lagi, sesi baru terbuat (mulaiAt fresh).
 router.delete('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    }
     const sesi = await prisma.sesiUjian.findUnique({
       where: { id: req.params.sesiId },
       include: { siswa: { select: { nama: true, nis: true } } },
@@ -716,6 +773,9 @@ router.delete('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
 
 router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    }
     const sesi = await prisma.sesiUjian.findUnique({
       where: { id: req.params.sesiId },
       include: {
@@ -772,6 +832,9 @@ router.get('/ujian/:id/sesi/:sesiId', async (req, res, next) => {
 // Export Excel / PDF
 router.get('/ujian/:id/export', async (req, res, next) => {
   try {
+    if (!(await canAccessUjian(req, req.params.id))) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
     const ujian = await prisma.ujian.findUnique({
       where: { id: req.params.id },
       include: { kelas: { include: { kelas: true } } }
