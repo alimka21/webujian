@@ -1091,11 +1091,33 @@ export default function ManageUsers() {
               <p className="text-on-surface-variant text-sm mt-1.5">
                 Anda akan menghapus <span className="font-semibold text-on-surface">"{deleteConfirm.nama}"</span>.
                 {deleteConfirm.type === 'SISWA' && ' Semua data ujian siswa ini juga akan terhapus.'}
-                {deleteConfirm.type === 'GURU' && ' Semua ujian, soal, presensi, dan kelas kosong yang dimiliki guru ini akan ikut terhapus. Guru tidak bisa dihapus jika masih menjadi wali kelas dengan siswa aktif.'}
                 {deleteConfirm.type === 'KELAS' && ' Kelas tidak dapat dihapus jika masih ada siswa di dalamnya.'}
                 {' Tindakan ini tidak dapat dibatalkan.'}
               </p>
             </div>
+
+            {deleteConfirm.type === 'GURU' && (
+              <div className="text-left space-y-2">
+                <div className="flex items-start gap-2 bg-error-container/60 border border-error/25 rounded-lg px-3 py-2.5 text-xs text-error">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">Data berikut akan PERMANEN terhapus:</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-error/80">
+                      <li>Semua ujian yang dibuat guru ini</li>
+                      <li>Semua soal & jawaban dari ujian tersebut</li>
+                      <li><span className="font-semibold text-error">Nilai siswa dari seluruh ujian guru ini</span> — tidak dapat dipulihkan</li>
+                      <li>Riwayat presensi yang dicatat guru ini</li>
+                      <li>Kelas kosong (tanpa siswa) yang dikelola guru</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 bg-tertiary-fixed/30 border border-tertiary-fixed/50 rounded-lg px-3 py-2 text-xs text-on-tertiary-fixed">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <p>Jika guru masih menjadi <strong>wali kelas dengan siswa aktif</strong>, penghapusan akan diblokir — pindahkan siswa terlebih dahulu.</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-center">
               <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeletingId !== null}>Batal</Button>
               <Button onClick={handleDelete} disabled={isDeletingId !== null} className="bg-error hover:bg-error/90 text-white">
