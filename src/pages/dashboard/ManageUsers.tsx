@@ -1091,6 +1091,7 @@ export default function ManageUsers() {
               <p className="text-on-surface-variant text-sm mt-1.5">
                 Anda akan menghapus <span className="font-semibold text-on-surface">"{deleteConfirm.nama}"</span>.
                 {deleteConfirm.type === 'SISWA' && ' Semua data ujian siswa ini juga akan terhapus.'}
+                {deleteConfirm.type === 'GURU' && ' Semua ujian, soal, presensi, dan kelas kosong yang dimiliki guru ini akan ikut terhapus. Guru tidak bisa dihapus jika masih menjadi wali kelas dengan siswa aktif.'}
                 {deleteConfirm.type === 'KELAS' && ' Kelas tidak dapat dihapus jika masih ada siswa di dalamnya.'}
                 {' Tindakan ini tidak dapat dibatalkan.'}
               </p>

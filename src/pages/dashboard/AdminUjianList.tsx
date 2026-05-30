@@ -268,8 +268,7 @@ export default function AdminUjianList() {
                               onClick={() => setDeleteConfirm(u)}
                               className="h-8 px-2 text-error hover:bg-error-container"
                               aria-label={`Hapus ujian ${u.judul}`}
-                              disabled={u._count.sesiUjian > 0}
-                              title={u._count.sesiUjian > 0 ? 'Tidak bisa hapus: sudah ada sesi siswa' : 'Hapus ujian'}
+                              title="Hapus ujian"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -310,8 +309,16 @@ export default function AdminUjianList() {
               <p className="text-sm text-on-surface-variant mt-2">
                 <strong className="text-on-surface">{deleteConfirm.judul}</strong>
               </p>
+              {deleteConfirm._count.sesiUjian > 0 && (
+                <div className="mt-3 flex items-start gap-2 text-xs text-error bg-error-container/50 border border-error/20 rounded-lg px-3 py-2 text-left">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>{deleteConfirm._count.sesiUjian} sesi siswa</strong> akan ikut terhapus beserta seluruh jawaban dan nilai.
+                  </span>
+                </div>
+              )}
               <p className="text-xs text-on-surface-variant mt-2">
-                Aksi ini tidak bisa dibatalkan. Seluruh soal & relasi kelas akan ikut terhapus.
+                Aksi ini tidak bisa dibatalkan. Seluruh soal, kelas, dan sesi siswa akan ikut terhapus.
               </p>
             </div>
             <div className="px-6 pb-6 flex gap-3">

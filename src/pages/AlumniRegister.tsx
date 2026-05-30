@@ -14,6 +14,8 @@ const STATUS_OPTIONS = [
   { value: 'TIDAK_DIKETAHUI', label: 'Belum mau menyebutkan' },
 ];
 
+const JURUSAN_OPTIONS = ['TKJ', 'TKRO', 'APAT'];
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 function FieldError({ msg }: { msg?: string }) {
@@ -171,16 +173,25 @@ export default function AlumniRegister() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="jurusan">Jurusan (opsional)</Label>
-                <Input
+                <Select
                   id="jurusan" value={jurusan} onChange={e => setJurusan(e.target.value)}
-                  placeholder="Contoh: IPA / IPS / RPL"
-                />
+                >
+                  <option value="">-- Pilih Jurusan --</option>
+                  {JURUSAN_OPTIONS.map(j => <option key={j} value={j}>{j}</option>)}
+                </Select>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="status">Status Saat Ini <span className="text-error">*</span></Label>
                 <Select
-                  id="status" value={status} onChange={e => setStatus(e.target.value)}
+                  id="status" value={status}
+                  onChange={e => {
+                    setStatus(e.target.value);
+                    if (e.target.value === 'TIDAK_DIKETAHUI') {
+                      setInstansi('');
+                      setPosisi('');
+                    }
+                  }}
                   className={errors.status ? 'border-error' : ''}
                 >
                   {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -189,18 +200,26 @@ export default function AlumniRegister() {
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
-                <Label htmlFor="instansi">Instansi / Kampus / Perusahaan</Label>
+                <Label htmlFor="instansi" className={status === 'TIDAK_DIKETAHUI' ? 'opacity-40' : ''}>
+                  Instansi / Kampus / Perusahaan
+                </Label>
                 <Input
                   id="instansi" value={instansi} onChange={e => setInstansi(e.target.value)}
                   placeholder="Nama universitas atau perusahaan"
+                  disabled={status === 'TIDAK_DIKETAHUI'}
+                  className={status === 'TIDAK_DIKETAHUI' ? 'opacity-40 cursor-not-allowed' : ''}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="posisi">Posisi / Jurusan Kuliah</Label>
+                <Label htmlFor="posisi" className={status === 'TIDAK_DIKETAHUI' ? 'opacity-40' : ''}>
+                  Posisi / Jurusan Kuliah
+                </Label>
                 <Input
                   id="posisi" value={posisi} onChange={e => setPosisi(e.target.value)}
                   placeholder="Contoh: Mahasiswa Teknik Informatika"
+                  disabled={status === 'TIDAK_DIKETAHUI'}
+                  className={status === 'TIDAK_DIKETAHUI' ? 'opacity-40 cursor-not-allowed' : ''}
                 />
               </div>
 

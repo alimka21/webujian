@@ -196,7 +196,10 @@ router.patch('/users/:id', async (req, res, next) => {
 
 router.delete('/users/:id', async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.params.id }, include: { siswa: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: { siswa: true, guru: true },
+    });
     if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
 
     if (user.role === 'SISWA' && user.siswa) {
@@ -210,6 +213,32 @@ router.delete('/users/:id', async (req, res, next) => {
         }
         await tx.presensi.deleteMany({ where: { siswaId } });
         await tx.siswa.delete({ where: { id: siswaId } });
+        await tx.user.delete({ where: { id: req.params.id } });
+      });
+    } else if (user.role === 'GURU' && user.guru) {
+      const guruId = user.guru.id;
+      await prisma.$transaction(async (tx) => {
+        // Cek apakah guru masih menjadi wali kelas dengan siswa aktif
+        const kelasAktif = await tx.kelas.count({ where: { guruId, siswa: { some: {} } } });
+        if (kelasAktif > 0) {
+          const err: any = new Error(
+            `Guru masih menjadi wali kelas dari ${kelasAktif} kelas yang memiliki siswa. Pindahkan siswa ke kelas lain terlebih dahulu.`,
+          );
+          err.status = 400;
+          throw err;
+        }
+
+        // Hapus presensi yang dicatat oleh guru ini
+        await tx.presensi.deleteMany({ where: { guruId } });
+
+        // Hapus kelas kosong (tanpa siswa) — cascade DB: presensi kelas, guruKelas, ujianKelas
+        await tx.kelas.deleteMany({ where: { guruId } });
+
+        // Hapus semua ujian guru — cascade DB (onDelete: Cascade): sesiUjian → jawaban/pelanggaran,
+        // soal → opsi/jawaban, ujianKelas
+        await tx.ujian.deleteMany({ where: { guruId } });
+
+        // Hapus user (cascade DB: guru → guruKelas, guruMataPelajaran)
         await tx.user.delete({ where: { id: req.params.id } });
       });
     } else {
@@ -800,17 +829,9 @@ router.get('/ujian/:id', async (req, res, next) => {
 
 router.delete('/ujian/:id', async (req, res, next) => {
   try {
-    const sesiCount = await prisma.sesiUjian.count({
-      where: {
-        ujianId: req.params.id,
-        status: { in: ['SEDANG_BERLANGSUNG', 'SELESAI', 'AUTO_SUBMIT'] },
-      },
-    });
-    if (sesiCount > 0) {
-      return res.status(400).json({
-        error: `Tidak bisa menghapus: ${sesiCount} siswa sudah mengerjakan ujian ini`,
-      });
-    }
+    const ujian = await prisma.ujian.findUnique({ where: { id: req.params.id } });
+    if (!ujian) return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    // Admin bisa force-delete — SesiUjian → Jawaban/Pelanggaran cascade via DB FK.
     await prisma.ujian.delete({ where: { id: req.params.id } });
     invalidateByPrefix('admin:stats');
     res.json({ success: true });
