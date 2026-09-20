@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware';
 import { getPaginationParams, buildPaginatedResult } from '../lib/pagination';
 import { withCache, invalidateByPrefix } from '../lib/cache';
+import { startOfTodayWIT } from '../lib/datetime';
 
 const router = Router();
 router.use(requireAuth, requireRole(['SUPER_ADMIN']));
@@ -21,10 +22,8 @@ router.get('/stats', async (req, res, next) => {
         prisma.berita.count()
       ]);
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const presensiHariIni = await prisma.presensi.count({
-        where: { tanggal: { gte: today } }
+        where: { tanggal: { gte: startOfTodayWIT() } }
       });
 
       return { totalSiswa, totalGuru, totalAlumni, totalUjian, totalBerita, presensiHariIni };

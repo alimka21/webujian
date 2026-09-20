@@ -7,7 +7,7 @@ import { Input, Label } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Calendar as CalendarIcon, CheckSquare, Save, Download, BarChart2, ChevronUp, ChevronDown } from 'lucide-react';
 import api from '../../lib/api';
-import { formatDate } from '../../lib/utils';
+import { formatDate, utcToWitInput } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useAuthStore } from '../../store/authStore';
 
@@ -18,8 +18,8 @@ export default function Attendance() {
   const [kelasList, setKelasList] = useState<any[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('');
   
-  // Tab Input State
-  const [tanggalPilih, setTanggalPilih] = useState(new Date().toISOString().slice(0,10));
+  // Tab Input State — default "hari ini" dihitung dalam zona waktu WIT.
+  const [tanggalPilih, setTanggalPilih] = useState(utcToWitInput(new Date()).slice(0, 10));
   const [presensiSiswa, setPresensiSiswa] = useState<any[]>([]); // id, nama, status, keterangan
   const [isLoadingSiswa, setIsLoadingSiswa] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,7 +178,7 @@ export default function Attendance() {
 
       await api.post('/api/guru/presensi', {
         kelasId: selectedKelas,
-        tanggal: new Date(tanggalPilih).toISOString(),
+        tanggal: tanggalPilih,
         presensi: data
       });
       

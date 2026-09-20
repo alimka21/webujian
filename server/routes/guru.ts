@@ -550,10 +550,13 @@ router.post('/ujian/:id/soal', async (req, res, next) => {
       return res.status(404).json({ error: "Ujian tidak ditemukan" });
     }
     const { teks, imageUrl, tipe, opsi, poin } = req.body;
+    const isUraianTipe = tipe === 'URAIAN_SINGKAT' || tipe === 'ESAI';
 
     if (!teks?.trim()) return res.status(400).json({ error: "Teks soal tidak boleh kosong" });
-    if (!opsi || opsi.length < 2) return res.status(400).json({ error: "Minimal 2 opsi jawaban" });
-    if (!opsi.some((o: any) => o.benar)) return res.status(400).json({ error: "Pilih minimal satu jawaban benar" });
+    if (!isUraianTipe) {
+      if (!opsi || opsi.length < 2) return res.status(400).json({ error: "Minimal 2 opsi jawaban" });
+      if (!opsi.some((o: any) => o.benar)) return res.status(400).json({ error: "Pilih minimal satu jawaban benar" });
+    }
 
     const count = await prisma.soal.count({ where: { ujianId: req.params.id } });
     const soal = await prisma.soal.create({
@@ -562,7 +565,7 @@ router.post('/ujian/:id/soal', async (req, res, next) => {
         nomor: count + 1,
         teks, imageUrl, tipe, poin: Number(poin || 1),
         opsi: {
-          create: opsi.map((o: any, i: number) => ({
+          create: (opsi || []).map((o: any, i: number) => ({
             teks: o.teks, imageUrl: o.imageUrl, urutan: i + 1, benar: o.benar
           }))
         }
@@ -1324,6 +1327,15 @@ router.get('/ujian/:id/export', async (req, res, next) => {
 });
 
 // PRESENSI
+// Tanggal presensi adalah kalender murni (bukan instant), jadi harus dibaca
+// sebagai UTC-midnight tanpa terpengaruh zona waktu jam server — pakai
+// setHours()/new Date(y,m,d) di sini bisa menggeser tanggal jadi H-1/H+1
+// tergantung timezone server (mis. Hostinger).
+function dateOnlyUTC(input: string): Date {
+  const datePart = String(input).slice(0, 10); // "YYYY-MM-DD"
+  return new Date(`${datePart}T00:00:00.000Z`);
+}
+
 router.post('/presensi', async (req, res, next) => {
   try {
     const { kelasId, tanggal, presensi } = req.body;
@@ -1345,8 +1357,7 @@ router.post('/presensi', async (req, res, next) => {
       guruId = scope.guruId;
     }
 
-    const tgl = new Date(tanggal);
-    tgl.setHours(0, 0, 0, 0);
+    const tgl = dateOnlyUTC(tanggal);
 
     // Hanya hapus record SESI INI (guru/wali yang sama) — biarkan presensi
     // dari guru lain di hari yang sama tetap utuh.
@@ -1377,8 +1388,7 @@ router.get('/presensi', async (req, res, next) => {
     const scope = await resolveScope(req);
     if (!scope.isAdmin && !scope.guruId) return res.json([]);
 
-    const tgl = new Date(String(tanggal));
-    tgl.setHours(0, 0, 0, 0);
+    const tgl = dateOnlyUTC(String(tanggal));
 
     // Wali kelas & admin: lihat semua presensi di kelas (semua guru).
     // Guru biasa: hanya presensi miliknya sendiri.
@@ -1404,8 +1414,8 @@ router.get('/presensi/rekap', async (req, res, next) => {
     const scope = await resolveScope(req);
     if (!scope.isAdmin && !scope.guruId) return res.json([]);
 
-    const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
-    const endObj = new Date(Number(tahun), Number(bulan), 1);
+    const startObj = new Date(Date.UTC(Number(tahun), Number(bulan) - 1, 1));
+    const endObj = new Date(Date.UTC(Number(tahun), Number(bulan), 1));
 
     const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
     const whereBase = isWaliOrAdmin
@@ -1449,8 +1459,8 @@ router.get('/presensi/export', async (req, res, next) => {
     const scope = await resolveScope(req);
     if (!scope.isAdmin && !scope.guruId) return res.status(403).json({ error: 'Hanya guru yang bisa export presensi' });
 
-    const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
-    const endObj = new Date(Number(tahun), Number(bulan), 1);
+    const startObj = new Date(Date.UTC(Number(tahun), Number(bulan) - 1, 1));
+    const endObj = new Date(Date.UTC(Number(tahun), Number(bulan), 1));
 
     const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
     const where = isWaliOrAdmin
