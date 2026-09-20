@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle2, Save, AlertTriangle, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 import { useAuthStore } from '../../../store/authStore';
+import { witInputToUTCISOString, utcToWitInput } from '../../../lib/utils';
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
@@ -46,16 +47,10 @@ export default function BuatUjian() {
   const cancelModalRef = useModalA11y<HTMLDivElement>(showCancelConfirm, () => setShowCancelConfirm(false));
 
   useEffect(() => {
-    // Set default datetime to today at 08:00
-    const now = new Date();
-    now.setHours(8, 0, 0, 0);
-    const tzOffset = now.getTimezoneOffset() * 60000;
-    const localNow = new Date(now.getTime() - tzOffset);
-    
-    const end = new Date(now.getTime() + 2 * 60 * 60 * 1000 - tzOffset); // + 2 hrs
-    
-    setTanggalMulai(localNow.toISOString().slice(0, 16));
-    setTanggalSelesai(end.toISOString().slice(0, 16));
+    // Default: hari ini jam 08:00 WIT, ditutup 2 jam kemudian.
+    const todayWit = utcToWitInput(new Date()).slice(0, 10);
+    setTanggalMulai(`${todayWit}T08:00`);
+    setTanggalSelesai(`${todayWit}T10:00`);
 
     const fetchKelas = async () => {
       try {
@@ -125,10 +120,12 @@ export default function BuatUjian() {
     if (!durasi || parseInt(durasi) < 5) errs.durasi = 'Durasi minimal 5 menit';
     if (!tanggalMulai) errs.tanggalMulai = 'Waktu dibuka wajib diisi';
     if (!tanggalSelesai) errs.tanggalSelesai = 'Waktu ditutup wajib diisi';
-    if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
+    const mulaiUTC = tanggalMulai ? witInputToUTCISOString(tanggalMulai) : '';
+    const selesaiUTC = tanggalSelesai ? witInputToUTCISOString(tanggalSelesai) : '';
+    if (mulaiUTC && selesaiUTC && new Date(selesaiUTC) <= new Date(mulaiUTC)) {
       errs.tanggalSelesai = 'Waktu ditutup harus lebih besar dari waktu dibuka';
     }
-    if (tanggalSelesai && new Date(tanggalSelesai) <= new Date()) {
+    if (selesaiUTC && new Date(selesaiUTC) <= new Date()) {
       errs.tanggalSelesai = 'Waktu ditutup sudah lewat — siswa tidak akan bisa mengikuti ujian ini';
     }
     if (tipeUjian === '__LAINNYA__' && !tipeKustom.trim()) {
@@ -151,8 +148,8 @@ export default function BuatUjian() {
         mataPelajaran,
         tipeUjian: finalTipe,
         durasi: parseInt(durasi),
-        tanggalMulai,
-        tanggalSelesai,
+        tanggalMulai: witInputToUTCISOString(tanggalMulai),
+        tanggalSelesai: witInputToUTCISOString(tanggalSelesai),
         acak,
         acakOpsi,
         // Hardcoded true — toggle dihapus per kebijakan user (selalu tampil)
@@ -310,12 +307,12 @@ export default function BuatUjian() {
           <Card>
             <CardHeader>
               <CardTitle>Pengaturan Waktu</CardTitle>
-              <CardDescription>Batas waktu dan durasi pengerjaan siswa.</CardDescription>
+              <CardDescription>Batas waktu dan durasi pengerjaan siswa (zona waktu WIT).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="tanggalMulai">Waktu Dibuka <span className="text-error">*</span></Label>
+                  <Label htmlFor="tanggalMulai">Waktu Dibuka (WIT) <span className="text-error">*</span></Label>
                   <Input
                     id="tanggalMulai"
                     type="datetime-local"
@@ -326,7 +323,7 @@ export default function BuatUjian() {
                   <FieldError msg={errors.tanggalMulai} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tanggalSelesai">Waktu Ditutup <span className="text-error">*</span></Label>
+                  <Label htmlFor="tanggalSelesai">Waktu Ditutup (WIT) <span className="text-error">*</span></Label>
                   <Input
                     id="tanggalSelesai"
                     type="datetime-local"

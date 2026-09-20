@@ -1326,30 +1326,39 @@ router.get('/ujian/:id/export', async (req, res, next) => {
 // PRESENSI
 router.post('/presensi', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
-    if (!guru) return res.status(400).json({ error: 'Hanya guru yang bisa mencatat presensi' });
     const { kelasId, tanggal, presensi } = req.body;
-
-    // Validasi: guru hanya boleh input presensi di kelas yang dia ajar
     const scope = await resolveScope(req);
-    if (!scope.isAdmin && !scope.teachingKelasIds.includes(kelasId)) {
-      return res.status(403).json({ error: 'Anda tidak terdaftar sebagai pengajar di kelas ini' });
+
+    // Admin: input/edit presensi disimpan atas nama wali kelas yang bersangkutan
+    // (konsisten dengan tampilan "semua presensi kelas" yang admin lihat).
+    // Guru: hanya boleh input presensi di kelas yang dia ajar.
+    let guruId: string;
+    if (scope.isAdmin) {
+      const kelas = await prisma.kelas.findUnique({ where: { id: kelasId }, select: { guruId: true } });
+      if (!kelas) return res.status(404).json({ error: 'Kelas tidak ditemukan' });
+      guruId = kelas.guruId;
+    } else {
+      if (!scope.guruId) return res.status(400).json({ error: 'Hanya guru yang bisa mencatat presensi' });
+      if (!scope.teachingKelasIds.includes(kelasId)) {
+        return res.status(403).json({ error: 'Anda tidak terdaftar sebagai pengajar di kelas ini' });
+      }
+      guruId = scope.guruId;
     }
 
     const tgl = new Date(tanggal);
     tgl.setHours(0, 0, 0, 0);
 
-    // Hanya hapus record SESI INI (guru yang sama) — biarkan presensi
+    // Hanya hapus record SESI INI (guru/wali yang sama) — biarkan presensi
     // dari guru lain di hari yang sama tetap utuh.
     await prisma.presensi.deleteMany({
-      where: { kelasId, tanggal: tgl, guruId: guru.id }
+      where: { kelasId, tanggal: tgl, guruId }
     });
 
     const result = await prisma.presensi.createMany({
       data: presensi.map((p: any) => ({
         siswaId: p.siswaId,
         kelasId,
-        guruId: guru.id,
+        guruId,
         tanggal: tgl,
         status: p.status,
         keterangan: p.keterangan || null
@@ -1362,21 +1371,21 @@ router.post('/presensi', async (req, res, next) => {
 
 router.get('/presensi', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, tanggal } = req.query;
     if (!kelasId || !tanggal) return res.status(400).json({ error: 'kelasId dan tanggal wajib diisi' });
-    if (!guru) return res.json([]);
+
+    const scope = await resolveScope(req);
+    if (!scope.isAdmin && !scope.guruId) return res.json([]);
 
     const tgl = new Date(String(tanggal));
     tgl.setHours(0, 0, 0, 0);
 
-    const scope = await resolveScope(req);
     // Wali kelas & admin: lihat semua presensi di kelas (semua guru).
     // Guru biasa: hanya presensi miliknya sendiri.
     const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
     const where = isWaliOrAdmin
       ? { kelasId: String(kelasId), tanggal: tgl }
-      : { kelasId: String(kelasId), tanggal: tgl, guruId: guru.id };
+      : { kelasId: String(kelasId), tanggal: tgl, guruId: scope.guruId! };
 
     const records = await prisma.presensi.findMany({
       where,
@@ -1389,19 +1398,19 @@ router.get('/presensi', async (req, res, next) => {
 
 router.get('/presensi/rekap', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, bulan, tahun } = req.query;
     if (!kelasId || !bulan || !tahun) return res.status(400).json({ error: 'kelasId, bulan, tahun wajib' });
-    if (!guru) return res.json([]);
+
+    const scope = await resolveScope(req);
+    if (!scope.isAdmin && !scope.guruId) return res.json([]);
 
     const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
     const endObj = new Date(Number(tahun), Number(bulan), 1);
 
-    const scope = await resolveScope(req);
     const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
     const whereBase = isWaliOrAdmin
       ? { kelasId: String(kelasId), tanggal: { gte: startObj, lt: endObj } }
-      : { kelasId: String(kelasId), guruId: guru.id, tanggal: { gte: startObj, lt: endObj } };
+      : { kelasId: String(kelasId), guruId: scope.guruId!, tanggal: { gte: startObj, lt: endObj } };
 
     const records = await prisma.presensi.findMany({
       where: whereBase,
@@ -1409,20 +1418,21 @@ router.get('/presensi/rekap', async (req, res, next) => {
     });
 
     // Agregasi per siswa
-    const map = new Map<string, { siswaId: string; nama: string; nis: string; hadir: number; izin: number; sakit: number; alpha: number }>();
+    const map = new Map<string, { siswaId: string; nama: string; nis: string; hadir: number; izin: number; sakit: number; alpha: number; bolos: number }>();
     for (const r of records) {
       if (!map.has(r.siswaId)) {
-        map.set(r.siswaId, { siswaId: r.siswaId, nama: r.siswa.nama, nis: r.siswa.nis, hadir: 0, izin: 0, sakit: 0, alpha: 0 });
+        map.set(r.siswaId, { siswaId: r.siswaId, nama: r.siswa.nama, nis: r.siswa.nis, hadir: 0, izin: 0, sakit: 0, alpha: 0, bolos: 0 });
       }
       const entry = map.get(r.siswaId)!;
       if (r.status === 'HADIR') entry.hadir++;
       else if (r.status === 'IZIN') entry.izin++;
       else if (r.status === 'SAKIT') entry.sakit++;
       else if (r.status === 'ALPHA') entry.alpha++;
+      else if (r.status === 'BOLOS') entry.bolos++;
     }
 
     const result = Array.from(map.values()).map(s => {
-      const total = s.hadir + s.izin + s.sakit + s.alpha;
+      const total = s.hadir + s.izin + s.sakit + s.alpha + s.bolos;
       const persentase = total > 0 ? Math.round((s.hadir / total) * 100) : 0;
       return { ...s, total, persentase };
     }).sort((a, b) => a.nama.localeCompare(b.nama));
@@ -1433,31 +1443,38 @@ router.get('/presensi/rekap', async (req, res, next) => {
 
 router.get('/presensi/export', async (req, res, next) => {
   try {
-    const guru = await prisma.guru.findUnique({ where: { userId: (req.user as any).userId } });
     const { kelasId, bulan, tahun } = req.query;
     if (!kelasId || !bulan || !tahun) return res.status(400).json({ error: 'kelasId, bulan, tahun wajib' });
-    if (!guru) return res.status(403).json({ error: 'Hanya guru yang bisa export presensi' });
+
+    const scope = await resolveScope(req);
+    if (!scope.isAdmin && !scope.guruId) return res.status(403).json({ error: 'Hanya guru yang bisa export presensi' });
 
     const startObj = new Date(Number(tahun), Number(bulan) - 1, 1);
     const endObj = new Date(Number(tahun), Number(bulan), 1);
 
+    const isWaliOrAdmin = scope.isAdmin || scope.waliKelasIds.includes(String(kelasId));
+    const where = isWaliOrAdmin
+      ? { kelasId: String(kelasId), tanggal: { gte: startObj, lt: endObj } }
+      : { kelasId: String(kelasId), guruId: scope.guruId!, tanggal: { gte: startObj, lt: endObj } };
+
     const [records, kelas] = await Promise.all([
       prisma.presensi.findMany({
-        where: { kelasId: String(kelasId), guruId: guru.id, tanggal: { gte: startObj, lt: endObj } },
+        where,
         include: { siswa: { select: { id: true, nama: true, nis: true } } }
       }),
       prisma.kelas.findUnique({ where: { id: String(kelasId) }, select: { nama: true } })
     ]);
 
     // Agregasi
-    const map = new Map<string, { nama: string; nis: string; hadir: number; izin: number; sakit: number; alpha: number }>();
+    const map = new Map<string, { nama: string; nis: string; hadir: number; izin: number; sakit: number; alpha: number; bolos: number }>();
     for (const r of records) {
-      if (!map.has(r.siswaId)) map.set(r.siswaId, { nama: r.siswa.nama, nis: r.siswa.nis, hadir: 0, izin: 0, sakit: 0, alpha: 0 });
+      if (!map.has(r.siswaId)) map.set(r.siswaId, { nama: r.siswa.nama, nis: r.siswa.nis, hadir: 0, izin: 0, sakit: 0, alpha: 0, bolos: 0 });
       const e = map.get(r.siswaId)!;
       if (r.status === 'HADIR') e.hadir++;
       else if (r.status === 'IZIN') e.izin++;
       else if (r.status === 'SAKIT') e.sakit++;
       else if (r.status === 'ALPHA') e.alpha++;
+      else if (r.status === 'BOLOS') e.bolos++;
     }
 
     const namaBulan = new Date(Number(tahun), Number(bulan) - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
@@ -1465,13 +1482,13 @@ router.get('/presensi/export', async (req, res, next) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Rekap Presensi');
 
-    sheet.mergeCells('A1:G1');
+    sheet.mergeCells('A1:H1');
     sheet.getCell('A1').value = `Rekap Presensi - ${kelas?.nama || ''} - ${namaBulan}`;
     sheet.getCell('A1').font = { bold: true, size: 13 };
     sheet.getCell('A1').alignment = { horizontal: 'center' };
 
     sheet.addRow([]);
-    const headerRow = sheet.addRow(['No', 'NIS', 'Nama Siswa', 'Hadir', 'Izin', 'Sakit', 'Alpha', 'Total', '% Kehadiran']);
+    const headerRow = sheet.addRow(['No', 'NIS', 'Nama Siswa', 'Hadir', 'Izin', 'Sakit', 'Alpha', 'Bolos', 'Total', '% Kehadiran']);
     headerRow.font = { bold: true };
     headerRow.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
@@ -1479,15 +1496,15 @@ router.get('/presensi/export', async (req, res, next) => {
       cell.alignment = { horizontal: 'center' };
     });
     sheet.columns = [
-      { width: 5 }, { width: 14 }, { width: 28 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 13 }
+      { width: 5 }, { width: 14 }, { width: 28 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 13 }
     ];
 
     let no = 1;
     for (const [, s] of map) {
-      const total = s.hadir + s.izin + s.sakit + s.alpha;
+      const total = s.hadir + s.izin + s.sakit + s.alpha + s.bolos;
       const pct = total > 0 ? Math.round((s.hadir / total) * 100) : 0;
-      const row = sheet.addRow([no++, s.nis, s.nama, s.hadir, s.izin, s.sakit, s.alpha, total, `${pct}%`]);
-      row.getCell(9).font = { color: { argb: pct >= 90 ? 'FF16A34A' : pct >= 75 ? 'FFCA8A04' : 'FFDC2626' }, bold: true };
+      const row = sheet.addRow([no++, s.nis, s.nama, s.hadir, s.izin, s.sakit, s.alpha, s.bolos, total, `${pct}%`]);
+      row.getCell(10).font = { color: { argb: pct >= 90 ? 'FF16A34A' : pct >= 75 ? 'FFCA8A04' : 'FFDC2626' }, bold: true };
     }
 
     const buf = await workbook.xlsx.writeBuffer();

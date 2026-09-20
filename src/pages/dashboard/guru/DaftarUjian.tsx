@@ -11,7 +11,7 @@ import {
   Copy, Search, Users, AlertTriangle, BookOpen, CheckCircle2, PenLine
 } from 'lucide-react';
 import api from '../../../lib/api';
-import { formatDate } from '../../../lib/utils';
+import { formatDate, witInputToUTCISOString, utcToWitInput } from '../../../lib/utils';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 
@@ -125,11 +125,6 @@ export default function DaftarUjian() {
   const hasParticipants = (ujian: any) => (ujian._count?.sesiUjian || 0) > 0;
 
   // ── Edit modal ──────────────────────────────────────────────
-  const toLocalISO = (d: string) => {
-    const date = new Date(d);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  };
-
   const handleOpenEdit = (ujian: any) => {
     setEditingUjian(ujian);
     setEditErrors({});
@@ -138,8 +133,8 @@ export default function DaftarUjian() {
       mataPelajaran: ujian.mataPelajaran,
       tipeUjian: ujian.tipeUjian || 'ULANGAN_HARIAN',
       durasi: String(ujian.durasi),
-      tanggalMulai: ujian.tanggalMulai ? toLocalISO(ujian.tanggalMulai) : '',
-      tanggalSelesai: ujian.tanggalSelesai ? toLocalISO(ujian.tanggalSelesai) : '',
+      tanggalMulai: ujian.tanggalMulai ? utcToWitInput(ujian.tanggalMulai) : '',
+      tanggalSelesai: ujian.tanggalSelesai ? utcToWitInput(ujian.tanggalSelesai) : '',
       kelasIds: ujian.kelas.map((uk: any) => uk.kelasId)
     });
     setEditModalOpen(true);
@@ -162,8 +157,9 @@ export default function DaftarUjian() {
     if (!editForm.durasi || parseInt(editForm.durasi) < 5) errs.durasi = 'Durasi minimal 5 menit';
     if (!editForm.tanggalMulai) errs.tanggalMulai = 'Waktu dibuka wajib diisi';
     if (!editForm.tanggalSelesai) errs.tanggalSelesai = 'Waktu ditutup wajib diisi';
-    if (editForm.tanggalMulai && editForm.tanggalSelesai &&
-        new Date(editForm.tanggalSelesai) <= new Date(editForm.tanggalMulai)) {
+    const mulaiUTC = editForm.tanggalMulai ? witInputToUTCISOString(editForm.tanggalMulai) : '';
+    const selesaiUTC = editForm.tanggalSelesai ? witInputToUTCISOString(editForm.tanggalSelesai) : '';
+    if (mulaiUTC && selesaiUTC && new Date(selesaiUTC) <= new Date(mulaiUTC)) {
       errs.tanggalSelesai = 'Waktu ditutup harus lebih besar dari waktu dibuka';
     }
     if (editForm.kelasIds.length === 0) errs.kelasIds = 'Pilih minimal satu kelas peserta';
@@ -179,8 +175,8 @@ export default function DaftarUjian() {
         mataPelajaran: editForm.mataPelajaran,
         tipeUjian: editForm.tipeUjian,
         durasi: parseInt(editForm.durasi),
-        tanggalMulai: editForm.tanggalMulai,
-        tanggalSelesai: editForm.tanggalSelesai,
+        tanggalMulai: mulaiUTC,
+        tanggalSelesai: selesaiUTC,
         kelasIds: editForm.kelasIds
       });
       toast.success('Informasi ujian berhasil diperbarui');
@@ -516,7 +512,7 @@ export default function DaftarUjian() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-mulai">Waktu Dibuka <span className="text-error">*</span></Label>
+                    <Label htmlFor="edit-mulai">Waktu Dibuka (WIT) <span className="text-error">*</span></Label>
                     <Input
                       id="edit-mulai"
                       type="datetime-local"
@@ -527,7 +523,7 @@ export default function DaftarUjian() {
                     <FieldError msg={editErrors.tanggalMulai} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-selesai">Waktu Ditutup <span className="text-error">*</span></Label>
+                    <Label htmlFor="edit-selesai">Waktu Ditutup (WIT) <span className="text-error">*</span></Label>
                     <Input
                       id="edit-selesai"
                       type="datetime-local"

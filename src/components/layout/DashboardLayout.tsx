@@ -23,6 +23,7 @@ const navConfig: Record<Role, NavItem[]> = {
     { label: 'Dashboard',        href: '/dashboard/admin',         icon: <LayoutDashboard className="w-5 h-5" /> },
     { label: 'Pengguna',         href: '/dashboard/admin/users',   icon: <Users className="w-5 h-5" /> },
     { label: 'Ujian',            href: '/dashboard/admin/ujian',   icon: <FileText className="w-5 h-5" /> },
+    { label: 'Presensi',         href: '/dashboard/guru/presensi', icon: <CalendarCheck className="w-5 h-5" /> },
     { label: 'Alumni',           href: '/dashboard/admin/alumni',  icon: <GraduationCap className="w-5 h-5" /> },
     { label: 'Berita / CMS',     href: '/dashboard/admin/cms',     icon: <Newspaper className="w-5 h-5" /> },
     { label: 'Pengaturan Situs', href: '/dashboard/admin/site',    icon: <Settings className="w-5 h-5" /> },
@@ -64,6 +65,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function getPageTitle(pathname: string, role?: Role): string {
+  if (pathname === '/dashboard/guru/presensi' && role === 'SUPER_ADMIN') return 'Presensi';
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
   // Match prefix terpanjang untuk sub-path seperti /ujian/:id/soal
   const matched = Object.entries(PAGE_TITLES)

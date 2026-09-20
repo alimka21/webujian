@@ -175,7 +175,7 @@ export default function App() {
                 </ProtectedRoute>
               } />
               <Route path="presensi" element={
-                <ProtectedRoute allowedRoles={['GURU']}>
+                <ProtectedRoute allowedRoles={['GURU', 'SUPER_ADMIN']}>
                   <Attendance />
                 </ProtectedRoute>
               } />

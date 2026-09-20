@@ -8,20 +8,22 @@
  
 ## Status Kehadiran
  
-`HADIR` | `IZIN` | `SAKIT` | `ALPHA`
+`HADIR` | `IZIN` | `SAKIT` | `ALPHA` | `BOLOS`
  
-## Flow Guru
+## Flow Guru & Admin
  
 1. Pilih kelas + tanggal
-2. Tabel siswa dengan radio per baris (HADIR/IZIN/SAKIT/ALPHA)
+2. Tabel siswa dengan radio per baris (HADIR/IZIN/SAKIT/ALPHA/BOLOS)
 3. Field keterangan opsional per siswa
 4. Tombol "Tandai Semua Hadir" untuk shortcut
 5. Submit batch → `POST /api/guru/presensi`
 6. Kalau sudah ada presensi hari itu → mode edit
+7. SUPER_ADMIN juga bisa akses halaman ini (`/dashboard/guru/presensi`) untuk
+   melihat & mengubah presensi semua kelas; disimpan atas nama wali kelas terkait.
 ## Rekap Bulanan
  
 - Pilih kelas + bulan + tahun
-- Tabel: nama | hadir | izin | sakit | alpha | persentase
+- Tabel: nama | hadir | izin | sakit | alpha | bolos | persentase
 - Grafik bar (recharts)
 - Export Excel → `GET /api/guru/presensi/export`
 ## File Terkait

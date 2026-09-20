@@ -9,8 +9,11 @@ import { Calendar as CalendarIcon, CheckSquare, Save, Download, BarChart2, Chevr
 import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useAuthStore } from '../../store/authStore';
 
 export default function Attendance() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'SUPER_ADMIN';
   const [activeTab, setActiveTab] = useState<'INPUT' | 'REKAP'>('INPUT');
   const [kelasList, setKelasList] = useState<any[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('');
@@ -198,8 +201,12 @@ export default function Attendance() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Presensi Sesi Saya</h1>
-          <p className="text-on-surface-variant mt-1">Catatan kehadiran siswa untuk sesi pelajaran yang Anda ampu. Guru lain punya catatan terpisah.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">{isAdmin ? 'Presensi' : 'Presensi Sesi Saya'}</h1>
+          <p className="text-on-surface-variant mt-1">
+            {isAdmin
+              ? 'Kelola kehadiran siswa di semua kelas, termasuk mengubah keterangan yang sudah diisi guru.'
+              : 'Catatan kehadiran siswa untuk sesi pelajaran yang Anda ampu. Guru lain punya catatan terpisah.'}
+          </p>
         </div>
         
         <div className="flex bg-surface-container p-1 rounded-lg">
@@ -309,10 +316,11 @@ export default function Attendance() {
                             <td className="px-4 py-4">
                               <div className="flex flex-wrap gap-3">
                                 {[
-                                  {val: 'HADIR', label: 'Hadir', col: 'text-on-secondary-container bg-secondary-container/30 border-secondary/30'}, 
-                                  {val: 'IZIN', label: 'Izin', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'}, 
-                                  {val: 'SAKIT', label: 'Sakit', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'}, 
-                                  {val: 'ALPHA', label: 'Alpha', col: 'text-error bg-error-container border-error/20'}
+                                  {val: 'HADIR', label: 'Hadir', col: 'text-on-secondary-container bg-secondary-container/30 border-secondary/30'},
+                                  {val: 'IZIN', label: 'Izin', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'},
+                                  {val: 'SAKIT', label: 'Sakit', col: 'text-on-tertiary-fixed bg-tertiary-fixed/50 border-tertiary-fixed'},
+                                  {val: 'ALPHA', label: 'Alpha', col: 'text-error bg-error-container border-error/20'},
+                                  {val: 'BOLOS', label: 'Bolos', col: 'text-error bg-error-container border-error/20'}
                                 ].map(st => (
                                   <label key={st.val} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition-colors ${siswa.status === st.val ? st.col : 'text-on-surface-variant border-transparent hover:bg-surface-container'}`}>
                                     <input 
@@ -400,6 +408,7 @@ export default function Attendance() {
                             { field: 'izin', label: 'Izin', cls: 'text-center text-on-tertiary-fixed' },
                             { field: 'sakit', label: 'Sakit', cls: 'text-center text-on-tertiary-fixed' },
                             { field: 'alpha', label: 'Alpha', cls: 'text-center text-error' },
+                            { field: 'bolos', label: 'Bolos', cls: 'text-center text-error' },
                             { field: 'persentase', label: '% Kehadiran', cls: 'text-center' },
                           ].map(col => (
                             <th key={col.field} className={`px-4 py-3 font-semibold cursor-pointer select-none hover:bg-surface-container ${col.cls}`} onClick={() => handleSort(col.field)}>
@@ -425,6 +434,7 @@ export default function Attendance() {
                             <td className="px-4 py-3 text-center bg-tertiary-fixed/50/30">{siswa.izin}</td>
                             <td className="px-4 py-3 text-center bg-tertiary-fixed/50/30">{siswa.sakit}</td>
                             <td className="px-4 py-3 text-center bg-error-container/30 text-error font-medium">{siswa.alpha}</td>
+                            <td className="px-4 py-3 text-center bg-error-container/30 text-error font-medium">{siswa.bolos}</td>
                             <td className="px-4 py-3 text-center font-bold" style={{ color: getPercentageColor(siswa.persentase) }}>
                               {siswa.persentase}%
                             </td>

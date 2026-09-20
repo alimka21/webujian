@@ -364,13 +364,16 @@ export default function ManageUsers() {
   // ── Bulk delete siswa ──
   const handleBulkDelete = async () => {
     if (selectedSiswaIds.size === 0) return;
+    const ids = Array.from(selectedSiswaIds);
     try {
       setIsBulkDeleting(true);
-      await api.post('/api/admin/users/bulk-delete', { ids: Array.from(selectedSiswaIds) });
-      toast.success(`${selectedSiswaIds.size} siswa berhasil dihapus`);
+      await api.post('/api/admin/users/bulk-delete', { ids });
+      toast.success(`${ids.length} siswa berhasil dihapus`);
       setSelectedSiswaIds(new Set());
       setShowBulkDeleteConfirm(false);
-      fetchSiswa();
+      // Optimistic update — hapus langsung dari state lokal
+      setSiswaList(prev => prev.filter(u => !ids.includes(u.id)));
+      fetchSiswa(); // sinkronisasi background
     } catch (e: any) { toast.error(e.message || 'Gagal menghapus siswa'); }
     finally { setIsBulkDeleting(false); }
   };
@@ -378,18 +381,26 @@ export default function ManageUsers() {
   // ── Delete ──
   const handleDelete = async () => {
     if (!deleteConfirm) return;
+    const { id, type, nama } = deleteConfirm;
     try {
-      setIsDeletingId(deleteConfirm.id);
-      if (deleteConfirm.type === 'KELAS') {
-        await api.delete(`/api/admin/kelas/${deleteConfirm.id}`);
+      setIsDeletingId(id);
+      if (type === 'KELAS') {
+        await api.delete(`/api/admin/kelas/${id}`);
       } else {
-        await api.delete(`/api/admin/users/${deleteConfirm.id}`);
+        await api.delete(`/api/admin/users/${id}`);
       }
-      const label = deleteConfirm.type === 'KELAS' ? 'Kelas' : deleteConfirm.type === 'GURU' ? 'Guru' : 'Siswa';
-      toast.success(`${label} berhasil dihapus`);
+      const label = type === 'KELAS' ? 'Kelas' : type === 'GURU' ? 'Guru' : 'Siswa';
+      toast.success(`${label} "${nama}" berhasil dihapus`);
       setDeleteConfirm(null);
-      if (deleteConfirm.type === 'SISWA') fetchSiswa();
-      else if (deleteConfirm.type === 'GURU') { fetchGuru(); fetchKelas(); }
+
+      // Optimistic update — hapus dari state lokal seketika tanpa tunggu refetch
+      if (type === 'SISWA') setSiswaList(prev => prev.filter(u => u.id !== id));
+      else if (type === 'GURU') setGuruList(prev => prev.filter(u => u.id !== id));
+      else setKelasList(prev => prev.filter(k => k.id !== id));
+
+      // Refetch di background untuk sinkronisasi data dari server
+      if (type === 'SISWA') fetchSiswa();
+      else if (type === 'GURU') { fetchGuru(); fetchKelas(); }
       else fetchKelas();
     } catch (e: any) { toast.error(e.message || 'Gagal menghapus data'); }
     finally { setIsDeletingId(null); }
