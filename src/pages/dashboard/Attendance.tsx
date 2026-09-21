@@ -322,14 +322,18 @@ export default function Attendance() {
                                   {val: 'ALPHA', label: 'Alpha', col: 'text-error bg-error-container border-error/20'},
                                   {val: 'BOLOS', label: 'Bolos', col: 'text-error bg-error-container border-error/20'}
                                 ].map(st => (
-                                  <label key={st.val} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition-colors ${siswa.status === st.val ? st.col : 'text-on-surface-variant border-transparent hover:bg-surface-container'}`}>
-                                    <input 
-                                      type="radio" 
-                                      name={`status-${siswa.id}`} 
+                                  <label key={st.val} className={`relative flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition-colors ${siswa.status === st.val ? st.col : 'text-on-surface-variant border-transparent hover:bg-surface-container'}`}>
+                                    <input
+                                      type="radio"
+                                      name={`status-${siswa.id}`}
                                       value={st.val}
                                       checked={siswa.status === st.val}
                                       onChange={() => handleChangeStatus(siswa.id, st.val)}
-                                      className="sr-only"
+                                      // Overlay penuh (bukan sr-only 1px) — kalau input diklik,
+                                      // kotak fokusnya sudah pas di posisi yang terlihat, jadi
+                                      // browser tidak perlu auto-scroll mencari elemen tersembunyi
+                                      // (itu penyebab layar tiba-tiba lompat scroll ke bawah).
+                                      className="absolute inset-0 opacity-0 cursor-pointer"
                                     />
                                     <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${siswa.status === st.val ? 'border-current bg-current' : 'border-outline-variant bg-white'}`}>
                                        {siswa.status === st.val && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
