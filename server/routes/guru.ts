@@ -218,7 +218,8 @@ router.get('/siswa', async (req, res, next) => {
       where: { kelasId: String(kelasId) },
       include: {
         user: { select: { id: true, email: true, isActive: true } }
-      }
+      },
+      orderBy: { nama: 'asc' }
     });
     res.json(siswa);
   } catch(error) { next(error); }
@@ -862,7 +863,8 @@ router.get('/ujian/:id/hasil', async (req, res, next) => {
           where: { ujianId: ujian.id },
           include: { pelanggaran: true }
         }
-      }
+      },
+      orderBy: { nama: 'asc' }
     });
 
     const result = siswaList.map(s => {
@@ -1510,7 +1512,7 @@ router.get('/presensi/export', async (req, res, next) => {
     ];
 
     let no = 1;
-    for (const [, s] of map) {
+    for (const s of Array.from(map.values()).sort((a, b) => a.nama.localeCompare(b.nama))) {
       const total = s.hadir + s.izin + s.sakit + s.alpha + s.bolos;
       const pct = total > 0 ? Math.round((s.hadir / total) * 100) : 0;
       const row = sheet.addRow([no++, s.nis, s.nama, s.hadir, s.izin, s.sakit, s.alpha, s.bolos, total, `${pct}%`]);

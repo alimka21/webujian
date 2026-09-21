@@ -19,9 +19,9 @@ export default function RekapNilai() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState<'xlsx' | 'pdf' | null>(null);
 
-  // Sort
-  const [sortField, setSortField] = useState<string>('nilaiAkhir');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Sort — default A-Z berdasarkan nama; guru tetap bisa klik kolom lain.
+  const [sortField, setSortField] = useState<string>('nama');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Detail modal
   const [detailSesiId, setDetailSesiId] = useState<string | null>(null);

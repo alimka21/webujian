@@ -41,6 +41,15 @@ router.get('/users', async (req, res, next) => {
     const whereCondition = role ? { role: String(role) } : {};
     const { page, limit, skip } = getPaginationParams(req.query);
 
+    // Urutkan A-Z berdasarkan nama saat role sudah difilter (nama ada di
+    // relasi guru/siswa/admin, tidak bisa di-orderBy gabungan lintas relasi).
+    // Tanpa filter role (daftar campuran), tetap createdAt terbaru dulu.
+    const orderBy =
+      role === 'SISWA' ? { siswa: { nama: 'asc' as const } } :
+      role === 'GURU' ? { guru: { nama: 'asc' as const } } :
+      role === 'SUPER_ADMIN' ? { admin: { nama: 'asc' as const } } :
+      { createdAt: 'desc' as const };
+
     // Select eksplisit — JANGAN return password hash ke frontend (security).
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
@@ -56,7 +65,7 @@ router.get('/users', async (req, res, next) => {
           guru:  { select: { id: true, nama: true, nip: true, mataPelajaran: true, fotoUrl: true, guruMataPelajaran: { select: { id: true, nama: true }, orderBy: { nama: 'asc' } } } },
           siswa: { select: { id: true, nama: true, nis: true, kelas: { select: { id: true, nama: true, tingkat: true } } } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       prisma.user.count({ where: whereCondition }),
     ]);
